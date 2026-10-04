@@ -84,3 +84,45 @@ def write_repo(tmp_path: Path) -> WriteRepo:
         return root
 
     return write
+
+
+class FakeGenerator:
+    """Offline ``Generator``: whitespace tokens, scripted streamed replies.
+
+    ``reply`` is a string, or a callable (system, user) -> iterable of pieces,
+    which allows infinite (looping) streams. Records prompts and whether the
+    stream was closed.
+    """
+
+    def __init__(self, reply: object = "An answer [C1].", *, name: str = "fake-llm") -> None:
+        self._reply = reply
+        self._name = name
+        self.prompts: list[tuple[str, str]] = []
+        self.closed = False
+        self.pieces_sent = 0
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def count_tokens(self, texts: Sequence[str]) -> list[int]:
+        return [len(text.split()) for text in texts]
+
+    def prompt_tokens(self, system: str, user: str) -> int:
+        return len(system.split()) + len(user.split()) + 10  # + chat template
+
+    def generate(self, system: str, user: str, *, max_new_tokens: int):  # type: ignore[no-untyped-def]
+        self.prompts.append((system, user))
+        pieces = (
+            self._reply(system, user)
+            if callable(self._reply)
+            else [w + " " for w in str(self._reply).split(" ")]
+        )
+        try:
+            for i, piece in enumerate(pieces):
+                if i >= max_new_tokens:
+                    return
+                self.pieces_sent += 1
+                yield piece
+        finally:
+            self.closed = True

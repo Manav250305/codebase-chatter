@@ -6,6 +6,8 @@ questions about functions/modules, with `file:line-range` citations.
 ## Stack
 - Python 3.11+, tree-sitter (py-tree-sitter + tree-sitter-python)
 - Embeddings: sentence-transformers (local); store: Chroma; keyword: rank-bm25
+- Answers: local Hugging Face model via transformers (default
+  Qwen/Qwen3-4B-Instruct-2507)
 - CLI: typer; tests: pytest
 
 ## Conventions
@@ -28,3 +30,4 @@ questions about functions/modules, with `file:line-range` citations.
 6. Summary-enriched chunks, re-measure
 7. Agentic tool loop, git history, incremental indexing, MCP server
 8. Abstention: retrieval currently cannot say "not found"
+- Optional: MLX generator for Apple Silicon
