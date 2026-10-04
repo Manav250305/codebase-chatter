@@ -2,6 +2,9 @@
 
 Each function, method, class, and named lambda becomes one ``Chunk`` carrying
 its location, enclosing scope, docstring, relevant imports, and exact source.
+Each file also gets one ``module`` chunk (named ``<module>``) holding the module
+docstring, top-level imports, assignments, and import guards such as
+``if TYPE_CHECKING:``. Its ``source`` contains only those statements, in order.
 
 Files with syntax errors never raise. When the parse tree contains errors, the
 file is split into segments at column-0 ``def``/``class``/decorator lines and
@@ -29,16 +32,18 @@ from tree_sitter import Language, Node, Parser, Tree
 
 logger = logging.getLogger(__name__)
 
-Kind = Literal["function", "method", "class", "lambda"]
+Kind = Literal["module", "function", "method", "class", "lambda"]
 ScopeKind = Literal["module", "class", "function"]
 
 DEFAULT_MAX_BYTES = 2_000_000
+MODULE_NAME = "<module>"  # cannot collide with a Python identifier
 
 _FUNCTION = "function_definition"
 _CLASS = "class_definition"
 _DECORATED = "decorated_definition"
 _IMPORT_TYPES = frozenset({"import_statement", "import_from_statement", "future_import_statement"})
 _STRING_TYPES = frozenset({"string", "concatenated_string"})
+_GUARD_TYPES = frozenset({"if_statement", "try_statement"})
 
 _HEADER_RE = re.compile(r"(async[ \t]+)?(def|class)[ \t]+([^\W\d]\w*)")
 _LEADING_WS_RE = re.compile(r"[ \t\f]*")
@@ -133,8 +138,13 @@ def extract_source(source: str | bytes, path: str) -> list[Chunk]:
 
     if not tree.root_node.has_error:
         chunks = _walk(tree.root_node, ctx, row_offset=0, scope=_MODULE_SCOPE, skip_errors=False)
+        roots = [(tree.root_node, 0)]
     else:
         chunks = _extract_segmented(parser, ctx, 0, len(lines), indent=0, scope=_MODULE_SCOPE)
+        roots = _segment_roots(parser, lines)
+    module = _module_chunk(ctx, roots)
+    if module is not None:
+        chunks.append(module)
     return sorted(chunks, key=lambda c: (c.start_line, -c.end_line))
 
 
@@ -353,14 +363,8 @@ def _lambda_chunk(
     statement: Node, ctx: _FileContext, row_offset: int, scope: _Scope
 ) -> Chunk | None:
     """Chunk ``name = lambda ...`` at module or class scope."""
-    if statement.named_child_count != 1:
-        return None
-    assignment = statement.named_children[0]
-    if assignment.type != "assignment":
-        return None
-    left = assignment.child_by_field_name("left")
-    right = assignment.child_by_field_name("right")
-    if left is None or right is None or left.type != "identifier" or right.type != "lambda":
+    left = _named_lambda_target(statement)
+    if left is None:
         return None
     start_row = _start_row(statement) + row_offset
     end_row = _end_row(statement) + row_offset
@@ -377,14 +381,33 @@ def _lambda_chunk(
     )
 
 
+def _named_lambda_target(statement: Node) -> Node | None:
+    """The identifier in ``name = lambda ...``, else None."""
+    if statement.type != "expression_statement" or statement.named_child_count != 1:
+        return None
+    assignment = statement.named_children[0]
+    if assignment.type != "assignment":
+        return None
+    left = assignment.child_by_field_name("left")
+    right = assignment.child_by_field_name("right")
+    if left is None or right is None or left.type != "identifier" or right.type != "lambda":
+        return None
+    return left
+
+
 def _docstring(definition: Node) -> str | None:
     body = definition.child_by_field_name("body")
     if body is None:
         return None
     first = next((c for c in body.named_children if c.type != "comment"), None)
-    if first is None or first.type != "expression_statement" or first.named_child_count != 1:
+    return None if first is None else _string_statement_value(first)
+
+
+def _string_statement_value(statement: Node) -> str | None:
+    """Value of a bare string-literal statement (a docstring candidate)."""
+    if statement.type != "expression_statement" or statement.named_child_count != 1:
         return None
-    literal = first.named_children[0]
+    literal = statement.named_children[0]
     if literal.type not in _STRING_TYPES:
         return None
     return _string_value(_node_text(literal))
@@ -402,6 +425,121 @@ def _string_value(literal: str) -> str | None:
 
 def _source(ctx: _FileContext, start_row: int, end_row: int) -> str:
     return "\n".join(ctx.lines[start_row : end_row + 1])
+
+
+# ---------------------------------------------------------------------------
+# Module chunk
+# ---------------------------------------------------------------------------
+
+
+def _module_chunk(ctx: _FileContext, roots: list[tuple[Node, int]]) -> Chunk | None:
+    """Collect module-level docstring, imports, assignments, and import guards.
+
+    ``roots`` are (module node, row offset) pairs: the whole file when it parses
+    cleanly, otherwise one per recovery segment. Statements with errors are
+    skipped. Comment lines directly above an included statement come with it.
+    """
+    ranges: list[tuple[int, int]] = []
+    docstring: str | None = None
+    seen_statement = False
+    for root, offset in roots:
+        comments: list[Node] = []
+        previous: Node | None = None
+        for node in root.named_children:
+            if node.type == "comment":
+                trailing = previous is not None and _start_row(node) == _end_row(previous)
+                if not trailing:
+                    comments.append(node)
+                previous = node
+                continue
+            previous = node
+            if node.has_error:
+                comments, seen_statement = [], True
+                continue
+            value = None if seen_statement else _string_statement_value(node)
+            seen_statement = True
+            if value is not None:
+                docstring = value
+            elif not _is_module_statement(node):
+                comments = []
+                continue
+            start = _start_row(node)
+            for comment in reversed(comments):
+                if _end_row(comment) != start - 1:
+                    break
+                start = _start_row(comment)
+            ranges.append((start + offset, _end_row(node) + offset))
+            comments = []
+
+    if not ranges:
+        return None
+    merged = _merge_ranges(ranges)
+    return Chunk(
+        path=ctx.path,
+        name=MODULE_NAME,
+        kind="module",
+        start_line=merged[0][0] + 1,
+        end_line=merged[-1][1] + 1,
+        parent=None,
+        docstring=docstring,
+        imports=ctx.module_imports,
+        source="\n".join(_source(ctx, start, end) for start, end in merged),
+    )
+
+
+def _is_module_statement(node: Node) -> bool:
+    if node.type in _IMPORT_TYPES or node.type == "type_alias_statement":
+        return True
+    if node.type == "expression_statement":
+        return _is_plain_assignment(node)
+    if node.type in _GUARD_TYPES:
+        return _is_import_guard(node)
+    return False
+
+
+def _is_plain_assignment(statement: Node) -> bool:
+    if statement.named_child_count != 1 or _named_lambda_target(statement) is not None:
+        return False
+    return statement.named_children[0].type in ("assignment", "augmented_assignment")
+
+
+def _is_import_guard(node: Node) -> bool:
+    """An ``if``/``try`` whose every branch holds only imports and assignments."""
+    blocks = [child for child in node.children if child.type == "block"]
+    for clause in node.children:
+        if clause.type.endswith("_clause"):
+            blocks.extend(child for child in clause.children if child.type == "block")
+    if not blocks:
+        return False
+    for block in blocks:
+        for statement in block.named_children:
+            if statement.type in ("comment", "pass_statement") or statement.type in _IMPORT_TYPES:
+                continue
+            if statement.type == "expression_statement" and _is_plain_assignment(statement):
+                continue
+            if statement.type in _GUARD_TYPES and _is_import_guard(statement):
+                continue
+            return False
+    return True
+
+
+def _merge_ranges(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Merge overlapping or adjacent inclusive row ranges."""
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(ranges):
+        if merged and start <= merged[-1][1] + 1:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def _segment_roots(parser: Parser, lines: tuple[str, ...]) -> list[tuple[Node, int]]:
+    """Parse each top-level recovery segment on its own (for broken files)."""
+    return [
+        (_parse(parser, "\n".join(lines[segment.start : segment.end])).root_node, segment.start)
+        for segment in _split_segments(list(lines), 0)
+    ]
 
 
 # ---------------------------------------------------------------------------

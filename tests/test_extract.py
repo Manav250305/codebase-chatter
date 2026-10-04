@@ -20,11 +20,24 @@ def by_qualname(chunks: list[Chunk]) -> dict[str, Chunk]:
     return {c.qualname: c for c in chunks}
 
 
+def symbols(chunks: list[Chunk]) -> list[Chunk]:
+    return [c for c in chunks if c.kind != "module"]
+
+
 def assert_source_consistent(chunks: list[Chunk], text: str) -> None:
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    assert sum(c.kind == "module" for c in chunks) <= 1
     for c in chunks:
         assert 1 <= c.start_line <= c.end_line <= len(lines), c
-        assert c.source == "\n".join(lines[c.start_line - 1 : c.end_line]), c
+        span = lines[c.start_line - 1 : c.end_line]
+        if c.kind == "module":
+            # Module source is an in-order subset of lines that starts and ends the span.
+            source_lines = c.source.split("\n")
+            assert source_lines[0] == span[0] and source_lines[-1] == span[-1], c
+            remaining = iter(span)
+            assert all(line in remaining for line in source_lines), c
+        else:
+            assert c.source == "\n".join(span), c
 
 
 # ---------------------------------------------------------------------------
@@ -40,6 +53,7 @@ def sample() -> dict[str, Chunk]:
 def test_sample_symbols_in_source_order() -> None:
     chunks = extract_file(FIXTURES / "sample.py")
     assert [c.qualname for c in chunks] == [
+        "<module>",
         "plain",
         "decorated",
         "fetch",
@@ -190,7 +204,9 @@ def test_docstring_not_taken_from_second_statement() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("code", ["", "\n\n", "   \n\t\n", "# only a comment\n", "x = 1\nprint(x)\n"])
+@pytest.mark.parametrize(
+    "code", ["", "\n\n", "   \n\t\n", "# only a comment\n", "print('hi')\nmain()\n"]
+)
 def test_no_symbols(code: str) -> None:
     assert extract_source(code, "m.py") == []
 
@@ -205,7 +221,8 @@ def test_lambda_inside_function_is_not_a_chunk() -> None:
 
 
 def test_lambda_without_name_is_not_a_chunk() -> None:
-    assert extract("handlers = [lambda: 1]\nobj.attr = lambda: 2\n") == []
+    chunks = extract("handlers = [lambda: 1]\nobj.attr = lambda: 2\n")
+    assert [c.kind for c in chunks] == ["module"]
 
 
 def test_overloads_and_property_setters_all_kept() -> None:
@@ -291,6 +308,7 @@ def test_broken_method_does_not_swallow_rest_of_file() -> None:
     chunks = extract_file(FIXTURES / "broken.py")
     got = {c.qualname: c for c in chunks}
     assert list(got) == [
+        "<module>",
         "good_before",
         "Broken",
         "Broken.ok",
@@ -465,7 +483,7 @@ def test_non_unix_newlines(newline: str) -> None:
 
 def test_unicode_line_separators_do_not_shift_lines() -> None:
     code = 'X = "a\u2028b"\ndef f():\n    pass\n'
-    (c,) = extract_source(code, "m.py")
+    (c,) = symbols(extract_source(code, "m.py"))
     assert (c.start_line, c.source) == (2, "def f():\n    pass")
 
 
@@ -525,3 +543,152 @@ def test_chunk_is_immutable() -> None:
     (c,) = extract("def f(): pass\n")
     with pytest.raises(AttributeError):
         c.name = "g"  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# Module chunk
+# ---------------------------------------------------------------------------
+
+
+def module_chunk(code: str) -> Chunk | None:
+    found = [c for c in extract(code) if c.kind == "module"]
+    assert len(found) <= 1
+    return found[0] if found else None
+
+
+def test_sample_module_chunk(sample: dict[str, Chunk]) -> None:
+    m = sample["<module>"]
+    assert (m.name, m.kind, m.parent) == ("<module>", "module", None)
+    assert (m.start_line, m.end_line) == (1, 11)
+    assert m.docstring == "Module docstring."
+    assert m.imports == sample["plain"].imports
+    assert "if TYPE_CHECKING:\n    from collections.abc import Iterator" in m.source
+    # Definitions, named lambdas, and guards containing defs are not module content.
+    for absent in ("def ", "square", "try:", "maybe"):
+        assert absent not in m.source
+
+
+def test_module_constants_and_assignments() -> None:
+    m = module_chunk('''
+        """Config."""
+        import os
+
+        __all__ = ["run"]
+        MAX: int = 3
+        COUNT += 1
+        a, b = 1, 2
+        type Alias = list[int]
+        setup_logging()
+        if __name__ == "__main__":
+            run()
+
+        def run():
+            LOCAL = 1
+    ''')
+    assert m is not None
+    assert m.source.split("\n") == [
+        '"""Config."""',
+        "import os",
+        '__all__ = ["run"]',
+        "MAX: int = 3",
+        "COUNT += 1",
+        "a, b = 1, 2",
+        "type Alias = list[int]",
+    ]
+    assert (m.start_line, m.end_line) == (2, 9)
+
+
+def test_module_comments_attach_only_when_adjacent() -> None:
+    m = module_chunk('''
+        # Retry budget for network calls.
+        # Tuned for flaky CI.
+        RETRIES = 3
+
+        # Orphan comment.
+
+        TIMEOUT = 10
+        main()  # trailing comment on excluded line
+        LIMIT = 5
+    ''')
+    assert m is not None
+    assert m.source.split("\n") == [
+        "# Retry budget for network calls.",
+        "# Tuned for flaky CI.",
+        "RETRIES = 3",
+        "TIMEOUT = 10",
+        "LIMIT = 5",
+    ]
+
+
+def test_module_import_guards() -> None:
+    m = module_chunk('''
+        try:
+            import ujson as json
+        except ImportError:  # pragma: no cover
+            import json
+        else:
+            FAST = True
+        finally:
+            pass
+
+        if sys.version_info >= (3, 11):
+            import tomllib
+        elif HAVE_TOMLI:
+            import tomli as tomllib
+        else:
+            tomllib = None
+
+        try:
+            connect()
+        except OSError:
+            pass
+    ''')
+    assert m is not None
+    assert "import ujson as json" in m.source and "FAST = True" in m.source
+    assert "import tomli as tomllib" in m.source and "tomllib = None" in m.source
+    assert "connect()" not in m.source
+
+
+def test_module_docstring_must_be_first_statement() -> None:
+    m = module_chunk('''
+        X = 1
+        """Not a docstring."""
+    ''')
+    assert m is not None and m.docstring is None
+    assert m.source == "X = 1"
+
+
+def test_docstring_only_module() -> None:
+    m = module_chunk('''
+        # header comment
+        """Just docs."""
+    ''')
+    assert m is not None and m.docstring == "Just docs."
+    assert m.source == '# header comment\n"""Just docs."""'
+
+
+def test_no_module_chunk_without_module_content() -> None:
+    assert module_chunk("def f():\n    X = 1\n\nclass A:\n    Y = 2\n") is None
+    assert module_chunk("main()\nif __name__ == '__main__':\n    main()\n") is None
+
+
+def test_semicolon_statements_share_a_line() -> None:
+    m = module_chunk("A = 1; B = 2\n")
+    assert m is not None and m.source == "A = 1; B = 2"
+
+
+def test_module_chunk_survives_syntax_errors() -> None:
+    m = module_chunk('''
+        """Doc."""
+        import os
+        BEFORE = 1
+
+        def broken(:
+            pass
+
+        AFTER = 2
+        BAD = (
+    ''')
+    assert m is not None and m.docstring == "Doc."
+    assert "BEFORE = 1" in m.source and "AFTER = 2" in m.source
+    assert "BAD" not in m.source and "broken" not in m.source
