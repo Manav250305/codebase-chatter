@@ -339,14 +339,21 @@ def run_eval(
     repo_root: Path,
     stdlib_dir: Path | None = None,
     index_root: Path | None = None,
+    split: str | None = None,
     log: Callable[[str], None] = lambda _: None,
 ) -> dict[str, Any]:
     """Materialise and index corpora, score every question in every mode.
 
     Indexes live in ``<corpus>/.chatter`` unless ``index_root`` is given, in
     which case corpus ``name`` is indexed into ``index_root / name``.
+    ``split`` restricts the run to one split (None: all questions); only the
+    selected questions are validated, indexed for, and scored.
     """
-    questions = load_questions(questions_path)
+    if split is not None and split not in SPLITS:
+        raise EvalError(f"unknown split {split!r} (expected one of {', '.join(SPLITS)})")
+    questions = [q for q in load_questions(questions_path) if split is None or q.split == split]
+    if not questions:
+        raise EvalError(f"no questions in split {split!r}")
     specs = load_corpora(corpora_path)
     unknown = sorted({q.corpus for q in questions} - specs.keys())
     if unknown:
@@ -390,7 +397,7 @@ def run_eval(
         "embedding_model": embedder.name,
         "embedding_fingerprint": embedder.fingerprint,
         "corpora": corpora_info,
-        "settings": {"depth": DEPTH, "modes": list(MODES)},
+        "settings": {"depth": DEPTH, "modes": list(MODES), "split": split or "all"},
         "summary": {mode: summarize(rows) for mode, rows in per_mode.items()},
         "questions": [
             {
@@ -418,7 +425,9 @@ def save_results(results: Mapping[str, Any], results_dir: Path) -> Path:
     stamp = results["created"].replace(":", "").replace("-", "").split("+")[0]
     commit = (results["git"].get("commit") or "nogit")[:7]
     dirty = "-dirty" if results["git"].get("dirty") else ""
-    path = results_dir / f"{stamp}-{commit}{dirty}.json"
+    split = results.get("settings", {}).get("split", "all")
+    suffix = "" if split == "all" else f"-{split}"
+    path = results_dir / f"{stamp}-{commit}{dirty}{suffix}.json"
     path.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     return path
 
@@ -456,7 +465,10 @@ def format_report(results: Mapping[str, Any]) -> str:
             for name, info in results["corpora"].items()
         ),
     ]
+    selected = results["settings"].get("split", "all")
     for split in SPLITS:
+        if selected not in ("all", split):
+            continue
         counts = [q for q in results["questions"] if q.get("split", DEFAULT_SPLIT) == split]
         scored = sum(q["scored"] for q in counts)
         lines += ["", f"== split: {split} ({scored} scored, {len(counts) - scored} negative)"]

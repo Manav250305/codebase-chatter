@@ -6,6 +6,7 @@ Exit codes: 0 on success (including "no results" and an abstaining answer),
 
 from __future__ import annotations
 
+import enum
 import json
 import subprocess
 import time
@@ -38,6 +39,12 @@ from chatter.index import (
     read_manifest,
 )
 from chatter.retrieve import Hit, Retriever
+
+class SplitChoice(enum.StrEnum):
+    ALL = "all"
+    TUNE = "tune"
+    HELDOUT = "heldout"
+
 
 EmbedderFactory = Callable[[str], Embedder]
 GeneratorFactory = Callable[[GeneratorConfig], Generator]
@@ -225,6 +232,9 @@ def make_app(
             typer.Option(help="Store corpus indexes here (one subdirectory per corpus) "
                          "instead of inside each corpus, e.g. when the repo is on exFAT."),
         ] = None,
+        split: Annotated[
+            SplitChoice, typer.Option(help="Only score questions in this split.")
+        ] = SplitChoice.ALL,
     ) -> None:
         """Score retrieval (bm25, dense, fused) on an eval set: hit@1, hit@5, MRR@50, recall@10."""
         if not questions.is_file():
@@ -240,6 +250,7 @@ def make_app(
                 model_name=model,
                 repo_root=_repo_root(questions.parent),
                 index_root=index_root,
+                split=None if split is SplitChoice.ALL else split.value,
                 log=lambda line: typer.echo(line, err=True),
             )
         except EvalError as exc:

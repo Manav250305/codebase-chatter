@@ -432,3 +432,38 @@ def test_run_eval_reports_heldout_split(tmp_path: Path) -> None:
 def test_repository_questions_use_known_splits() -> None:
     questions = load_questions(EVAL_DIR / "questions.yaml")
     assert {x.split for x in questions} <= {"tune", "heldout"}
+
+
+def test_split_filter_scores_only_selected_questions(tmp_path: Path) -> None:
+    questions = [QUESTIONS[0], {**QUESTIONS[1], "split": "heldout"}, QUESTIONS[2]]
+    repo, qpath, corpora = write_eval(tmp_path, questions)
+    factory = lambda n: HashEmbedder(name=n)  # noqa: E731
+    tune = run_eval(qpath, corpora, factory, model_name="m", repo_root=repo, split="tune")
+    assert [x["id"] for x in tune["questions"]] == ["e1", "e3"]
+    assert tune["settings"]["split"] == "tune"
+    assert tune["summary"]["fused"]["by_split"]["heldout"]["overall"] == {"n": 0}
+    report = format_report(tune)
+    assert "== split: tune" in report and "== split: heldout" not in report
+    assert save_results(tune, tmp_path / "r").name.endswith("-tune.json")
+
+    with pytest.raises(EvalError, match="unknown split"):
+        run_eval(qpath, corpora, factory, model_name="m", repo_root=repo, split="test")
+
+
+def test_split_filter_ignores_stale_ids_in_other_split(tmp_path: Path) -> None:
+    questions = [QUESTIONS[0], {**QUESTIONS[1], "split": "heldout", "relevant": ["lib/x.py::gone"]}]
+    repo, qpath, corpora = write_eval(tmp_path, questions)
+    factory = lambda n: HashEmbedder(name=n)  # noqa: E731
+    assert run_eval(qpath, corpora, factory, model_name="m", repo_root=repo, split="tune")
+    with pytest.raises(EvalError, match="lib/x.py::gone"):
+        run_eval(qpath, corpora, factory, model_name="m", repo_root=repo)
+
+
+def test_cli_split_option(tmp_path: Path) -> None:
+    _, qpath, _ = write_eval(tmp_path, [{**QUESTIONS[0], "split": "heldout"}, QUESTIONS[1]])
+    app = make_app(embedder_factory=lambda name: HashEmbedder(name=name))
+    result = CliRunner().invoke(app, ["eval", str(qpath), "--split", "heldout", "--no-save"])
+    assert result.exit_code == 0, result.output
+    assert "== split: heldout (1 scored" in result.output and "== split: tune" not in result.output
+    bad = CliRunner().invoke(app, ["eval", str(qpath), "--split", "test"])
+    assert bad.exit_code == 2
