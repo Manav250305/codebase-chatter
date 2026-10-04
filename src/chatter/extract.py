@@ -52,7 +52,12 @@ _IMPORT_NOISE_RE = re.compile(r"#[^\n]*|[()\\]")
 
 @dataclass(frozen=True, slots=True)
 class Chunk:
-    """One extracted symbol. Lines are 1-based and inclusive."""
+    """One extracted symbol. Lines are 1-based and inclusive.
+
+    ``spans`` lists the line ranges ``source`` was taken from when they are not
+    contiguous (module chunks); otherwise it is empty and the span is
+    ``(start_line, end_line)``.
+    """
 
     path: str
     name: str
@@ -66,10 +71,16 @@ class Chunk:
     language: str = "python"
     decorators: tuple[str, ...] = ()
     is_async: bool = False
+    spans: tuple[tuple[int, int], ...] = ()
 
     @property
     def qualname(self) -> str:
         return f"{self.parent}.{self.name}" if self.parent else self.name
+
+    def line_numbers(self) -> list[int]:
+        """File line number of each line in ``source``."""
+        spans = self.spans or ((self.start_line, self.end_line),)
+        return [line for start, end in spans for line in range(start, end + 1)]
 
 
 @dataclass(frozen=True, slots=True)
@@ -484,6 +495,7 @@ def _module_chunk(ctx: _FileContext, roots: list[tuple[Node, int]]) -> Chunk | N
         docstring=docstring,
         imports=ctx.module_imports,
         source="\n".join(_source(ctx, start, end) for start, end in merged),
+        spans=tuple((start + 1, end + 1) for start, end in merged) if len(merged) > 1 else (),
     )
 
 

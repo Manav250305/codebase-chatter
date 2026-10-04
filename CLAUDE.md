@@ -27,3 +27,4 @@ questions about functions/modules, with `file:line-range` citations.
 5. Call graph + graph-expanded retrieval, re-measure
 6. Summary-enriched chunks, re-measure
 7. Agentic tool loop, git history, incremental indexing, MCP server
+8. Abstention: retrieval currently cannot say "not found"

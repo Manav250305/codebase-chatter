@@ -7,9 +7,15 @@ name = "codebase-chatter"
 version = "0.1.0"
 description = "Index a code repository and answer questions with file:line citations."
 requires-python = ">=3.11"
+# Without an NVIDIA GPU, install CPU-only torch first to avoid the CUDA wheels:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
 dependencies = [
     "tree-sitter>=0.23,!=0.26.0",  # 0.26.0: Point.row refcount bug
     "tree-sitter-python>=0.23",
+    "sentence-transformers>=3.0",
+    "chromadb>=1.0",
+    "rank-bm25>=0.2.2",
+    "pathspec>=0.12",
 ]
 
 [project.optional-dependencies]
@@ -21,3 +27,5 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "-m 'not slow'"
+markers = ["slow: downloads/runs the real embedding model (run with -m slow)"]

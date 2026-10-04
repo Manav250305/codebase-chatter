@@ -29,6 +29,8 @@ def assert_source_consistent(chunks: list[Chunk], text: str) -> None:
     assert sum(c.kind == "module" for c in chunks) <= 1
     for c in chunks:
         assert 1 <= c.start_line <= c.end_line <= len(lines), c
+        numbers = c.line_numbers()
+        assert c.source.split("\n") == [lines[n - 1] for n in numbers], c
         span = lines[c.start_line - 1 : c.end_line]
         if c.kind == "module":
             # Module source is an in-order subset of lines that starts and ends the span.
@@ -596,6 +598,8 @@ def test_module_constants_and_assignments() -> None:
         "type Alias = list[int]",
     ]
     assert (m.start_line, m.end_line) == (2, 9)
+    assert m.spans == ((2, 3), (5, 9))
+    assert m.line_numbers() == [2, 3, 5, 6, 7, 8, 9]
 
 
 def test_module_comments_attach_only_when_adjacent() -> None:
@@ -675,6 +679,7 @@ def test_no_module_chunk_without_module_content() -> None:
 def test_semicolon_statements_share_a_line() -> None:
     m = module_chunk("A = 1; B = 2\n")
     assert m is not None and m.source == "A = 1; B = 2"
+    assert m.spans == () and m.line_numbers() == [1]
 
 
 def test_module_chunk_survives_syntax_errors() -> None:
