@@ -18,8 +18,12 @@ from chatter.evaluate import (
     EvalError,
     Question,
     aggregate,
+    RetrievalConfig,
+    format_configs,
     format_report,
-    format_sweep,
+    load_configs,
+    paired_comparison,
+    sweep_configs,
     is_test_chunk,
     load_questions,
     prepare_corpus,
@@ -422,7 +426,7 @@ def test_run_eval_reports_heldout_split(tmp_path: Path) -> None:
     questions = [QUESTIONS[0], {**QUESTIONS[1], "split": "heldout"}, QUESTIONS[2]]
     repo, qpath, corpora = write_eval(tmp_path, questions)
     results = run_eval(qpath, corpora, lambda n: HashEmbedder(name=n), model_name="m", repo_root=repo)
-    assert results["schema"] == 3
+    assert results["schema"] == 4
     assert [x["split"] for x in results["questions"]] == ["tune", "heldout", "tune"]
     by_split = results["summary"]["fused"]["by_split"]
     assert by_split["tune"]["overall"]["n"] == 1 and by_split["heldout"]["overall"]["n"] == 1
@@ -562,33 +566,84 @@ def test_run_eval_containment_counts_parent_class(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Fusion sweep
+# Retrieval configs: sweep, references, paired comparison, frozen candidates
 # ---------------------------------------------------------------------------
 
 
-def test_fusion_sweep_grid_and_default_cell_matches_fused_mode(tmp_path: Path) -> None:
+def test_sweep_configs_have_reference_rows_first() -> None:
+    configs = sweep_configs([5, 60], [1.0, 3.0])
+    assert [c.name for c in configs] == [
+        "bm25-only", "dense-only", "default", "k5-w1", "k5-w3", "k60-w3",
+    ]  # (60, 1.0) is the default, listed once
+    assert configs[2] == RetrievalConfig("default", "fused", 60, 1.0)
+
+
+def test_paired_comparison() -> None:
+    ranks = {"a": 1, "b": 5, "c": None, "d": None, "e": 3}
+    reference = {"a": 2, "b": 5, "c": 4, "d": None, "e": None}
+    corpus = {"a": "x", "b": "x", "c": "y", "d": "y", "e": "y"}
+    result = paired_comparison(ranks, reference, corpus)
+    assert result["overall"] == {"wins": 2, "losses": 1, "ties": 2}  # a, e win; c loses; b, d tie
+    assert result["by_corpus"] == {
+        "x": {"wins": 1, "losses": 0, "ties": 1},
+        "y": {"wins": 1, "losses": 1, "ties": 1},
+    }
+
+
+def test_config_table_default_matches_fused_and_dense_ties_itself(tmp_path: Path) -> None:
     repo, qpath, corpora = write_eval(tmp_path)
     results = run_eval(
         qpath, corpora, lambda n: HashEmbedder(name=n), model_name="m", repo_root=repo,
-        sweep=([5, 60], [1.0, 2.0]),
+        configs=sweep_configs([5], [2.0]),
     )
-    sweep = results["fusion_sweep"]
-    assert [(c["rrf_k"], c["dense_weight"]) for c in sweep["cells"]] == [(5, 1.0), (5, 2.0), (60, 1.0), (60, 2.0)]
-    default = next(c for c in sweep["cells"] if (c["rrf_k"], c["dense_weight"]) == (60, 1.0))
-    assert default["overall"] == results["summary"]["fused"]["overall"]
-    assert set(default["by_corpus"]) == {"mini"} and default["by_corpus"]["mini"]["n"] == 2
-    table = format_sweep(sweep)
-    assert "<- current default" in table and "MRR mini" in table and table.count("\n") == 5
+    cells = {c["name"]: c for c in results["configs"]["cells"]}
+    assert list(cells) == ["bm25-only", "dense-only", "default", "k5-w2"]
+    assert cells["default"]["overall"] == results["summary"]["fused"]["overall"]
+    assert cells["dense-only"]["overall"] == results["summary"]["dense"]["overall"]
+    assert cells["bm25-only"]["overall"] == results["summary"]["bm25"]["overall"]
+    assert cells["dense-only"]["vs_dense"]["overall"] == {"wins": 0, "losses": 0, "ties": 2}
+    assert set(cells["k5-w2"]["first_ranks"]) == {"e1", "e2"}  # negatives excluded
+    table = format_configs(results["configs"])
+    assert "W/L/T vs dense" in table and "dense-only" in table and "0/0/2" in table
 
 
-def test_cli_sweep_fusion(tmp_path: Path) -> None:
+def test_load_configs_validates(tmp_path: Path) -> None:
+    path = tmp_path / "c.yaml"
+    path.write_text(yaml.safe_dump([
+        {"name": "dense-only", "mode": "dense"},
+        {"name": "tuned", "mode": "fused", "rrf_k": 10, "dense_weight": 3},
+    ]))
+    assert load_configs(path) == [
+        RetrievalConfig("dense-only", "dense"), RetrievalConfig("tuned", "fused", 10, 3.0),
+    ]
+    path.write_text(yaml.safe_dump([
+        {"name": "x", "mode": "hybrid"},
+        {"name": "y", "mode": "fused", "rrf_k": 0},
+        {"name": "z", "mode": "fused", "dense_weight": -1},
+        {"name": "z", "mode": "dense"},
+    ]))
+    with pytest.raises(EvalError) as err:
+        load_configs(path)
+    for expected in ("item 1: needs a name and a mode", "y: rrf_k", "z: dense_weight", "duplicate config name 'z'"):
+        assert expected in str(err.value)
+
+
+def test_cli_sweep_and_candidates(tmp_path: Path) -> None:
     _, qpath, _ = write_eval(tmp_path)
     app = make_app(embedder_factory=lambda name: HashEmbedder(name=name))
-    result = CliRunner().invoke(
+    runner = CliRunner()
+    sweep = runner.invoke(
         app, ["eval", str(qpath), "--no-save", "--sweep-fusion", "--rrf-k", "10", "--dense-weight", "1.5"]
     )
+    assert sweep.exit_code == 0, sweep.output
+    assert all(name in sweep.output for name in ("bm25-only", "dense-only", "default", "k10-w1.5"))
+
+    frozen = tmp_path / "candidates.yaml"
+    frozen.write_text(yaml.safe_dump([{"name": "dense-only", "mode": "dense"},
+                                      {"name": "tuned", "mode": "fused", "rrf_k": 10, "dense_weight": 3}]))
+    result = runner.invoke(app, ["eval", str(qpath), "--no-save", "--candidates", str(frozen)])
     assert result.exit_code == 0, result.output
-    assert "fusion sweep" in result.output and "   10     1.5" in result.output
-    full = CliRunner().invoke(app, ["eval", str(qpath), "--no-save", "--sweep-fusion"])
-    assert full.output.count("<- current default") == 1
-    assert sum(line.startswith(("    5", "   10", "   20", "   60")) for line in full.output.splitlines()) == 16
+    assert "tuned" in result.output and "k10-w1.5" not in result.output
+
+    both = runner.invoke(app, ["eval", str(qpath), "--sweep-fusion", "--candidates", str(frozen)])
+    assert both.exit_code == 1 and "either --sweep-fusion or --candidates" in both.output

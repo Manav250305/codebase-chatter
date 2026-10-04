@@ -57,9 +57,17 @@ from chatter.index import (
     default_index_dir,
     read_manifest,
 )
-from chatter.retrieve import BM25, DENSE, MODES, RRF_K, Retriever, reciprocal_rank_fusion
+from chatter.retrieve import (
+    BM25,
+    DENSE,
+    FUSED,
+    MODES,
+    RRF_K,
+    Retriever,
+    reciprocal_rank_fusion,
+)
 
-RESULTS_SCHEMA = 3  # 2: splits; 3: strict and containment metrics
+RESULTS_SCHEMA = 4  # 2: splits; 3: strict/containment; 4: "configs" replaces "fusion_sweep"
 DEPTH = 50  # MRR cutoff and ranking depth recorded per question
 CANDIDATES = max(4 * DEPTH, 50)  # per-retriever depth, as Retriever.search uses for k=DEPTH
 SWEEP_RRF_K = (5, 10, 20, 60)
@@ -405,7 +413,7 @@ def run_eval(
     stdlib_dir: Path | None = None,
     index_root: Path | None = None,
     split: str | None = None,
-    sweep: tuple[Sequence[int], Sequence[float]] | None = None,
+    configs: Sequence[RetrievalConfig] | None = None,
     log: Callable[[str], None] = lambda _: None,
 ) -> dict[str, Any]:
     """Materialise and index corpora, score every question in every mode.
@@ -413,8 +421,8 @@ def run_eval(
     Indexes live in ``<corpus>/.chatter`` unless ``index_root`` is given, in
     which case corpus ``name`` is indexed into ``index_root / name``.
     ``split`` restricts the run to one split (None: all questions); only the
-    selected questions are validated, indexed for, and scored. ``sweep`` adds
-    a fusion grid over (rrf_k values, dense weights); see ``fusion_sweep``.
+    selected questions are validated, indexed for, and scored. ``configs``
+    adds a table of retrieval configs; see ``evaluate_configs``.
     """
     if split is not None and split not in SPLITS:
         raise EvalError(f"unknown split {split!r} (expected one of {', '.join(SPLITS)})")
@@ -491,90 +499,174 @@ def run_eval(
             for i, q in enumerate(questions)
         ],
     }
-    if sweep is not None:
-        results["fusion_sweep"] = fusion_sweep(
-            questions, retrievers, matchers, rrf_ks=sweep[0], dense_weights=sweep[1]
-        )
+    if configs:
+        results["configs"] = evaluate_configs(questions, retrievers, matchers, configs)
     return results
 
 
-def fusion_sweep(
+@dataclass(frozen=True, slots=True)
+class RetrievalConfig:
+    """One retrieval setup to score: a single retriever, or weighted RRF."""
+
+    name: str
+    mode: str  # "bm25" | "dense" | "fused"
+    rrf_k: int = RRF_K
+    dense_weight: float = 1.0  # BM25 weight is always 1
+
+
+BM25_ONLY = RetrievalConfig("bm25-only", BM25)
+DENSE_ONLY = RetrievalConfig("dense-only", DENSE)
+DEFAULT_FUSED = RetrievalConfig("default", FUSED)
+
+
+def sweep_configs(rrf_ks: Sequence[int], dense_weights: Sequence[float]) -> list[RetrievalConfig]:
+    """Reference rows (bm25-only, dense-only, current default) plus the grid."""
+    grid = [
+        RetrievalConfig(f"k{k}-w{w:g}", FUSED, k, w)
+        for k in rrf_ks
+        for w in dense_weights
+        if (k, w) != (DEFAULT_FUSED.rrf_k, DEFAULT_FUSED.dense_weight)
+    ]
+    return [BM25_ONLY, DENSE_ONLY, DEFAULT_FUSED, *grid]
+
+
+def load_configs(path: Path) -> list[RetrievalConfig]:
+    """Read frozen candidate configs (a YAML list of name/mode/rrf_k/dense_weight)."""
+    data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, list) or not data:
+        raise EvalError(f"{path}: expected a non-empty YAML list of configs")
+    problems: list[str] = []
+    configs: list[RetrievalConfig] = []
+    for n, item in enumerate(data, 1):
+        if not isinstance(item, dict) or not item.get("name") or item.get("mode") not in MODES:
+            problems.append(f"item {n}: needs a name and a mode in {', '.join(MODES)}")
+            continue
+        rrf_k = item.get("rrf_k", RRF_K)
+        weight = item.get("dense_weight", 1.0)
+        if not isinstance(rrf_k, int) or rrf_k < 1:
+            problems.append(f"{item['name']}: rrf_k must be a positive integer")
+        if not isinstance(weight, int | float) or weight <= 0:
+            problems.append(f"{item['name']}: dense_weight must be positive")
+        configs.append(RetrievalConfig(str(item["name"]), str(item["mode"]), int(rrf_k), float(weight)))
+    names = [c.name for c in configs]
+    problems += [f"duplicate config name {n!r}" for n in sorted({n for n in names if names.count(n) > 1})]
+    if problems:
+        raise EvalError(f"invalid configs in {path}:\n  " + "\n  ".join(problems))
+    return configs
+
+
+def evaluate_configs(
     questions: Sequence[Question],
     retrievers: Mapping[str, Retriever],
     matchers: Mapping[str, Contains],
-    *,
-    rrf_ks: Sequence[int] = SWEEP_RRF_K,
-    dense_weights: Sequence[float] = SWEEP_DENSE_WEIGHT,
+    configs: Sequence[RetrievalConfig],
 ) -> dict[str, Any]:
-    """Score fused rankings for every (rrf_k, dense weight) pair.
+    """Score each config, with paired per-question comparisons against dense-only.
 
     Each question's BM25 and dense rankings are computed once at the depth
-    the fused mode uses, then re-fused per cell; the (RRF_K, 1.0) cell equals
-    the default fused mode. Aggregates are overall and per corpus.
+    the fused mode uses, then re-fused per config, so the default config
+    equals the regular fused mode. Pairing uses the strict first relevant
+    rank; a question with no relevant chunk in the top 50 loses to any rank,
+    and two misses tie. Negative questions are excluded.
     """
-    rankings: list[tuple[Question, dict[str, list[str]]]] = []
-    for question in questions:
-        retriever = retrievers[question.corpus]
-        rankings.append(
-            (
-                question,
-                {
-                    mode: [
-                        h.chunk_id
-                        for h in retriever.search(
-                            question.question, k=CANDIDATES, candidates=CANDIDATES, mode=mode
-                        )
-                    ]
-                    for mode in (BM25, DENSE)
-                },
-            )
-        )
-    corpora = sorted({q.corpus for q in questions})
+    rankings = [(question, _base_rankings(retrievers[question.corpus], question)) for question in questions]
+    corpus_of = {q.id: q.corpus for q in questions}
+    reference = {
+        q.id: score_ranking(_config_ranking(DENSE_ONLY, lists), q.relevant).strict.first_rank
+        for q, lists in rankings
+        if q.scored
+    }
+    corpora = sorted(set(corpus_of.values()))
     cells = []
-    for rrf_k in rrf_ks:
-        for weight in dense_weights:
-            rows = []
-            for question, lists in rankings:
-                fused = reciprocal_rank_fusion(lists, k=rrf_k, weights={BM25: 1.0, DENSE: weight})
-                ranked = [chunk_id for chunk_id, _, _ in fused[:DEPTH]]
-                rows.append(
-                    (question, score_ranking(ranked, question.relevant, matchers[question.corpus]))
-                )
-            cells.append(
-                {
-                    "rrf_k": rrf_k,
-                    "dense_weight": weight,
-                    "overall": aggregate(rows),
-                    "by_corpus": {c: aggregate([r for r in rows if r[0].corpus == c]) for c in corpora},
-                }
-            )
-    return {"default": {"rrf_k": RRF_K, "dense_weight": 1.0}, "cells": cells}
+    for config in configs:
+        rows = [
+            (q, score_ranking(_config_ranking(config, lists), q.relevant, matchers[q.corpus]))
+            for q, lists in rankings
+        ]
+        first = {q.id: s.strict.first_rank for q, s in rows if q.scored}
+        cells.append(
+            {
+                **dataclasses.asdict(config),
+                "overall": aggregate(rows),
+                "by_corpus": {c: aggregate([r for r in rows if r[0].corpus == c]) for c in corpora},
+                "first_ranks": first,
+                "vs_dense": paired_comparison(first, reference, corpus_of),
+            }
+        )
+    return {"reference": DENSE_ONLY.name, "cells": cells}
 
 
-def format_sweep(sweep: Mapping[str, Any]) -> str:
-    """Grid table: strict MRR@50 per corpus and overall, plus overall hit/recall."""
-    corpora = sorted(sweep["cells"][0]["by_corpus"]) if sweep["cells"] else []
-    default = (sweep["default"]["rrf_k"], sweep["default"]["dense_weight"])
-    header = (
-        f"{'rrf_k':>5} {'w_dense':>7}  "
-        + " ".join(f"{'MRR ' + c:>12}" for c in corpora)
-        + f" {'MRR all':>8} {'hit@1':>6} {'hit@5':>6} {'R@10':>6} {'cMRR all':>9}"
+def paired_comparison(
+    ranks: Mapping[str, int | None],
+    reference: Mapping[str, int | None],
+    corpus_of: Mapping[str, str],
+) -> dict[str, Any]:
+    """Wins/losses/ties of ``ranks`` against ``reference`` (lower rank wins)."""
+
+    def key(rank: int | None) -> float:
+        return float("inf") if rank is None else rank
+
+    def tally(ids: Sequence[str]) -> dict[str, int]:
+        wins = sum(key(ranks[i]) < key(reference[i]) for i in ids)
+        losses = sum(key(ranks[i]) > key(reference[i]) for i in ids)
+        return {"wins": wins, "losses": losses, "ties": len(ids) - wins - losses}
+
+    ids = sorted(set(ranks) & set(reference))
+    corpora = sorted({corpus_of[i] for i in ids})
+    return {
+        "overall": tally(ids),
+        "by_corpus": {c: tally([i for i in ids if corpus_of[i] == c]) for c in corpora},
+    }
+
+
+def _base_rankings(retriever: Retriever, question: Question) -> dict[str, list[str]]:
+    return {
+        mode: [
+            h.chunk_id
+            for h in retriever.search(question.question, k=CANDIDATES, candidates=CANDIDATES, mode=mode)
+        ]
+        for mode in (BM25, DENSE)
+    }
+
+
+def _config_ranking(config: RetrievalConfig, lists: Mapping[str, Sequence[str]]) -> list[str]:
+    if config.mode in (BM25, DENSE):
+        return list(lists[config.mode][:DEPTH])
+    fused = reciprocal_rank_fusion(
+        lists, k=config.rrf_k, weights={BM25: 1.0, DENSE: config.dense_weight}
     )
-    lines = ["fusion sweep (strict metrics unless noted; cMRR = containment MRR@50)", header]
-    for cell in sweep["cells"]:
-        overall = cell["overall"]
-        if not overall.get("n"):
-            continue
-        strict = overall["strict"]
-        marker = "  <- current default" if (cell["rrf_k"], cell["dense_weight"]) == default else ""
+    return [chunk_id for chunk_id, _, _ in fused[:DEPTH]]
+
+
+def format_configs(table: Mapping[str, Any]) -> str:
+    """Strict MRR@50 per corpus and overall, hit/recall, and W/L/T vs dense-only."""
+    cells = [c for c in table["cells"] if c["overall"].get("n")]
+    if not cells:
+        return "(no scored questions)"
+    corpora = sorted(cells[0]["by_corpus"])
+    wlt = lambda t: f"{t['wins']}/{t['losses']}/{t['ties']}"  # noqa: E731
+    header = (
+        f"{'config':<13} {'k':>3} {'w':>4}  "
+        + " ".join(f"{'MRR ' + c:>12}" for c in corpora)
+        + f" {'MRR all':>8} {'hit@1':>6} {'hit@5':>6} {'R@10':>6} {'cMRR':>6}  {'W/L/T vs dense':>14}"
+        + "".join(f" {c:>10}" for c in corpora)
+    )
+    lines = [
+        "configs (strict metrics; cMRR = containment MRR@50; W/L/T = paired first-rank "
+        "wins/losses/ties vs dense-only)",
+        header,
+    ]
+    for cell in cells:
+        strict = cell["overall"]["strict"]
+        fused = cell["mode"] == FUSED
         lines.append(
-            f"{cell['rrf_k']:>5} {cell['dense_weight']:>7.1f}  "
-            + " ".join(
-                f"{cell['by_corpus'][c]['strict']['mrr@50']:>12.3f}" if cell["by_corpus"][c].get("n") else f"{'n/a':>12}"
-                for c in corpora
-            )
+            f"{cell['name']:<13} {cell['rrf_k'] if fused else '-':>3} "
+            f"{format(cell['dense_weight'], 'g') if fused else '-':>4}  "
+            + " ".join(f"{cell['by_corpus'][c]['strict']['mrr@50']:>12.3f}" for c in corpora)
             + f" {strict['mrr@50']:>8.3f} {strict['hit@1']:>6.3f} {strict['hit@5']:>6.3f} "
-            f"{strict['recall@10']:>6.3f} {overall['contain']['mrr@50']:>9.3f}{marker}"
+            f"{strict['recall@10']:>6.3f} {cell['overall']['contain']['mrr@50']:>6.3f}  "
+            f"{wlt(cell['vs_dense']['overall']):>14}"
+            + "".join(f" {wlt(cell['vs_dense']['by_corpus'][c]):>10}" for c in corpora)
         )
     return "\n".join(lines)
 

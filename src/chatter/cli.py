@@ -33,10 +33,12 @@ from chatter.evaluate import (
     SWEEP_DENSE_WEIGHT,
     SWEEP_RRF_K,
     EvalError,
+    format_configs,
     format_report,
-    format_sweep,
+    load_configs,
     run_eval,
     save_results,
+    sweep_configs,
 )
 from chatter.index import (
     IndexConfig,
@@ -244,7 +246,9 @@ def make_app(
             SplitChoice, typer.Option(help="Only score questions in this split.")
         ] = SplitChoice.ALL,
         sweep_fusion: Annotated[
-            bool, typer.Option(help="Also score a grid of RRF k x dense weight (defaults unchanged).")
+            bool,
+            typer.Option(help="Also score a grid of RRF k x dense weight, with bm25-only, "
+                         "dense-only and the current default as reference rows."),
         ] = False,
         rrf_k: Annotated[
             list[int] | None, typer.Option(help="RRF k values for --sweep-fusion (repeatable).")
@@ -253,6 +257,10 @@ def make_app(
             list[float] | None,
             typer.Option(help="Dense weights for --sweep-fusion (repeatable; BM25 weight is 1)."),
         ] = None,
+        candidates: Annotated[
+            Path | None,
+            typer.Option(help="Also score the frozen retrieval configs in this YAML file."),
+        ] = None,
     ) -> None:
         """Score retrieval (bm25, dense, fused) on an eval set: hit@1, hit@5, MRR@50, recall@10."""
         if not questions.is_file():
@@ -260,6 +268,18 @@ def make_app(
         corpora_path = corpora or questions.parent / "corpora.yaml"
         if not corpora_path.is_file():
             _fail(f"No corpus manifest at {corpora_path}; pass --corpora.")
+        if sweep_fusion and candidates:
+            _fail("Use either --sweep-fusion or --candidates, not both.")
+        try:
+            configs = (
+                sweep_configs(rrf_k or list(SWEEP_RRF_K), dense_weight or list(SWEEP_DENSE_WEIGHT))
+                if sweep_fusion
+                else load_configs(candidates)
+                if candidates
+                else None
+            )
+        except (EvalError, OSError) as exc:
+            _fail(f"Eval aborted: {exc}")
         try:
             results = run_eval(
                 questions,
@@ -269,16 +289,14 @@ def make_app(
                 repo_root=_repo_root(questions.parent),
                 index_root=index_root,
                 split=None if split is SplitChoice.ALL else split.value,
-                sweep=(rrf_k or list(SWEEP_RRF_K), dense_weight or list(SWEEP_DENSE_WEIGHT))
-                if sweep_fusion
-                else None,
+                configs=configs,
                 log=lambda line: typer.echo(line, err=True),
             )
         except EvalError as exc:
             _fail(f"Eval aborted: {exc}")
         typer.echo(format_report(results))
-        if "fusion_sweep" in results:
-            typer.echo("\n" + format_sweep(results["fusion_sweep"]))
+        if "configs" in results:
+            typer.echo("\n" + format_configs(results["configs"]))
         if save:
             path = save_results(results, results_dir or questions.parent / "results")
             typer.echo(f"\nSaved {path}")
