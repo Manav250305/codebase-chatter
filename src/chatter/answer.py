@@ -58,7 +58,11 @@ from chatter.index import tokenize_code
 from chatter.retrieve import DENSE, Hit
 
 ABSTENTION = "The retrieved code does not contain the answer."
-DEFAULT_ANSWER_MODEL = "Qwen/Qwen3-4B-Instruct-2507"
+DEFAULT_ANSWER_MODEL = "Qwen/Qwen3-4B-Instruct-2507"  # transformers backend
+DEFAULT_MLX_MODEL = "mlx-community/Qwen3-4B-Instruct-2507-4bit"  # same model, 4-bit for MLX
+BACKENDS = ("transformers", "mlx")
+DEFAULT_BACKEND = "transformers"
+DEFAULT_MODELS = {"transformers": DEFAULT_ANSWER_MODEL, "mlx": DEFAULT_MLX_MODEL}
 DEFAULT_MAX_CONTEXT_TOKENS = 12_000
 DEFAULT_MAX_NEW_TOKENS = 1024
 MIN_BLOCK_TOKENS = 48
@@ -118,6 +122,16 @@ class Generator(Protocol):
     def generate(self, system: str, user: str, *, max_new_tokens: int) -> Iterator[str]:
         """Stream text pieces. Closing the iterator must stop generation."""
         ...
+
+
+def generator_memory(generator: Any) -> dict[str, Any]:
+    """Backend memory stats after the last generation, if the generator reports any.
+
+    Optional: generators may define ``memory_stats() -> dict``; the keys are
+    ``accelerator_mb`` and a human-readable ``accelerator_metric``.
+    """
+    stats = getattr(generator, "memory_stats", None)
+    return dict(stats()) if callable(stats) else {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -526,9 +540,25 @@ def answer_question(
 
 @dataclass(frozen=True, slots=True)
 class GeneratorConfig:
-    model_name: str = DEFAULT_ANSWER_MODEL
-    device: str | None = None  # None: cuda, then mps, then cpu
+    model_name: str | None = None  # None: the backend's default model
+    device: str | None = None  # transformers only; None: cuda, then mps, then cpu
     trust_remote_code: bool = False
+    backend: str = DEFAULT_BACKEND
+
+    @property
+    def resolved_model(self) -> str:
+        return self.model_name or DEFAULT_MODELS[self.backend]
+
+
+def load_generator(config: GeneratorConfig) -> Generator:
+    """Construct the generator for ``config.backend``."""
+    if config.backend == "transformers":
+        return HFGenerator(config)
+    if config.backend == "mlx":
+        from chatter.mlx_generator import MLXGenerator
+
+        return MLXGenerator(config)
+    raise ValueError(f"unknown backend {config.backend!r}; expected one of {', '.join(BACKENDS)}")
 
 
 @dataclass(slots=True)
@@ -553,11 +583,11 @@ class HFGenerator:
         self._config = config
         self._device = config.device or _default_device(torch)
         self._tokenizer = tokenizer or AutoTokenizer.from_pretrained(
-            config.model_name, trust_remote_code=config.trust_remote_code
+            config.resolved_model, trust_remote_code=config.trust_remote_code
         )
         if model is None:
             model = AutoModelForCausalLM.from_pretrained(
-                config.model_name,
+                config.resolved_model,
                 dtype=torch.bfloat16,  # float32 would need ~16 GB for a 4B model
                 trust_remote_code=config.trust_remote_code,
             ).to(self._device)
@@ -566,7 +596,22 @@ class HFGenerator:
 
     @property
     def name(self) -> str:
-        return self._config.model_name
+        return self._config.resolved_model
+
+    def memory_stats(self) -> dict[str, Any]:
+        import torch
+
+        if self._device == "mps":
+            return {
+                "accelerator_mb": torch.mps.driver_allocated_memory() / 1e6,
+                "accelerator_metric": "torch.mps.driver_allocated_memory at end of answer",
+            }
+        if self._device == "cuda":
+            return {
+                "accelerator_mb": torch.cuda.max_memory_allocated() / 1e6,
+                "accelerator_metric": "torch.cuda.max_memory_allocated",
+            }
+        return {}
 
     @property
     def device(self) -> str:
@@ -580,7 +625,7 @@ class HFGenerator:
 
     def prompt_tokens(self, system: str, user: str) -> int:
         encoded = self._tokenizer.apply_chat_template(
-            _messages(system, user), add_generation_prompt=True, tokenize=True, return_dict=True
+            chat_messages(system, user), add_generation_prompt=True, tokenize=True, return_dict=True
         )
         return len(encoded["input_ids"])
 
@@ -588,7 +633,7 @@ class HFGenerator:
         from transformers import StoppingCriteria, StoppingCriteriaList, TextIteratorStreamer
 
         inputs = self._tokenizer.apply_chat_template(
-            _messages(system, user),
+            chat_messages(system, user),
             add_generation_prompt=True,
             tokenize=True,
             return_dict=True,
@@ -631,7 +676,7 @@ class HFGenerator:
             raise outcome.error
 
 
-def _messages(system: str, user: str) -> list[dict[str, str]]:
+def chat_messages(system: str, user: str) -> list[dict[str, str]]:
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 

@@ -16,6 +16,7 @@ dependencies = [
     "chromadb>=1.0",
     "rank-bm25>=0.2.2",
     "pathspec>=0.12",
+    "psutil>=5.9",
     "pyyaml>=6",
     "snowballstemmer>=2.2",
     "transformers>=4.56",
@@ -27,6 +28,8 @@ chatter = "chatter.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+# Faster local answers on Apple Silicon: `chatter ask --backend mlx`.
+mlx = ["mlx-lm>=0.30; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

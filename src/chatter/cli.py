@@ -17,14 +17,16 @@ from typing import Annotated, Any, NoReturn
 import typer
 
 from chatter.answer import (
-    DEFAULT_ANSWER_MODEL,
+    BACKENDS,
+    DEFAULT_BACKEND,
+    DEFAULT_MODELS,
     DEFAULT_MAX_CONTEXT_TOKENS,
     DEFAULT_MAX_NEW_TOKENS,
     AnswerStatus,
     ContextTooSmallError,
     Generator,
     GeneratorConfig,
-    HFGenerator,
+    load_generator,
     answer_question,
     format_line_ranges,
 )
@@ -56,6 +58,12 @@ from chatter.index import (
 )
 from chatter.retrieve import Hit, Retriever
 
+Backend = enum.StrEnum("Backend", {name.upper(): name for name in BACKENDS})
+_MODEL_HELP = "Hugging Face answer model. Default: " + ", ".join(
+    f"{model} ({backend})" for backend, model in DEFAULT_MODELS.items()
+)
+
+
 class SplitChoice(enum.StrEnum):
     ALL = "all"
     TUNE = "tune"
@@ -84,7 +92,7 @@ def _default_embedder(model_name: str) -> Embedder:
 def make_app(
     *,
     embedder_factory: EmbedderFactory = _default_embedder,
-    generator_factory: GeneratorFactory = HFGenerator,
+    generator_factory: GeneratorFactory = load_generator,
 ) -> typer.Typer:
     """Build the CLI. Factories are injectable so tests run offline."""
     app = typer.Typer(
@@ -169,7 +177,10 @@ def make_app(
         question: Annotated[str, typer.Argument(help="Question about the code.")],
         k: Annotated[int, typer.Option("-k", "--top-k", min=1, help="Chunks to retrieve.")] = 8,
         path: Annotated[Path, typer.Option(help="Repository root containing .chatter.")] = Path("."),
-        model: Annotated[str, typer.Option(help="Hugging Face answer model.")] = DEFAULT_ANSWER_MODEL,
+        model: Annotated[str | None, typer.Option(help=_MODEL_HELP)] = None,
+        backend: Annotated[
+            Backend, typer.Option(help="Answer generation backend (mlx: Apple Silicon only).")
+        ] = Backend(DEFAULT_BACKEND),
         max_context_tokens: Annotated[
             int, typer.Option(min=256, help="Token budget for the whole prompt.")
         ] = DEFAULT_MAX_CONTEXT_TOKENS,
@@ -184,9 +195,10 @@ def make_app(
             typer.echo("No indexed code matched the question; nothing to answer from.")
             return
 
+        config = GeneratorConfig(model_name=model, backend=backend.value)
         generator = _load(
-            lambda: generator_factory(GeneratorConfig(model_name=model)),
-            f"answer model {model!r}",
+            lambda: generator_factory(config),
+            f"answer model {config.resolved_model!r} ({config.backend})",
             hint="`chatter search` still works without it.",
         )
         try:
@@ -272,9 +284,10 @@ def make_app(
             typer.Option(help="Instead of retrieval metrics, answer every question with the local "
                          "model (default retrieval) and write a markdown review file."),
         ] = False,
-        answer_model: Annotated[
-            str, typer.Option(help="Answer model for --answers.")
-        ] = DEFAULT_ANSWER_MODEL,
+        answer_model: Annotated[str | None, typer.Option(help=_MODEL_HELP)] = None,
+        backend: Annotated[
+            Backend, typer.Option(help="Answer backend for --answers (mlx: Apple Silicon only).")
+        ] = Backend(DEFAULT_BACKEND),
         answer_top_k: Annotated[
             int, typer.Option(min=1, help="Chunks retrieved per question for --answers.")
         ] = DEFAULT_ANSWER_TOP_K,
@@ -301,9 +314,12 @@ def make_app(
                     questions,
                     corpora_path,
                     lambda name: _load(lambda: embedder_factory(name), f"embedding model {name!r}"),
-                    lambda: generator_factory(GeneratorConfig(model_name=answer_model)),
+                    lambda: generator_factory(
+                        GeneratorConfig(model_name=answer_model, backend=backend.value)
+                    ),
                     model_name=model,
                     repo_root=_repo_root(questions.parent),
+                    backend=backend.value,
                     index_root=index_root,
                     split=None if split is SplitChoice.ALL else split.value,
                     top_k=answer_top_k,

@@ -512,3 +512,100 @@ def test_near_miss_abstentions_are_flagged(text: str) -> None:
 )
 def test_statements_about_code_are_not_flagged(text: str) -> None:
     assert not looks_like_abstention(text)
+
+
+# ---------------------------------------------------------------------------
+# Backends
+# ---------------------------------------------------------------------------
+
+from chatter.answer import (  # noqa: E402
+    DEFAULT_ANSWER_MODEL,
+    DEFAULT_MLX_MODEL,
+    generator_memory,
+    load_generator,
+)
+
+
+def test_generator_config_resolves_model_per_backend() -> None:
+    assert GeneratorConfig().resolved_model == DEFAULT_ANSWER_MODEL
+    assert GeneratorConfig(backend="mlx").resolved_model == DEFAULT_MLX_MODEL
+    assert GeneratorConfig(model_name="x/y", backend="mlx").resolved_model == "x/y"
+
+
+def test_load_generator_dispatches_by_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    import chatter.answer as answer_module
+    import chatter.mlx_generator as mlx_module
+
+    monkeypatch.setattr(answer_module, "HFGenerator", lambda config: ("hf", config.resolved_model))
+    monkeypatch.setattr(mlx_module, "MLXGenerator", lambda config: ("mlx", config.resolved_model))
+    assert load_generator(GeneratorConfig()) == ("hf", DEFAULT_ANSWER_MODEL)
+    assert load_generator(GeneratorConfig(backend="mlx")) == ("mlx", DEFAULT_MLX_MODEL)
+    with pytest.raises(ValueError, match="unknown backend 'onnx'"):
+        load_generator(GeneratorConfig(backend="onnx"))
+
+
+def test_generator_memory_is_optional() -> None:
+    assert generator_memory(FakeGenerator()) == {}
+
+    class WithStats(FakeGenerator):
+        def memory_stats(self) -> dict[str, object]:
+            return {"accelerator_mb": 5.0, "accelerator_metric": "test"}
+
+    assert generator_memory(WithStats()) == {"accelerator_mb": 5.0, "accelerator_metric": "test"}
+
+
+class _FakeMLXTokenizer:
+    def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
+        assert add_special_tokens is False
+        return list(range(len(text.split())))
+
+    def apply_chat_template(self, messages: Any, *, add_generation_prompt: bool, tokenize: bool) -> list[int]:
+        assert add_generation_prompt and tokenize
+        assert [m["role"] for m in messages] == ["system", "user"]
+        return [7] * (len(messages[0]["content"].split()) + len(messages[1]["content"].split()))
+
+
+def test_mlx_generator_streams_greedily_and_reports_memory(monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("mlx_lm")
+    import mlx_lm
+
+    from chatter.mlx_generator import MLXGenerator
+
+    calls: list[dict[str, Any]] = []
+
+    class Response:
+        def __init__(self, text: str, peak: float) -> None:
+            self.text, self.peak_memory = text, peak
+
+    def fake_stream(model: Any, tokenizer: Any, prompt: Any, **kwargs: Any) -> Iterator[Response]:
+        calls.append({"prompt": prompt, **kwargs})
+        yield Response("", 1.0)  # empty segments are skipped
+        yield Response("Hello ", 1.5)
+        yield Response("world", 2.25)
+
+    monkeypatch.setattr(mlx_lm, "stream_generate", fake_stream)
+    gen = MLXGenerator(GeneratorConfig(backend="mlx"), model=object(), tokenizer=_FakeMLXTokenizer())
+    assert gen.name == DEFAULT_MLX_MODEL and gen.device == "mlx"
+    assert gen.memory_stats() == {}
+    assert list(gen.generate("sys prompt", "user text here", max_new_tokens=12)) == ["Hello ", "world"]
+    assert calls[0]["max_tokens"] == 12 and calls[0]["prompt"] == [7] * 5
+    assert calls[0]["sampler"] is not None
+    assert gen.memory_stats()["accelerator_mb"] == pytest.approx(2250.0)
+    assert gen.count_tokens(["a b c", ""]) == [3, 0]
+    assert gen.prompt_tokens("a b", "c") == 3
+
+
+@pytest.mark.slow
+def test_backends_tokenize_identical_prompts() -> None:
+    """Both backends must feed the model the same prompt tokens (cached models only)."""
+    from transformers import AutoTokenizer
+
+    from chatter.answer import chat_messages
+
+    mlx_lm = pytest.importorskip("mlx_lm")
+    hf = AutoTokenizer.from_pretrained(DEFAULT_ANSWER_MODEL)
+    _, mlx_tok = mlx_lm.load(DEFAULT_MLX_MODEL)
+    messages = chat_messages(SYSTEM_PROMPT, 'Code chunks:\n\n<chunk tag="C1">def f(): pass</chunk>\n\nQuestion: what is f?')
+    hf_ids = hf.apply_chat_template(messages, add_generation_prompt=True, tokenize=True, return_dict=True)["input_ids"]
+    mlx_ids = list(mlx_tok.apply_chat_template(messages, add_generation_prompt=True, tokenize=True))
+    assert hf_ids == mlx_ids

@@ -11,20 +11,30 @@ Retrieval uses the default config (the same as ``chatter ask``). Per question:
     timing           time to first token (from the start of generation),
                      generated tokens per second, prompt tokens
 
+    memory           peak process RSS and system swap used while answering
+                     (sampled every 0.25 s), plus the backend's own accelerator
+                     memory figure where it reports one
+
 Abstention precision/recall treats negative questions (expect_abstain) as the
 positive class, scored two ways: strict (only the exact sentence counts as an
-abstention) and lenient (exact, mixed, or near-miss). Correctness is judged by
-hand: ``format_review`` renders a markdown file with a verdict line per answer.
+abstention) and lenient (exact, mixed, or near-miss). Context-relative
+abstention looks only at questions whose context held no relevant or
+containing chunk, and reports per corpus how often the model still answered.
+Correctness is judged by hand: ``format_review`` renders a markdown file with
+a verdict line per answer.
 """
 
 from __future__ import annotations
 
 import statistics
+import threading
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+import psutil
 
 from chatter.answer import (
     ABSTENTION,
@@ -34,6 +44,7 @@ from chatter.answer import (
     AnswerStatus,
     Generator,
     answer_question,
+    generator_memory,
     looks_like_abstention,
 )
 from chatter.embed import Embedder
@@ -49,7 +60,7 @@ from chatter.evaluate import (
     select_questions,
 )
 
-ANSWER_RESULTS_SCHEMA = 1
+ANSWER_RESULTS_SCHEMA = 2  # 2: memory, backend, context-relative abstention
 DEFAULT_ANSWER_TOP_K = 8  # same as `chatter ask`
 CLASSIFICATIONS = ("answered", "abstained", "mixed", "near_miss_abstention")
 LENIENT_ABSTAIN = frozenset({"abstained", "mixed", "near_miss_abstention"})
@@ -71,6 +82,53 @@ class _Timing:
     text: list[str] = field(default_factory=list)
 
 
+class MemorySampler:
+    """Samples process RSS and system swap in a background thread.
+
+    Use as a context manager around one question; ``stats()`` then gives the
+    peak RSS and the swap used at the start, at the peak, and at the end.
+    """
+
+    def __init__(self, interval: float = 0.25) -> None:
+        self._interval = interval
+        self._process = psutil.Process()
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._peak_rss = 0
+        self._swap_start = self._swap_peak = self._swap_end = 0
+
+    def __enter__(self) -> MemorySampler:
+        self._swap_start = self._swap_peak = psutil.swap_memory().used
+        self._sample()
+        self._thread = threading.Thread(target=self._run, name="chatter-memory", daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join()
+        self._sample()
+        self._swap_end = psutil.swap_memory().used
+
+    def _run(self) -> None:
+        while not self._stop.wait(self._interval):
+            self._sample()
+
+    def _sample(self) -> None:
+        self._peak_rss = max(self._peak_rss, self._process.memory_info().rss)
+        self._swap_peak = max(self._swap_peak, psutil.swap_memory().used)
+
+    def stats(self) -> dict[str, float]:
+        mb = 1e6
+        return {
+            "peak_rss_mb": self._peak_rss / mb,
+            "swap_used_start_mb": self._swap_start / mb,
+            "swap_used_peak_mb": self._swap_peak / mb,
+            "swap_used_end_mb": self._swap_end / mb,
+        }
+
+
 class TimedGenerator:
     """Wraps a Generator to time generation and keep the raw streamed text."""
 
@@ -81,6 +139,9 @@ class TimedGenerator:
     @property
     def name(self) -> str:
         return self._inner.name
+
+    def memory_stats(self) -> dict[str, Any]:
+        return generator_memory(self._inner)
 
     def count_tokens(self, texts: Sequence[str]) -> list[int]:
         return self._inner.count_tokens(texts)
@@ -110,6 +171,7 @@ def evaluate_answer(
     timing: _Timing,
     generator: Generator,
     contains: Contains,
+    memory: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """One question's record (see module docstring)."""
     relevant = list(question.relevant)
@@ -166,6 +228,7 @@ def evaluate_answer(
         "generated_tokens": generated,
         "ttft_s": ttft,
         "tokens_per_s": generated / decode_time if decode_time and decode_time > 0 else None,
+        "memory": dict(memory or {}),
     }
 
 
@@ -189,6 +252,61 @@ def abstention_scores(records: Sequence[Mapping[str, Any]], abstain: frozenset[s
     }
 
 
+def context_relative_abstention(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """How often the model answered when its context held no evidence.
+
+    ``answerable``: answerable questions whose context had no relevant or
+    containing chunk. ``with_negatives`` adds the negative questions, whose
+    context can never hold the answer. Abstaining counts lenient
+    classifications (abstained, mixed, near-miss). Reported overall and per
+    corpus.
+    """
+
+    def tally(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        abstained = sum(r["classification"] in LENIENT_ABSTAIN for r in rows)
+        n = len(rows)
+        return {
+            "n": n,
+            "answered": n - abstained,
+            "abstained": abstained,
+            "answered_rate": (n - abstained) / n if n else None,
+            "abstained_rate": abstained / n if n else None,
+            "ids": [r["id"] for r in rows],
+        }
+
+    def group(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        corpora = sorted({r["corpus"] for r in records})
+        return {
+            "overall": tally(rows),
+            "by_corpus": {c: tally([r for r in rows if r["corpus"] == c]) for c in corpora},
+        }
+
+    no_evidence = [
+        r for r in records if not r["expect_abstain"] and r["relevant_in_context"]["contain"] is False
+    ]
+    negatives = [r for r in records if r["expect_abstain"]]
+    return {"answerable": group(no_evidence), "with_negatives": group(no_evidence + negatives)}
+
+
+def _memory_summary(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    def values(key: str) -> list[float]:
+        return [r["memory"][key] for r in records if r.get("memory", {}).get(key) is not None]
+
+    rss, swap_peak, accel = values("peak_rss_mb"), values("swap_used_peak_mb"), values("accelerator_mb")
+    starts, ends = values("swap_used_start_mb"), values("swap_used_end_mb")
+    return {
+        "max_peak_rss_mb": max(rss) if rss else None,
+        "median_peak_rss_mb": statistics.median(rss) if rss else None,
+        "max_swap_used_mb": max(swap_peak) if swap_peak else None,
+        "swap_growth_mb": ends[-1] - starts[0] if starts and ends else None,
+        "max_accelerator_mb": max(accel) if accel else None,
+        "accelerator_metric": next(
+            (r["memory"]["accelerator_metric"] for r in records if r.get("memory", {}).get("accelerator_metric")),
+            None,
+        ),
+    }
+
+
 def summarize_answers(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     answerable = [r for r in records if not r["expect_abstain"]]
 
@@ -207,6 +325,8 @@ def summarize_answers(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             "strict": abstention_scores(records, frozenset({"abstained"})),
             "lenient": abstention_scores(records, LENIENT_ABSTAIN),
         },
+        "context_relative_abstention": context_relative_abstention(records),
+        "memory": _memory_summary(records),
         "answerable": {
             "n": len(answerable),
             "relevant_in_context": {k: rate("relevant_in_context", k) for k in ("strict", "contain")},
@@ -229,6 +349,7 @@ def run_answer_eval(
     *,
     model_name: str,
     repo_root: Path,
+    backend: str = "transformers",
     stdlib_dir: Path | None = None,
     index_root: Path | None = None,
     split: str | None = None,
@@ -249,23 +370,33 @@ def run_answer_eval(
         index_root=index_root,
         log=log,
     )
+    load_started = time.perf_counter()
     try:
-        generator = TimedGenerator(generator_factory())
+        with MemorySampler() as load_memory:
+            generator = TimedGenerator(generator_factory())
     except (OSError, ValueError, RuntimeError, ImportError, MemoryError) as exc:
         raise EvalError(f"could not load the answer model: {exc}") from exc
+    load = {"seconds": time.perf_counter() - load_started, **load_memory.stats()}
+    log(f"loaded {generator.name} ({backend}) in {load['seconds']:.1f}s")
 
     records = []
     for n, question in enumerate(questions, 1):
-        hits = setup.retrievers[question.corpus].search(question.question, k=top_k)
-        result = answer_question(
-            question.question,
-            hits,
-            generator,
-            max_context_tokens=max_context_tokens,
-            max_new_tokens=max_new_tokens,
-        )
+        with MemorySampler() as memory:
+            hits = setup.retrievers[question.corpus].search(question.question, k=top_k)
+            result = answer_question(
+                question.question,
+                hits,
+                generator,
+                max_context_tokens=max_context_tokens,
+                max_new_tokens=max_new_tokens,
+            )
         record = evaluate_answer(
-            question, result, generator.timing, generator, setup.matchers[question.corpus]
+            question,
+            result,
+            generator.timing,
+            generator,
+            setup.matchers[question.corpus],
+            memory={**memory.stats(), **generator.memory_stats()},
         )
         records.append(record)
         log(f"[{n}/{len(questions)}] {question.id}: {record['classification']}")
@@ -275,6 +406,8 @@ def run_answer_eval(
         "kind": "answers",
         **run_metadata(questions_path, repo_root, embedder, setup.info),
         "answer_model": generator.name,
+        "backend": backend,
+        "model_load": load,
         "settings": {
             "split": split or "all",
             "retrieval": "default",
@@ -290,7 +423,7 @@ def run_answer_eval(
 
 def save_answer_results(results: Mapping[str, Any], results_dir: Path) -> tuple[Path, Path]:
     """Write the JSON results and the markdown review file next to it."""
-    json_path = save_results(results, results_dir, label="answers")
+    json_path = save_results(results, results_dir, label=f"answers-{results.get('backend', 'transformers')}")
     review_path = json_path.with_suffix(".md")
     review_path.write_text(format_review(results), encoding="utf-8")
     return json_path, review_path
@@ -308,7 +441,8 @@ def _pct(value: float | None) -> str:
 def format_answer_report(results: Mapping[str, Any]) -> str:
     s = results["summary"]
     lines = [
-        f"answer model: {results['answer_model']}   embedding model: {results['embedding_model']}   "
+        f"answer model: {results['answer_model']} ({results.get('backend', 'transformers')})   "
+        f"embedding model: {results['embedding_model']}   "
         f"commit: {(results['git'].get('commit') or 'none')[:10]}{' (dirty)' if results['git'].get('dirty') else ''}",
         f"split: {results['settings']['split']}   questions: {s['n']}   retrieval: default fused, "
         f"top {results['settings']['top_k']}",
@@ -337,9 +471,12 @@ def format_answer_report(results: Mapping[str, Any]) -> str:
         f"repetition stops: {s['stopped_for_repetition']}",
         f"median TTFT {_seconds(s['median_ttft_s'])}, median {_rate(s['median_tokens_per_s'])}, "
         f"median prompt {s['median_prompt_tokens']} tokens",
+        *_memory_lines(results),
+        "",
+        *_context_relative_lines(s["context_relative_abstention"]),
         "",
         f"{'id':<4} {'type':<10} {'corpus':<7} {'classification':<21} {'in ctx':>7} {'cited':>7} "
-        f"{'bad tags':>8} {'TTFT':>6} {'tok/s':>6}",
+        f"{'bad tags':>8} {'TTFT':>6} {'tok/s':>6} {'RSS GB':>7} {'swap GB':>8} {'accel GB':>9}",
     ]
     for r in results["questions"]:
         def pair(key: str, r: Mapping[str, Any] = r) -> str:
@@ -352,9 +489,50 @@ def format_answer_report(results: Mapping[str, Any]) -> str:
             f"{r['id']:<4} {r['type']:<10} {r['corpus']:<7} {r['classification']:<21} "
             f"{pair('relevant_in_context'):>7} {pair('cited_relevant'):>7} "
             f"{','.join(r['invalid_tags']) or '-':>8} {_seconds(r['ttft_s']):>6} "
-            f"{_rate(r['tokens_per_s'], unit=False):>6}"
+            f"{_rate(r['tokens_per_s'], unit=False):>6} {_gb(r.get('memory', {}).get('peak_rss_mb')):>7} "
+            f"{_gb(r.get('memory', {}).get('swap_used_peak_mb')):>8} "
+            f"{_gb(r.get('memory', {}).get('accelerator_mb')):>9}"
         )
     return "\n".join(lines)
+
+
+def _memory_lines(results: Mapping[str, Any]) -> list[str]:
+    m = results["summary"].get("memory") or {}
+    load = results.get("model_load") or {}
+    lines = []
+    if load:
+        lines.append(
+            f"model load {load['seconds']:.1f}s, RSS after load {_gb(load.get('peak_rss_mb'))} GB"
+        )
+    if m:
+        lines.append(
+            f"peak RSS {_gb(m['max_peak_rss_mb'])} GB (median {_gb(m['median_peak_rss_mb'])}), "
+            f"max swap used {_gb(m['max_swap_used_mb'])} GB (growth {_gb(m['swap_growth_mb'])} GB), "
+            f"accelerator {_gb(m['max_accelerator_mb'])} GB [{m['accelerator_metric'] or 'n/a'}]"
+        )
+    return lines
+
+
+def _context_relative_lines(cra: Mapping[str, Any]) -> list[str]:
+    lines = [
+        "context-relative abstention (no relevant/containing chunk in context; abstained = lenient)",
+        f"{'group':<17} {'corpus':<8} {'n':>3} {'answered':>9} {'abstained':>10}  questions",
+    ]
+    for group, label in (("answerable", "answerable"), ("with_negatives", "incl. negatives")):
+        rows = [("all", cra[group]["overall"]), *cra[group]["by_corpus"].items()]
+        for corpus, t in rows:
+            if not t["n"]:
+                lines.append(f"{label:<17} {corpus:<8} {0:>3} {'-':>9} {'-':>10}")
+                continue
+            lines.append(
+                f"{label:<17} {corpus:<8} {t['n']:>3} {t['answered']:>3} ({t['answered_rate']:.2f}) "
+                f"{t['abstained']:>3} ({t['abstained_rate']:.2f})  {', '.join(t['ids'])}"
+            )
+    return lines
+
+
+def _gb(mb: float | None) -> str:
+    return "n/a" if mb is None else f"{mb / 1000:.2f}"
 
 
 def format_review(results: Mapping[str, Any]) -> str:
@@ -363,7 +541,8 @@ def format_review(results: Mapping[str, Any]) -> str:
     lines = [
         f"# Answer review: {results['settings']['split']} split",
         "",
-        f"- answer model: `{results['answer_model']}`; embedding model: `{results['embedding_model']}`",
+        f"- answer model: `{results['answer_model']}` ({results.get('backend', 'transformers')}); "
+        f"embedding model: `{results['embedding_model']}`",
         f"- commit: `{results['git'].get('commit')}`{' (dirty)' if results['git'].get('dirty') else ''}; "
         f"created {results['created']}",
         f"- retrieval: default fused, top {results['settings']['top_k']}, "
@@ -414,7 +593,9 @@ def format_review(results: Mapping[str, Any]) -> str:
         lines += [
             "",
             f"_TTFT {_seconds(r['ttft_s'])}, {_rate(r['tokens_per_s'])}, "
-            f"prompt {r['prompt_tokens']} tokens, {r['generated_tokens']} generated_",
+            f"prompt {r['prompt_tokens']} tokens, {r['generated_tokens']} generated, "
+            f"peak RSS {_gb(r.get('memory', {}).get('peak_rss_mb'))} GB, "
+            f"swap {_gb(r.get('memory', {}).get('swap_used_peak_mb'))} GB_",
             "",
             "**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_",
             "",

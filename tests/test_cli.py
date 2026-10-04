@@ -207,7 +207,8 @@ def test_ask_prints_answer_and_citations(indexed: Callable[..., Harness], repo: 
     assert "It splits on the blank line [C1]" in result.output
     citations = result.output.split("Citations:")[1]
     assert "[C1] net/http.py::parse_http_response  net/http.py:4-7" in citations
-    assert h.generator_configs == [GeneratorConfig(model_name=DEFAULT_ANSWER_MODEL)]
+    assert h.generator_configs == [GeneratorConfig(model_name=None, backend="transformers")]
+    assert h.generator_configs[0].resolved_model == DEFAULT_ANSWER_MODEL
     system, user = h.generator.prompts[0]
     assert "<chunk tag=\"C1\" id=\"net/http.py::parse_http_response\"" in user
 
@@ -362,3 +363,14 @@ def test_default_index_moves_with_its_repo(repo: Path, tmp_path: Path) -> None:
     result = h.run("index", str(moved))
     assert result.exit_code == 0, result.output
     assert "(0 embedded, 6 unchanged, 0 deleted)" in result.output
+
+
+def test_ask_backend_option(indexed: Callable[..., Harness], repo: Path) -> None:
+    h = indexed("Answer [C1].")
+    result = h.run("ask", "parse", "--path", str(repo), "--backend", "mlx")
+    assert result.exit_code == 0, result.output
+    config = h.generator_configs[0]
+    assert (config.backend, config.model_name) == ("mlx", None)
+    assert config.resolved_model == "mlx-community/Qwen3-4B-Instruct-2507-4bit"
+    bad = h.run("ask", "parse", "--path", str(repo), "--backend", "onnx")
+    assert bad.exit_code == 2

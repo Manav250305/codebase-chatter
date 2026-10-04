@@ -145,7 +145,7 @@ def test_reports_and_saved_files(tmp_path: Path) -> None:
     assert "> It splits head and body [C1] [C9]." in review and "invalid tags: C9" in review
 
     json_path, md_path = save_answer_results(results, tmp_path / "results")
-    assert json_path.name.endswith("-answers.json") and md_path == json_path.with_suffix(".md")
+    assert json_path.name.endswith("-answers-transformers.json") and md_path == json_path.with_suffix(".md")
     assert json.loads(json_path.read_text())["kind"] == "answers"
     assert md_path.read_text() == review
 
@@ -166,8 +166,67 @@ def test_cli_answers(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "classifications:" in result.output and "Review " in result.output
     assert configs[0].model_name == "tiny/model"  # type: ignore[attr-defined]
-    saved = sorted((questions.parent / "results").glob("*-answers-tune.*"))
+    saved = sorted((questions.parent / "results").glob("*-answers-transformers-tune.*"))
     assert [p.suffix for p in saved] == [".json", ".md"]
 
     clash = runner.invoke(app, ["eval", str(questions), "--answers", "--sweep-fusion"])
     assert clash.exit_code == 1 and "separate run" in clash.output
+
+
+# ---------------------------------------------------------------------------
+# Context-relative abstention, memory, backend
+# ---------------------------------------------------------------------------
+
+from chatter.answer_eval import MemorySampler, context_relative_abstention  # noqa: E402
+
+
+def _record(qid: str, corpus: str, classification: str, contain: bool | None, negative: bool = False) -> dict:
+    return {
+        "id": qid, "corpus": corpus, "classification": classification, "expect_abstain": negative,
+        "relevant_in_context": {"strict": contain, "contain": contain},
+    }
+
+
+def test_context_relative_abstention_per_corpus() -> None:
+    records = [
+        _record("a", "lib", "answered", False),
+        _record("b", "lib", "abstained", False),
+        _record("c", "lib", "answered", True),  # evidence present: excluded
+        _record("d", "app", "near_miss_abstention", False),
+        _record("e", "app", "abstained", None, negative=True),
+    ]
+    cra = context_relative_abstention(records)
+    answerable = cra["answerable"]
+    assert answerable["overall"] == {
+        "n": 3, "answered": 1, "abstained": 2, "answered_rate": pytest.approx(1 / 3),
+        "abstained_rate": pytest.approx(2 / 3), "ids": ["a", "b", "d"],
+    }
+    assert answerable["by_corpus"]["lib"]["answered_rate"] == 0.5
+    assert answerable["by_corpus"]["app"]["abstained"] == 1
+    assert cra["with_negatives"]["overall"]["ids"] == ["a", "b", "d", "e"]
+    assert cra["with_negatives"]["by_corpus"]["app"]["n"] == 2
+
+
+def test_memory_sampler_records_rss_and_swap() -> None:
+    with MemorySampler(interval=0.01) as sampler:
+        blob = bytearray(20_000_000)  # make RSS move a little
+        blob[::4096] = b"x" * len(blob[::4096])
+    stats = sampler.stats()
+    assert stats["peak_rss_mb"] > 20
+    assert stats["swap_used_peak_mb"] >= stats["swap_used_start_mb"] >= 0
+    assert set(stats) == {"peak_rss_mb", "swap_used_start_mb", "swap_used_peak_mb", "swap_used_end_mb"}
+
+
+def test_answer_eval_records_memory_backend_and_context_abstention(tmp_path: Path) -> None:
+    results, _, _ = run(tmp_path, backend="mlx")
+    assert results["backend"] == "mlx" and results["schema"] == 2
+    assert results["model_load"]["seconds"] >= 0 and results["model_load"]["peak_rss_mb"] > 0
+    for record in results["questions"]:
+        assert record["memory"]["peak_rss_mb"] > 0 and "swap_used_peak_mb" in record["memory"]
+    summary = results["summary"]
+    assert summary["memory"]["max_peak_rss_mb"] > 0
+    assert "context_relative_abstention" in summary
+    report = format_answer_report(results)
+    assert "(mlx)" in report and "context-relative abstention" in report and "RSS GB" in report
+    json_path, _ = save_answer_results(results, tmp_path / "r")
+    assert json_path.name.endswith("-answers-mlx.json")
