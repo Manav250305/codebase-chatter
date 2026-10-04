@@ -79,6 +79,20 @@ _STOPWORDS = frozenset(
     "a an and are as at be by can do does for from how i in is it of on or should "
     "that the this to use used uses what when where which who why with work works".split()
 )
+# Heuristics for abstentions phrased differently from ABSTENTION. Each needs a
+# reference to the supplied context (or "I can't find..."), so statements about
+# code behaviour such as "the code does not retry" are not matched.
+_CONTEXT = r"(?:retrieved|provided|given|supplied|above|these|those)\s+(?:code\s+)?(?:chunks?|snippets?|excerpts?|context|sources?)"
+_CONTEXT_CODE = r"(?:retrieved|provided|given|supplied|above)\s+code"
+_NEAR_MISS_RES = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        rf"\b(?:{_CONTEXT}|{_CONTEXT_CODE})\b[^.]{{0,80}}?\b(?:do(?:es)?\s+not|do(?:es)?n[’']t|did\s+not|cannot|can[’']t|lacks?|contains?\s+no|has\s+no|have\s+no|without)\b",
+        rf"\b(?:not|no|nothing)\b[^.]{{0,60}}?\b(?:in|from|within)\s+(?:the\s+)?(?:{_CONTEXT}|{_CONTEXT_CODE})\b",
+        r"\b(?:i|we)\s+(?:cannot|can[’']t|could\s+not|couldn[’']t|am\s+unable\s+to|are\s+unable\s+to)\s+(?:find|determine|answer|see|locate|tell)\b",
+        r"\bnot\s+(?:enough|sufficient)\s+(?:information|context)\b",
+    )
+)
 _TAG_GROUP_RE = re.compile(r"\[\s*(C\d+(?:\s*[,;]\s*C\d+)*)\s*\]")
 _TAG_RE = re.compile(r"C(\d+)")
 
@@ -355,6 +369,15 @@ def classify_answer(text: str) -> AnswerStatus:
     if target in normalized:
         return AnswerStatus.MIXED
     return AnswerStatus.ANSWERED
+
+
+def looks_like_abstention(text: str) -> bool:
+    """Heuristic: the text says the context lacks the answer, in other words.
+
+    Used to flag near-miss abstentions (status ANSWERED but abstaining in
+    substance). It is a review aid, not a judgment: check flagged answers.
+    """
+    return any(pattern.search(text) for pattern in _NEAR_MISS_RES)
 
 
 def _normalize(text: str) -> str:

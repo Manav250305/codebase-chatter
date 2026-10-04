@@ -403,6 +403,81 @@ def _summarize_group(rows: Sequence[tuple[Question, Scores]]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+@dataclass(frozen=True, slots=True)
+class CorpusSetup:
+    retrievers: dict[str, Retriever]
+    matchers: dict[str, Contains]
+    info: dict[str, Any]
+
+
+def select_questions(questions_path: Path, split: str | None) -> list[Question]:
+    """Load questions, keeping one split (None: all)."""
+    if split is not None and split not in SPLITS:
+        raise EvalError(f"unknown split {split!r} (expected one of {', '.join(SPLITS)})")
+    questions = [q for q in load_questions(questions_path) if split is None or q.split == split]
+    if not questions:
+        raise EvalError(f"no questions in split {split!r}")
+    return questions
+
+
+def open_corpora(
+    questions: Sequence[Question],
+    specs: Mapping[str, CorpusSpec],
+    embedder: Embedder,
+    *,
+    repo_root: Path,
+    stdlib_dir: Path | None = None,
+    index_root: Path | None = None,
+    log: Callable[[str], None] = lambda _: None,
+) -> CorpusSetup:
+    """Materialise and index every corpus the questions use; validate relevant ids.
+
+    Indexes live in ``<corpus>/.chatter`` unless ``index_root`` is given, in
+    which case corpus ``name`` is indexed into ``index_root / name``. An index
+    built with another model or schema is rebuilt.
+    """
+    unknown = sorted({q.corpus for q in questions} - specs.keys())
+    if unknown:
+        raise EvalError(f"questions reference corpora not in the manifest: {', '.join(unknown)}")
+    retrievers: dict[str, Retriever] = {}
+    corpus_ids: dict[str, set[str]] = {}
+    info: dict[str, Any] = {}
+    for name in sorted({q.corpus for q in questions}):
+        spec = specs[name]
+        provenance = prepare_corpus(spec, repo_root=repo_root, stdlib_dir=stdlib_dir)
+        index_dir = Path(index_root) / name if index_root else default_index_dir(spec.path)
+        manifest = read_manifest(index_dir)
+        rebuild = manifest is not None and (
+            manifest.get("model") != embedder.name or manifest.get("schema") != SCHEMA_VERSION
+        )
+        try:
+            stats = build_index(spec.path, embedder, index_dir=index_dir, rebuild=rebuild)
+        except IndexStorageError as exc:
+            raise EvalError(f"{exc} Use --index-root to keep eval indexes elsewhere.") from exc
+        log(f"corpus {name}: {stats.files} files, {stats.chunks} chunks, {stats.embedded_parts} embedded")
+        retrievers[name] = Retriever.open(index_dir, embedder)
+        corpus_ids[name] = _chunk_ids(index_dir)
+        info[name] = {**provenance, "files": stats.files, "chunks": stats.chunks}
+    validate_relevant(questions, corpus_ids)
+    matchers = {name: containment(retriever.chunk) for name, retriever in retrievers.items()}
+    return CorpusSetup(retrievers, matchers, info)
+
+
+def run_metadata(
+    questions_path: Path, repo_root: Path, embedder: Embedder, corpora_info: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Provenance shared by every results file."""
+    return {
+        "created": datetime.now(UTC).isoformat(timespec="seconds"),
+        "git": _git_info(repo_root),
+        "questions_file": _relative(questions_path, repo_root),
+        "questions_sha256": hashlib.sha256(Path(questions_path).read_bytes()).hexdigest(),
+        "embedding_model": embedder.name,
+        "embedding_fingerprint": embedder.fingerprint,
+        "corpora": dict(corpora_info),
+    }
+
+
 def run_eval(
     questions_path: Path,
     corpora_path: Path,
@@ -418,46 +493,23 @@ def run_eval(
 ) -> dict[str, Any]:
     """Materialise and index corpora, score every question in every mode.
 
-    Indexes live in ``<corpus>/.chatter`` unless ``index_root`` is given, in
-    which case corpus ``name`` is indexed into ``index_root / name``.
     ``split`` restricts the run to one split (None: all questions); only the
     selected questions are validated, indexed for, and scored. ``configs``
-    adds a table of retrieval configs; see ``evaluate_configs``.
+    adds a table of retrieval configs; see ``evaluate_configs``. Corpus
+    handling is described in ``open_corpora``.
     """
-    if split is not None and split not in SPLITS:
-        raise EvalError(f"unknown split {split!r} (expected one of {', '.join(SPLITS)})")
-    questions = [q for q in load_questions(questions_path) if split is None or q.split == split]
-    if not questions:
-        raise EvalError(f"no questions in split {split!r}")
-    specs = load_corpora(corpora_path)
-    unknown = sorted({q.corpus for q in questions} - specs.keys())
-    if unknown:
-        raise EvalError(f"questions reference corpora not in {corpora_path}: {', '.join(unknown)}")
-
+    questions = select_questions(questions_path, split)
     embedder = embedder_factory(model_name)
-    corpora_info: dict[str, Any] = {}
-    retrievers: dict[str, Retriever] = {}
-    corpus_ids: dict[str, set[str]] = {}
-    for name in sorted({q.corpus for q in questions}):
-        spec = specs[name]
-        info = prepare_corpus(spec, repo_root=repo_root, stdlib_dir=stdlib_dir)
-        index_dir = Path(index_root) / name if index_root else default_index_dir(spec.path)
-        manifest = read_manifest(index_dir)
-        rebuild = manifest is not None and (
-            manifest.get("model") != embedder.name or manifest.get("schema") != SCHEMA_VERSION
-        )
-        try:
-            stats = build_index(spec.path, embedder, index_dir=index_dir, rebuild=rebuild)
-        except IndexStorageError as exc:
-            raise EvalError(f"{exc} Use --index-root to keep eval indexes elsewhere.") from exc
-        log(f"corpus {name}: {stats.files} files, {stats.chunks} chunks, {stats.embedded_parts} embedded")
-        retrievers[name] = Retriever.open(index_dir, embedder)
-        corpus_ids[name] = _chunk_ids(index_dir)
-        corpora_info[name] = {**info, "files": stats.files, "chunks": stats.chunks}
-
-    validate_relevant(questions, corpus_ids)
-
-    matchers = {name: containment(retriever.chunk) for name, retriever in retrievers.items()}
+    setup = open_corpora(
+        questions,
+        load_corpora(corpora_path),
+        embedder,
+        repo_root=repo_root,
+        stdlib_dir=stdlib_dir,
+        index_root=index_root,
+        log=log,
+    )
+    retrievers, matchers, corpora_info = setup.retrievers, setup.matchers, setup.info
     per_mode: dict[str, list[tuple[Question, Scores]]] = {mode: [] for mode in MODES}
     for question in questions:
         for mode in MODES:
@@ -469,13 +521,7 @@ def run_eval(
 
     results: dict[str, Any] = {
         "schema": RESULTS_SCHEMA,
-        "created": datetime.now(UTC).isoformat(timespec="seconds"),
-        "git": _git_info(repo_root),
-        "questions_file": _relative(questions_path, repo_root),
-        "questions_sha256": hashlib.sha256(Path(questions_path).read_bytes()).hexdigest(),
-        "embedding_model": embedder.name,
-        "embedding_fingerprint": embedder.fingerprint,
-        "corpora": corpora_info,
+        **run_metadata(questions_path, repo_root, embedder, corpora_info),
         "settings": {"depth": DEPTH, "modes": list(MODES), "split": split or "all"},
         "summary": {mode: summarize(rows) for mode, rows in per_mode.items()},
         "questions": [
@@ -671,14 +717,15 @@ def format_configs(table: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def save_results(results: Mapping[str, Any], results_dir: Path) -> Path:
+def save_results(results: Mapping[str, Any], results_dir: Path, *, label: str = "") -> Path:
     results_dir.mkdir(parents=True, exist_ok=True)
     stamp = results["created"].replace(":", "").replace("-", "").split("+")[0]
     commit = (results["git"].get("commit") or "nogit")[:7]
     dirty = "-dirty" if results["git"].get("dirty") else ""
     split = results.get("settings", {}).get("split", "all")
     suffix = "" if split == "all" else f"-{split}"
-    path = results_dir / f"{stamp}-{commit}{dirty}{suffix}.json"
+    tag = f"-{label}" if label else ""
+    path = results_dir / f"{stamp}-{commit}{dirty}{tag}{suffix}.json"
     path.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     return path
 

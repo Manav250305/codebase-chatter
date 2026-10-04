@@ -28,6 +28,12 @@ from chatter.answer import (
     answer_question,
     format_line_ranges,
 )
+from chatter.answer_eval import (
+    DEFAULT_ANSWER_TOP_K,
+    format_answer_report,
+    run_answer_eval,
+    save_answer_results,
+)
 from chatter.embed import DEFAULT_MODEL, Embedder, EmbedderConfig, SentenceTransformerEmbedder
 from chatter.evaluate import (
     SWEEP_DENSE_WEIGHT,
@@ -261,6 +267,23 @@ def make_app(
             Path | None,
             typer.Option(help="Also score the frozen retrieval configs in this YAML file."),
         ] = None,
+        answers: Annotated[
+            bool,
+            typer.Option(help="Instead of retrieval metrics, answer every question with the local "
+                         "model (default retrieval) and write a markdown review file."),
+        ] = False,
+        answer_model: Annotated[
+            str, typer.Option(help="Answer model for --answers.")
+        ] = DEFAULT_ANSWER_MODEL,
+        answer_top_k: Annotated[
+            int, typer.Option(min=1, help="Chunks retrieved per question for --answers.")
+        ] = DEFAULT_ANSWER_TOP_K,
+        max_context_tokens: Annotated[
+            int, typer.Option(min=256, help="Prompt token budget for --answers.")
+        ] = DEFAULT_MAX_CONTEXT_TOKENS,
+        max_new_tokens: Annotated[
+            int, typer.Option(min=16, help="Answer length limit for --answers.")
+        ] = DEFAULT_MAX_NEW_TOKENS,
     ) -> None:
         """Score retrieval (bm25, dense, fused) on an eval set: hit@1, hit@5, MRR@50, recall@10."""
         if not questions.is_file():
@@ -270,6 +293,33 @@ def make_app(
             _fail(f"No corpus manifest at {corpora_path}; pass --corpora.")
         if sweep_fusion and candidates:
             _fail("Use either --sweep-fusion or --candidates, not both.")
+        if answers and (sweep_fusion or candidates):
+            _fail("--answers is a separate run; drop --sweep-fusion/--candidates.")
+        if answers:
+            try:
+                answer_results = run_answer_eval(
+                    questions,
+                    corpora_path,
+                    lambda name: _load(lambda: embedder_factory(name), f"embedding model {name!r}"),
+                    lambda: generator_factory(GeneratorConfig(model_name=answer_model)),
+                    model_name=model,
+                    repo_root=_repo_root(questions.parent),
+                    index_root=index_root,
+                    split=None if split is SplitChoice.ALL else split.value,
+                    top_k=answer_top_k,
+                    max_context_tokens=max_context_tokens,
+                    max_new_tokens=max_new_tokens,
+                    log=lambda line: typer.echo(line, err=True),
+                )
+            except EvalError as exc:
+                _fail(f"Eval aborted: {exc}")
+            typer.echo(format_answer_report(answer_results))
+            if save:
+                json_path, review_path = save_answer_results(
+                    answer_results, results_dir or questions.parent / "results"
+                )
+                typer.echo(f"\nSaved {json_path}\nReview {review_path}")
+            return
         try:
             configs = (
                 sweep_configs(rrf_k or list(SWEEP_RRF_K), dense_weight or list(SWEEP_DENSE_WEIGHT))

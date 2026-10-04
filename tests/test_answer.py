@@ -472,3 +472,43 @@ def test_real_model_ask_smoke(
     assert result.status is AnswerStatus.ANSWERED and result.text
     assert result.citations, "expected the answer to cite a chunk tag"
     assert not result.stopped_for_repetition
+
+
+# ---------------------------------------------------------------------------
+# Near-miss abstentions
+# ---------------------------------------------------------------------------
+
+from chatter.answer import looks_like_abstention  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The retrieved code doesn't contain the answer.",
+        "The provided chunks do not show how retries are implemented.",
+        "These snippets contain no information about OAuth.",
+        "The given context lacks any mention of exponential backoff [C2].",
+        "There is nothing about authentication in the provided code.",
+        "I cannot find where tokens are refreshed.",
+        "I couldn't determine this from the chunks.",
+        "There is not enough information to answer.",
+        "The above code does not implement a retry loop.",
+    ],
+)
+def test_near_miss_abstentions_are_flagged(text: str) -> None:
+    assert looks_like_abstention(text)
+    assert classify_answer(text) is AnswerStatus.ANSWERED  # not the exact sentence
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The code does not retry; it raises immediately [C1].",
+        "It returns None when the cache contains no entry [C2].",
+        "Requests without a body are skipped [C1].",
+        "Nothing is written in that case; see [C3].",
+        "I can see that the loop cancels pending tasks [C1].",
+    ],
+)
+def test_statements_about_code_are_not_flagged(text: str) -> None:
+    assert not looks_like_abstention(text)
