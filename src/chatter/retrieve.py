@@ -156,6 +156,9 @@ class Retriever:
     def __len__(self) -> int:
         return len(self._chunks)
 
+    def chunk(self, chunk_id: str) -> Chunk | None:
+        return self._chunks.get(chunk_id)
+
     def search(
         self, query: str, k: int = 10, *, candidates: int | None = None, mode: Mode = "fused"
     ) -> list[Hit]:

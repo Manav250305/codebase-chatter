@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 from chatter.cli import make_app
 from chatter.evaluate import (
     CORPUS_MARKER,
+    containment,
     DEPTH,
     CorpusSpec,
     EvalError,
@@ -65,19 +66,20 @@ def make_git_corpus(tmp_path: Path, files: dict[str, str], tag: str = "v1") -> P
 def test_score_ranking_metrics() -> None:
     ranked = ["x", "tests/t.py::t", "a.py::f", "y", "conftest.py::c", "a.py::g"] + ["z"] * 10
     s = score_ranking(ranked, ["a.py::f", "a.py::g", "a.py::h"])
-    assert (s.first_rank, s.hit1, s.hit5) == (3, False, True)
-    assert s.rr == pytest.approx(1 / 3)
-    assert s.recall10 == pytest.approx(2 / 3)
+    assert (s.strict.first_rank, s.strict.hit1, s.strict.hit5) == (3, False, True)
+    assert s.strict.rr == pytest.approx(1 / 3)
+    assert s.strict.recall10 == pytest.approx(2 / 3)
+    assert s.contain == s.strict  # without a containment matcher both are exact
     assert s.test_slots5 == 2
 
 
 def test_score_ranking_top1_miss_and_depth_cutoff() -> None:
-    assert score_ranking(["a"], ["a"]).hit1
+    assert score_ranking(["a"], ["a"]).strict.hit1
     filler = [f"n{i}" for i in range(DEPTH)]
-    s = score_ranking([*filler, "a"], ["a"])
+    s = score_ranking([*filler, "a"], ["a"]).strict
     assert (s.first_rank, s.rr, s.hit5, s.recall10) == (None, 0.0, False, 0.0)
-    assert len(s.top) == DEPTH
-    assert score_ranking([], ["a"]).first_rank is None
+    assert len(score_ranking([*filler, "a"], ["a"]).top) == DEPTH
+    assert score_ranking([], ["a"]).strict.first_rank is None
 
 
 @pytest.mark.parametrize(
@@ -108,11 +110,13 @@ def test_aggregate_excludes_negatives_and_groups_by_type() -> None:
     ]
     overall = aggregate(rows)
     assert overall["n"] == 3
-    assert overall["hit@1"] == pytest.approx(2 / 3) and overall["mrr@50"] == pytest.approx(2 / 3)
+    assert overall["strict"]["hit@1"] == pytest.approx(2 / 3)
+    assert overall["strict"]["mrr@50"] == pytest.approx(2 / 3)
+    assert overall["contain"] == overall["strict"]
     assert overall["test_slots@5"] == 0 and overall["slots@5"] == 3
     summary = summarize(rows)
     assert set(summary["by_type"]) == {"behavior", "flow"}
-    assert summary["by_type"]["behavior"]["hit@1"] == 0.5
+    assert summary["by_type"]["behavior"]["strict"]["hit@1"] == 0.5
     assert aggregate([(q("q4", "negative", ()), miss)]) == {"n": 0}
 
 
@@ -287,10 +291,10 @@ def test_run_eval_end_to_end(tmp_path: Path) -> None:
     assert overall["n"] == 2  # the negative question is excluded
     by_id = {x["id"]: x for x in results["questions"]}
     e1 = by_id["e1"]["modes"]
-    assert e1["bm25"]["first_rank"] == 1 and e1["fused"]["hit1"]
+    assert e1["bm25"]["strict"]["first_rank"] == 1 and e1["fused"]["strict"]["hit1"]
     assert e1["bm25"]["test_slots5"] == 1  # the test function competes for a top-5 slot
     assert by_id["e3"]["scored"] is False and by_id["e3"]["modes"]["fused"]["top10"]
-    assert by_id["e2"]["modes"]["bm25"]["recall10"] == 0.5  # warm_cache has no query terms
+    assert by_id["e2"]["modes"]["bm25"]["strict"]["recall10"] == 0.5  # warm_cache has no query terms
 
     report = format_report(results)
     assert "fused  overall" in report and "e3   tune    negative" in report and "n/a" in report
@@ -406,10 +410,10 @@ def test_summary_reports_splits_separately_and_combined() -> None:
         (Question("h2", "c", "negative", "?", (), True, "heldout"), miss),
     ]
     summary = summarize(rows)
-    assert summary["overall"]["n"] == 3 and summary["overall"]["hit@1"] == pytest.approx(2 / 3)
+    assert summary["overall"]["n"] == 3 and summary["overall"]["strict"]["hit@1"] == pytest.approx(2 / 3)
     tune, heldout = summary["by_split"]["tune"], summary["by_split"]["heldout"]
-    assert tune["overall"] == {**tune["overall"], "n": 2, "hit@1": 1.0}
-    assert heldout["overall"]["n"] == 1 and heldout["overall"]["hit@1"] == 0.0
+    assert tune["overall"]["n"] == 2 and tune["overall"]["strict"]["hit@1"] == 1.0
+    assert heldout["overall"]["n"] == 1 and heldout["overall"]["strict"]["hit@1"] == 0.0
     assert set(heldout["by_type"]) == {"behavior"}  # negatives never get a type row
 
 
@@ -417,7 +421,7 @@ def test_run_eval_reports_heldout_split(tmp_path: Path) -> None:
     questions = [QUESTIONS[0], {**QUESTIONS[1], "split": "heldout"}, QUESTIONS[2]]
     repo, qpath, corpora = write_eval(tmp_path, questions)
     results = run_eval(qpath, corpora, lambda n: HashEmbedder(name=n), model_name="m", repo_root=repo)
-    assert results["schema"] == 2
+    assert results["schema"] == 3
     assert [x["split"] for x in results["questions"]] == ["tune", "heldout", "tune"]
     by_split = results["summary"]["fused"]["by_split"]
     assert by_split["tune"]["overall"]["n"] == 1 and by_split["heldout"]["overall"]["n"] == 1
@@ -467,3 +471,90 @@ def test_cli_split_option(tmp_path: Path) -> None:
     assert "== split: heldout (1 scored" in result.output and "== split: tune" not in result.output
     bad = CliRunner().invoke(app, ["eval", str(qpath), "--split", "test"])
     assert bad.exit_code == 2
+
+
+# ---------------------------------------------------------------------------
+# Containment
+# ---------------------------------------------------------------------------
+
+
+def _chunks_by_id(code: str, path: str = "m.py") -> dict[str, object]:
+    from chatter.extract import extract_source
+    from chatter.index import assign_chunk_ids
+
+    chunks = extract_source(textwrap.dedent(code), path)
+    return dict(zip(assign_chunk_ids(chunks), chunks))
+
+
+CONTAINMENT_CODE = """
+    import os
+    X = 1
+
+    class Outer:
+        def method(self):
+            def nested():
+                return 1
+            return nested
+
+    def other():
+        pass
+"""
+
+
+def test_containment_matches_enclosing_chunks_only() -> None:
+    chunks = _chunks_by_id(CONTAINMENT_CODE)
+    contains = containment(chunks.get)  # type: ignore[arg-type]
+    assert contains("m.py::Outer", "m.py::Outer.method.nested")
+    assert contains("m.py::Outer.method", "m.py::Outer.method.nested")
+    assert contains("m.py::Outer.method", "m.py::Outer.method")  # identity
+    assert not contains("m.py::Outer.method.nested", "m.py::Outer.method")  # child of relevant
+    assert not contains("m.py::other", "m.py::Outer.method")
+    assert not contains("m.py::<module>", "m.py::Outer")  # module chunk excludes definitions
+    assert not contains("m.py::missing", "m.py::Outer")
+
+
+def test_containment_requires_same_file() -> None:
+    chunks = {**_chunks_by_id(CONTAINMENT_CODE, "a.py"), **_chunks_by_id(CONTAINMENT_CODE, "b.py")}
+    contains = containment(chunks.get)  # type: ignore[arg-type]
+    assert contains("a.py::Outer", "a.py::Outer.method")
+    assert not contains("a.py::Outer", "b.py::Outer.method")
+
+
+def test_score_ranking_reports_strict_and_containment() -> None:
+    chunks = _chunks_by_id(CONTAINMENT_CODE)
+    contains = containment(chunks.get)  # type: ignore[arg-type]
+    ranked = ["m.py::other", "m.py::Outer", "m.py::Outer.method.nested"]
+    s = score_ranking(ranked, ["m.py::Outer.method.nested", "m.py::other_missing"], contains)
+    assert (s.strict.first_rank, s.contain.first_rank) == (3, 2)
+    assert s.contain.rr == pytest.approx(1 / 2) and s.strict.rr == pytest.approx(1 / 3)
+    assert s.strict.recall10 == s.contain.recall10 == 0.5
+
+
+def test_run_eval_containment_counts_parent_class(tmp_path: Path) -> None:
+    files = {
+        "lib/policy.py": """
+            class RetryPolicy:
+                \"\"\"Retry with exponential backoff.\"\"\"
+                def backoff_delay(self, attempt):
+                    return 2 ** attempt
+        """,
+    }
+    repo = make_git_corpus(tmp_path, files)
+    eval_dir = repo / "eval"
+    eval_dir.mkdir()
+    (eval_dir / "questions.yaml").write_text(yaml.safe_dump([
+        {"id": "p1", "corpus": "mini", "type": "behavior", "question": "RetryPolicy exponential backoff",
+         "relevant": ["lib/policy.py::RetryPolicy.backoff_delay"]},
+    ]))
+    (eval_dir / "corpora.yaml").write_text(yaml.safe_dump(
+        {"mini": {"path": ".corpora/mini", "source": {"kind": "git_archive", "ref": "v1"}}}
+    ))
+    results = run_eval(
+        eval_dir / "questions.yaml", eval_dir / "corpora.yaml", lambda n: HashEmbedder(name=n),
+        model_name="m", repo_root=repo,
+    )
+    bm25 = results["questions"][0]["modes"]["bm25"]
+    assert bm25["top10"][0] == "lib/policy.py::RetryPolicy"
+    assert bm25["strict"]["first_rank"] == 2 and bm25["contain"]["first_rank"] == 1
+    report = format_report(results)
+    assert "(cells: strict/containment)" in report and "2/1" in report

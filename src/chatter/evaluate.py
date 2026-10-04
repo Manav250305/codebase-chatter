@@ -12,6 +12,11 @@ Metrics (per question, per mode; ``first`` = best rank of any relevant chunk):
     recall@10  |relevant within top 10| / |relevant|
     test@5     top-5 slots taken by test chunks (tests/, test_*.py, conftest.py)
 
+Each metric is computed twice. Strict: a retrieved chunk matches a relevant
+chunk only if the ids are equal. Containment: it also matches if it is in the
+same file and its lines include all of the relevant chunk's lines (a class
+containing a relevant method, a function containing a relevant nested one).
+
 Negative questions (``type: negative``) are excluded from every aggregate;
 their top results are still recorded. Every ``relevant`` id must exist in its
 corpus's index, otherwise evaluation fails before scoring anything.
@@ -25,6 +30,7 @@ the JSON for comparison with earlier runs. Tune on ``tune`` only; look at
 from __future__ import annotations
 
 import dataclasses
+import functools
 import hashlib
 import io
 import json
@@ -42,6 +48,7 @@ from typing import Any
 import yaml
 
 from chatter.embed import Embedder
+from chatter.extract import Chunk
 from chatter.index import (
     CHUNKS_FILE,
     IndexStorageError,
@@ -51,7 +58,7 @@ from chatter.index import (
 )
 from chatter.retrieve import MODES, Retriever
 
-RESULTS_SCHEMA = 2  # 2: per-question "split" and summary[mode]["by_split"]
+RESULTS_SCHEMA = 3  # 2: splits; 3: strict and containment metrics
 DEPTH = 50  # MRR cutoff and ranking depth recorded per question
 QUESTION_TYPES = ("exact_name", "behavior", "location", "flow", "negative")
 NEGATIVE = "negative"
@@ -86,13 +93,22 @@ class CorpusSpec:
     source: Mapping[str, Any]
 
 
+Contains = Callable[[str, str], bool]  # (retrieved id, relevant id) -> match
+
+
 @dataclass(frozen=True, slots=True)
-class Scores:
+class Metrics:
     first_rank: int | None
     hit1: bool
     hit5: bool
     rr: float
     recall10: float
+
+
+@dataclass(frozen=True, slots=True)
+class Scores:
+    strict: Metrics
+    contain: Metrics
     test_slots5: int
     top: tuple[str, ...]  # ranked chunk ids, up to DEPTH
 
@@ -272,36 +288,81 @@ def is_test_chunk(chunk_id: str) -> bool:
     )
 
 
-def score_ranking(ranked: Sequence[str], relevant: Sequence[str]) -> Scores:
+def exact_match(retrieved: str, relevant: str) -> bool:
+    return retrieved == relevant
+
+
+def containment(lookup: Callable[[str], Chunk | None]) -> Contains:
+    """Match when ``retrieved`` covers every line of ``relevant`` in the same file."""
+
+    @functools.cache
+    def lines(chunk_id: str) -> tuple[str, frozenset[int]] | None:
+        chunk = lookup(chunk_id)
+        return None if chunk is None else (chunk.path, frozenset(chunk.line_numbers()))
+
+    def contains(retrieved: str, relevant: str) -> bool:
+        if retrieved == relevant:
+            return True
+        outer, inner = lines(retrieved), lines(relevant)
+        return (
+            outer is not None
+            and inner is not None
+            and outer[0] == inner[0]
+            and inner[1] <= outer[1]
+        )
+
+    return contains
+
+
+def score_ranking(
+    ranked: Sequence[str], relevant: Sequence[str], contains: Contains | None = None
+) -> Scores:
     top = tuple(ranked[:DEPTH])
-    wanted = set(relevant)
-    ranks = [i for i, cid in enumerate(top, 1) if cid in wanted]
-    first = ranks[0] if ranks else None
     return Scores(
-        first_rank=first,
-        hit1=first == 1,
-        hit5=first is not None and first <= 5,
-        rr=1.0 / first if first is not None else 0.0,
-        recall10=(len(wanted.intersection(top[:10])) / len(wanted)) if wanted else 0.0,
+        strict=_metrics(top, relevant, exact_match),
+        contain=_metrics(top, relevant, contains or exact_match),
         test_slots5=sum(is_test_chunk(cid) for cid in top[:5]),
         top=top,
     )
 
 
+def _metrics(top: Sequence[str], relevant: Sequence[str], match: Contains) -> Metrics:
+    wanted = list(dict.fromkeys(relevant))
+    first = next(
+        (i for i, cid in enumerate(top, 1) if any(match(cid, rel) for rel in wanted)), None
+    )
+    found = sum(1 for rel in wanted if any(match(cid, rel) for cid in top[:10]))
+    return Metrics(
+        first_rank=first,
+        hit1=first == 1,
+        hit5=first is not None and first <= 5,
+        rr=1.0 / first if first is not None else 0.0,
+        recall10=found / len(wanted) if wanted else 0.0,
+    )
+
+
 def aggregate(rows: Sequence[tuple[Question, Scores]]) -> dict[str, Any]:
-    """Mean metrics over scored (non-negative) questions."""
-    scored = [(q, s) for q, s in rows if q.scored]
+    """Mean strict and containment metrics over scored (non-negative) questions."""
+    scored = [s for q, s in rows if q.scored]
     n = len(scored)
     if n == 0:
         return {"n": 0}
     return {
         "n": n,
-        "hit@1": sum(s.hit1 for _, s in scored) / n,
-        "hit@5": sum(s.hit5 for _, s in scored) / n,
-        "mrr@50": sum(s.rr for _, s in scored) / n,
-        "recall@10": sum(s.recall10 for _, s in scored) / n,
-        "test_slots@5": sum(s.test_slots5 for _, s in scored),
-        "slots@5": sum(min(5, len(s.top)) for _, s in scored),
+        "strict": _mean_metrics([s.strict for s in scored]),
+        "contain": _mean_metrics([s.contain for s in scored]),
+        "test_slots@5": sum(s.test_slots5 for s in scored),
+        "slots@5": sum(min(5, len(s.top)) for s in scored),
+    }
+
+
+def _mean_metrics(metrics: Sequence[Metrics]) -> dict[str, float]:
+    n = len(metrics)
+    return {
+        "hit@1": sum(m.hit1 for m in metrics) / n,
+        "hit@5": sum(m.hit5 for m in metrics) / n,
+        "mrr@50": sum(m.rr for m in metrics) / n,
+        "recall@10": sum(m.recall10 for m in metrics) / n,
     }
 
 
@@ -380,12 +441,14 @@ def run_eval(
 
     validate_relevant(questions, corpus_ids)
 
+    matchers = {name: containment(retriever.chunk) for name, retriever in retrievers.items()}
     per_mode: dict[str, list[tuple[Question, Scores]]] = {mode: [] for mode in MODES}
     for question in questions:
         for mode in MODES:
             hits = retrievers[question.corpus].search(question.question, k=DEPTH, mode=mode)
+            ranked = [h.chunk_id for h in hits]
             per_mode[mode].append(
-                (question, score_ranking([h.chunk_id for h in hits], question.relevant))
+                (question, score_ranking(ranked, question.relevant, matchers[question.corpus]))
             )
 
     return {
@@ -409,7 +472,9 @@ def run_eval(
                 "relevant": list(q.relevant),
                 "modes": {
                     mode: {
-                        **{k: v for k, v in dataclasses.asdict(scores).items() if k != "top"},
+                        "strict": dataclasses.asdict(scores.strict),
+                        "contain": dataclasses.asdict(scores.contain),
+                        "test_slots5": scores.test_slots5,
                         "top10": list(scores.top[:10]),
                     }
                     for mode, scores in ((m, per_mode[m][i][1]) for m in MODES)
@@ -476,33 +541,42 @@ def format_report(results: Mapping[str, Any]) -> str:
             lines.append("   (no scored questions)")
             continue
         lines.append(
-            f"{'mode':<6} {'type':<11} {'n':>3} {'hit@1':>6} {'hit@5':>6} {'MRR@50':>7} "
-            f"{'R@10':>6} {'test@5':>8}"
+            f"{'mode':<6} {'type':<11} {'n':>3} {'hit@1':>11} {'hit@5':>11} {'MRR@50':>11} "
+            f"{'R@10':>11} {'test@5':>8}   (cells: strict/containment)"
         )
         for mode in results["settings"]["modes"]:
             summary = results["summary"][mode]["by_split"][split]
             groups = [("overall", summary["overall"]), *summary["by_type"].items()]
             for label, agg in groups:
                 if agg.get("n"):
+                    pair = lambda key: f"{agg['strict'][key]:.3f}/{agg['contain'][key]:.3f}"  # noqa: E731
                     lines.append(
-                        f"{mode:<6} {label:<11} {agg['n']:>3} {agg['hit@1']:>6.3f} "
-                        f"{agg['hit@5']:>6.3f} {agg['mrr@50']:>7.3f} {agg['recall@10']:>6.3f} "
+                        f"{mode:<6} {label:<11} {agg['n']:>3} {pair('hit@1'):>11} "
+                        f"{pair('hit@5'):>11} {pair('mrr@50'):>11} {pair('recall@10'):>11} "
                         f"{agg['test_slots@5']:>3}/{agg['slots@5']:<4}"
                     )
             lines.append("")
 
     lines.append(
-        f"{'id':<4} {'split':<7} {'type':<10} {'corpus':<7} {'bm25':>5} {'dense':>5} {'fused':>5} "
-        f"{'R@10':>5} {'test@5':>6}   (first relevant rank; '-' = not in top 50)"
+        f"{'id':<4} {'split':<7} {'type':<10} {'corpus':<7} {'bm25':>7} {'dense':>7} {'fused':>7} "
+        f"{'R@10':>9} {'test@5':>6}   (first relevant rank strict/containment; '-' = not in top 50)"
     )
     for q in results["questions"]:
-        ranks = [q["modes"][m]["first_rank"] for m in ("bm25", "dense", "fused")]
+        def rank(mode: str, q: Mapping[str, Any] = q) -> str:
+            if not q["scored"]:
+                return "n/a"
+            strict, contain = (q["modes"][mode][kind]["first_rank"] for kind in ("strict", "contain"))
+            return f"{strict or '-'}/{contain or '-'}"
+
         fused = q["modes"]["fused"]
-        recall = f"{fused['recall10']:.2f}" if q["scored"] else "n/a"
-        rank_text = [str(r) if r else ("-" if q["scored"] else "n/a") for r in ranks]
+        recall = (
+            f"{fused['strict']['recall10']:.2f}/{fused['contain']['recall10']:.2f}"
+            if q["scored"]
+            else "n/a"
+        )
         lines.append(
             f"{q['id']:<4} {q.get('split', DEFAULT_SPLIT):<7} {q['type']:<10} {q['corpus']:<7} "
-            f"{rank_text[0]:>5} {rank_text[1]:>5} {rank_text[2]:>5} {recall:>5} "
+            f"{rank('bm25'):>7} {rank('dense'):>7} {rank('fused'):>7} {recall:>9} "
             f"{fused['test_slots5']:>4}/5"
         )
     return "\n".join(lines)
