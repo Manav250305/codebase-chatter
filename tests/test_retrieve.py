@@ -232,35 +232,35 @@ from chatter.retrieve import ENGLISH_STOPWORDS, bm25_query_tokens  # noqa: E402
 
 
 def test_stopwords_removed_from_queries() -> None:
-    assert bm25_query_tokens("What stops the local model from repeating the same sentence?") == [
+    assert bm25_query_tokens("What stops the local model from repeating the same sentence?", stem=False) == [
         "stops", "local", "model", "repeating", "sentence",
     ]
-    assert bm25_query_tokens("When an asyncio program's main coroutine finishes") == [
+    assert bm25_query_tokens("When an asyncio program's main coroutine finishes", stem=False) == [
         "asyncio", "program", "main", "coroutine", "finishes",
     ]
-    assert bm25_query_tokens("how is it done and why") == ["done"]
-    assert bm25_query_tokens("what is this") == []
+    assert bm25_query_tokens("how is it done and why", stem=False) == ["done"]
+    assert bm25_query_tokens("what is this", stem=False) == []
 
 
 def test_backticked_words_are_never_dropped() -> None:
-    assert bm25_query_tokens("what does `from` do in `for x in y`") == [
+    assert bm25_query_tokens("what does `from` do in `for x in y`", stem=False) == [
         "from", "for", "x", "in", "y",
     ]
-    assert bm25_query_tokens("unclosed `the backtick") == ["unclosed", "backtick"]
+    assert bm25_query_tokens("unclosed `the backtick", stem=False) == ["unclosed", "backtick"]
 
 
 def test_identifier_like_words_are_never_dropped() -> None:
-    assert bm25_query_tokens("where is_set and doesNot and IsDone used") == [
+    assert bm25_query_tokens("where is_set and doesNot and IsDone used", stem=False) == [
         "is_set", "is", "set", "doesnot", "does", "not", "isdone", "is", "done", "used",
     ]
     # A capital only in first position is ordinary sentence case, not an identifier.
-    assert bm25_query_tokens("The What") == []
+    assert bm25_query_tokens("The What", stem=False) == []
 
 
 def test_symbol_names_are_never_dropped() -> None:
     names = frozenset({"once", "close"})
-    assert bm25_query_tokens("run it once then close", names) == ["run", "once", "close"]
-    assert bm25_query_tokens("run it once then close") == ["run", "close"]
+    assert bm25_query_tokens("run it once then close", names, stem=False) == ["run", "once", "close"]
+    assert bm25_query_tokens("run it once then close", stem=False) == ["run", "close"]
 
 
 def test_stopword_list_is_lowercase_without_apostrophes() -> None:
@@ -283,3 +283,67 @@ def test_retriever_applies_query_stopwords_to_bm25_only(
     assert [h.chunk_id for h in hits] == ["cache.py::evict"]
     assert retriever.search("what is the", k=5, mode="dense")  # dense sees the full query
     assert retriever.search("`helper`", k=5, mode="bm25")[0].chunk_id == "prose.py::helper"
+
+
+# ---------------------------------------------------------------------------
+# Stemming
+# ---------------------------------------------------------------------------
+
+
+from chatter.index import stem_word  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("repeating", ["repeating", "repeat"]),
+        ("RepetitionGuard", ["repetitionguard", "repetition", "guard", "repetit"]),
+        ("max_retry_count", ["max_retry_count", "max", "retry", "count", "retri"]),
+        ("vectors tasks", ["vectors", "vector", "tasks", "task"]),
+        ("run utf8 b 42", ["run", "utf8", "b", "42"]),  # stems equal to the word are not repeated
+    ],
+)
+def test_tokenize_code_with_stems(text: str, expected: list[str]) -> None:
+    from chatter.index import tokenize_code
+
+    assert tokenize_code(text, stem=True) == expected
+
+
+def test_tokenize_code_is_unstemmed_by_default() -> None:
+    from chatter.index import tokenize_code
+
+    assert tokenize_code("repeating RepetitionGuard") == [
+        "repeating", "repetitionguard", "repetition", "guard",
+    ]
+
+
+def test_query_tokens_are_stemmed_like_documents() -> None:
+    assert bm25_query_tokens("What stops the local model from repeating?") == [
+        "stops", "stop", "local", "model", "repeating", "repeat",
+    ]
+    assert stem_word("cancelled") == "cancel" and stem_word("headers") == "header"
+
+
+def test_stemming_lets_inflected_queries_match(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
+    root = write_repo({"q.py": "def cancel_task(task):\n    task.cancel()\n", "o.py": "def other():\n    pass\n"})
+    retriever = open_retriever(root, embedder)
+    hits = retriever.search("which tasks get cancelled", k=5, mode="bm25")
+    assert [h.chunk_id for h in hits] == ["q.py::cancel_task"]
+
+
+def test_index_built_with_old_schema_requires_rebuild(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
+    import json as _json
+
+    from chatter.index import IndexMismatchError
+
+    root = write_repo({"a.py": "def f(): pass\n"})
+    build_index(root, embedder)
+    manifest_path = root / ".chatter" / "manifest.json"
+    manifest = _json.loads(manifest_path.read_text())
+    manifest_path.write_text(_json.dumps({**manifest, "schema": 1}))
+    with pytest.raises(IndexMismatchError, match="schema 1"):
+        Retriever.open(root / ".chatter", embedder)
+    with pytest.raises(IndexMismatchError, match="schema 1"):
+        build_index(root, embedder)
+    build_index(root, embedder, rebuild=True)
+    assert Retriever.open(root / ".chatter", embedder).search("f", k=1)

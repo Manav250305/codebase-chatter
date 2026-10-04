@@ -51,6 +51,7 @@ from chatter.embed import Embedder
 from chatter.extract import Chunk
 from chatter.index import (
     CHUNKS_FILE,
+    SCHEMA_VERSION,
     IndexStorageError,
     build_index,
     default_index_dir,
@@ -429,7 +430,9 @@ def run_eval(
         info = prepare_corpus(spec, repo_root=repo_root, stdlib_dir=stdlib_dir)
         index_dir = Path(index_root) / name if index_root else default_index_dir(spec.path)
         manifest = read_manifest(index_dir)
-        rebuild = manifest is not None and manifest.get("model") != embedder.name
+        rebuild = manifest is not None and (
+            manifest.get("model") != embedder.name or manifest.get("schema") != SCHEMA_VERSION
+        )
         try:
             stats = build_index(spec.path, embedder, index_dir=index_dir, rebuild=rebuild)
         except IndexStorageError as exc:

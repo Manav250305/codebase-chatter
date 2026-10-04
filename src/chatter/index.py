@@ -15,6 +15,7 @@ that are new or changed and deletes chunks that disappeared.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import hashlib
 import json
 import logging
@@ -29,6 +30,7 @@ from typing import Any
 
 import chromadb
 import pathspec
+import snowballstemmer
 from chromadb.api import ClientAPI
 from chromadb.api.models.Collection import Collection
 from chromadb.config import Settings
@@ -38,7 +40,7 @@ from chatter.extract import DEFAULT_MAX_BYTES, Chunk, extract_file
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 2: BM25 tokens include Snowball stems
 INDEX_DIRNAME = ".chatter"
 MANIFEST_FILE = "manifest.json"
 CHUNKS_FILE = "chunks.jsonl"
@@ -96,13 +98,19 @@ class EmbeddingPart:
 # ---------------------------------------------------------------------------
 
 
-def tokenize_code(text: str) -> list[str]:
+def tokenize_code(text: str, *, stem: bool = False) -> list[str]:
     """Lowercased identifiers plus their snake_case / camelCase parts.
 
     ``parseHTTPResponse`` -> ``parsehttpresponse parse http response``;
     ``max_retry_count`` -> ``max_retry_count max retry count``.
+    With ``stem``, Snowball stems of the parts are added after them when they
+    differ (``repeating`` -> ``repeating repeat``); unstemmed tokens are kept.
     """
-    return [token for word in identifier_words(text) for token in tokenize_identifier(word)]
+    return [
+        token
+        for word in identifier_words(text)
+        for token in tokenize_identifier(word, stem=stem)
+    ]
 
 
 def identifier_words(text: str) -> list[str]:
@@ -110,8 +118,12 @@ def identifier_words(text: str) -> list[str]:
     return _IDENTIFIER_RE.findall(text)
 
 
-def tokenize_identifier(word: str) -> list[str]:
-    """``word`` lowercased, then its snake_case/camelCase parts if it has several."""
+def tokenize_identifier(word: str, *, stem: bool = False) -> list[str]:
+    """``word`` lowercased, then its snake_case/camelCase parts if it has several.
+
+    With ``stem``, each part's Snowball stem follows when it differs; a word
+    with a single part is its own part.
+    """
     lower = word.lower()
     parts = [
         part.lower()
@@ -120,13 +132,26 @@ def tokenize_identifier(word: str) -> list[str]:
         for part in _CAMEL_BOUNDARY_RE.split(piece)
         if part
     ]
-    if len(parts) > 1 or (parts and parts[0] != lower):
-        return [lower, *parts]
-    return [lower]
+    split = len(parts) > 1 or (parts and parts[0] != lower)
+    tokens = [lower, *parts] if split else [lower]
+    if stem:
+        tokens += [s for part in (parts if split else [lower]) if (s := stem_word(part)) != part]
+    return tokens
+
+
+@functools.cache
+def _english_stemmer() -> Any:
+    return snowballstemmer.stemmer("english")
+
+
+@functools.lru_cache(maxsize=65_536)
+def stem_word(word: str) -> str:
+    """Snowball (Porter2) English stem; digits and short words pass through."""
+    return _english_stemmer().stemWord(word)
 
 
 def bm25_tokens(chunk: Chunk) -> list[str]:
-    return tokenize_code(f"{chunk.path} {chunk.qualname} {chunk.source}")
+    return tokenize_code(f"{chunk.path} {chunk.qualname} {chunk.source}", stem=True)
 
 
 # ---------------------------------------------------------------------------

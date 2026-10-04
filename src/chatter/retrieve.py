@@ -71,25 +71,28 @@ ENGLISH_STOPWORDS = frozenset(
 _BACKTICK_RE = re.compile(r"`([^`]*)`")
 
 
-def bm25_query_tokens(query: str, symbol_names: frozenset[str] = frozenset()) -> list[str]:
+def bm25_query_tokens(
+    query: str, symbol_names: frozenset[str] = frozenset(), *, stem: bool = True
+) -> list[str]:
     """BM25 tokens for a natural-language query, with English stopwords removed.
 
     A word is never dropped if it is inside backticks, looks like an
     identifier (contains ``_`` or a capital after its first letter, as in
     camelCase/PascalCase), or equals an indexed symbol name (case-insensitive).
-    Documents are tokenized without stopword removal.
+    Documents are tokenized without stopword removal. ``stem`` adds Snowball
+    stems as for document tokens (see ``tokenize_identifier``).
     """
     tokens: list[str] = []
     position = 0
     for match in _BACKTICK_RE.finditer(query):
-        tokens += _filtered_tokens(query[position : match.start()], symbol_names)
-        tokens += tokenize_code(match.group(1))
+        tokens += _filtered_tokens(query[position : match.start()], symbol_names, stem)
+        tokens += tokenize_code(match.group(1), stem=stem)
         position = match.end()
-    tokens += _filtered_tokens(query[position:], symbol_names)
+    tokens += _filtered_tokens(query[position:], symbol_names, stem)
     return tokens
 
 
-def _filtered_tokens(text: str, symbol_names: frozenset[str]) -> list[str]:
+def _filtered_tokens(text: str, symbol_names: frozenset[str], stem: bool) -> list[str]:
     tokens: list[str] = []
     for word in identifier_words(text):
         lower = word.lower()
@@ -97,7 +100,7 @@ def _filtered_tokens(text: str, symbol_names: frozenset[str]) -> list[str]:
             _looks_like_identifier(word) or lower in symbol_names
         ):
             continue
-        tokens += tokenize_identifier(word)
+        tokens += tokenize_identifier(word, stem=stem)
     return tokens
 
 
