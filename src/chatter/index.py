@@ -102,21 +102,27 @@ def tokenize_code(text: str) -> list[str]:
     ``parseHTTPResponse`` -> ``parsehttpresponse parse http response``;
     ``max_retry_count`` -> ``max_retry_count max retry count``.
     """
-    tokens: list[str] = []
-    for match in _IDENTIFIER_RE.finditer(text):
-        word = match.group()
-        lower = word.lower()
-        tokens.append(lower)
-        parts = [
-            part.lower()
-            for piece in word.split("_")
-            if piece
-            for part in _CAMEL_BOUNDARY_RE.split(piece)
-            if part
-        ]
-        if len(parts) > 1 or (parts and parts[0] != lower):
-            tokens.extend(parts)
-    return tokens
+    return [token for word in identifier_words(text) for token in tokenize_identifier(word)]
+
+
+def identifier_words(text: str) -> list[str]:
+    """Identifier-like words (and digit runs) in ``text``, case preserved."""
+    return _IDENTIFIER_RE.findall(text)
+
+
+def tokenize_identifier(word: str) -> list[str]:
+    """``word`` lowercased, then its snake_case/camelCase parts if it has several."""
+    lower = word.lower()
+    parts = [
+        part.lower()
+        for piece in word.split("_")
+        if piece
+        for part in _CAMEL_BOUNDARY_RE.split(piece)
+        if part
+    ]
+    if len(parts) > 1 or (parts and parts[0] != lower):
+        return [lower, *parts]
+    return [lower]
 
 
 def bm25_tokens(chunk: Chunk) -> list[str]:

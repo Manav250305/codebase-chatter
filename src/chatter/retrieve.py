@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -25,9 +26,11 @@ from chatter.index import (
     CHUNKS_FILE,
     check_manifest,
     chunk_from_dict,
+    identifier_words,
     open_collection,
     read_manifest,
     tokenize_code,
+    tokenize_identifier,
 )
 
 RRF_K = 60
@@ -47,6 +50,60 @@ class Hit:
     ranks: dict[str, int]  # 1-based rank per retriever
     raw_scores: dict[str, float]  # BM25 score / cosine similarity per retriever
     lines: tuple[int, int]  # best citation range (the matching part for split chunks)
+
+
+# NLTK's English stopword list (forms with apostrophes omitted: the tokenizer
+# never produces them; "don't" becomes "don" + "t", both listed).
+ENGLISH_STOPWORDS = frozenset(
+    """
+    i me my myself we our ours ourselves you your yours yourself yourselves he him
+    his himself she her hers herself it its itself they them their theirs
+    themselves what which who whom this that these those am is are was were be
+    been being have has had having do does did doing a an the and but if or
+    because as until while of at by for with about against between into through
+    during before after above below to from up down in out on off over under
+    again further then once here there when where why how all any both each few
+    more most other some such no nor not only own same so than too very s t can
+    will just don should now d ll m o re ve y ain aren couldn didn doesn hadn
+    hasn haven isn ma mightn mustn needn shan shouldn wasn weren won wouldn
+    """.split()
+)
+_BACKTICK_RE = re.compile(r"`([^`]*)`")
+
+
+def bm25_query_tokens(query: str, symbol_names: frozenset[str] = frozenset()) -> list[str]:
+    """BM25 tokens for a natural-language query, with English stopwords removed.
+
+    A word is never dropped if it is inside backticks, looks like an
+    identifier (contains ``_`` or a capital after its first letter, as in
+    camelCase/PascalCase), or equals an indexed symbol name (case-insensitive).
+    Documents are tokenized without stopword removal.
+    """
+    tokens: list[str] = []
+    position = 0
+    for match in _BACKTICK_RE.finditer(query):
+        tokens += _filtered_tokens(query[position : match.start()], symbol_names)
+        tokens += tokenize_code(match.group(1))
+        position = match.end()
+    tokens += _filtered_tokens(query[position:], symbol_names)
+    return tokens
+
+
+def _filtered_tokens(text: str, symbol_names: frozenset[str]) -> list[str]:
+    tokens: list[str] = []
+    for word in identifier_words(text):
+        lower = word.lower()
+        if lower in ENGLISH_STOPWORDS and not (
+            _looks_like_identifier(word) or lower in symbol_names
+        ):
+            continue
+        tokens += tokenize_identifier(word)
+    return tokens
+
+
+def _looks_like_identifier(word: str) -> bool:
+    inner_capital = any(c.isupper() for c in word[1:])
+    return "_" in word or (inner_capital and any(c.islower() for c in word))
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +180,9 @@ class Retriever:
         embedder: Embedder,
     ) -> None:
         self._chunks = dict(chunks)
+        self._symbol_names = frozenset(
+            c.name.lower() for c in self._chunks.values() if c.kind != "module"
+        )
         self._bm25 = bm25
         self._collection = collection
         self._embedder = embedder
@@ -173,7 +233,11 @@ class Retriever:
             return []
         n = candidates if candidates is not None else max(4 * k, 50)
 
-        bm25_hits = self._bm25.search(tokenize_code(query), n) if mode != DENSE else []
+        bm25_hits = (
+            self._bm25.search(bm25_query_tokens(query, self._symbol_names), n)
+            if mode != DENSE
+            else []
+        )
         dense_hits = self._dense_search(query, n) if mode != BM25 else []
         fused = reciprocal_rank_fusion(
             {BM25: [cid for cid, _ in bm25_hits], DENSE: [cid for cid, _, _ in dense_hits]}

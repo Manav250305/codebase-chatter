@@ -221,3 +221,65 @@ def test_single_mode_preserves_retriever_order(write_repo: WriteRepo, embedder: 
     retriever = open_retriever(write_repo(REPO), embedder)
     raw = retriever._bm25.search(["cache", "evict"], 50)
     assert [h.chunk_id for h in retriever.search("cache evict", k=50, mode="bm25")] == [c for c, _ in raw]
+
+
+# ---------------------------------------------------------------------------
+# BM25 query stopwords
+# ---------------------------------------------------------------------------
+
+
+from chatter.retrieve import ENGLISH_STOPWORDS, bm25_query_tokens  # noqa: E402
+
+
+def test_stopwords_removed_from_queries() -> None:
+    assert bm25_query_tokens("What stops the local model from repeating the same sentence?") == [
+        "stops", "local", "model", "repeating", "sentence",
+    ]
+    assert bm25_query_tokens("When an asyncio program's main coroutine finishes") == [
+        "asyncio", "program", "main", "coroutine", "finishes",
+    ]
+    assert bm25_query_tokens("how is it done and why") == ["done"]
+    assert bm25_query_tokens("what is this") == []
+
+
+def test_backticked_words_are_never_dropped() -> None:
+    assert bm25_query_tokens("what does `from` do in `for x in y`") == [
+        "from", "for", "x", "in", "y",
+    ]
+    assert bm25_query_tokens("unclosed `the backtick") == ["unclosed", "backtick"]
+
+
+def test_identifier_like_words_are_never_dropped() -> None:
+    assert bm25_query_tokens("where is_set and doesNot and IsDone used") == [
+        "is_set", "is", "set", "doesnot", "does", "not", "isdone", "is", "done", "used",
+    ]
+    # A capital only in first position is ordinary sentence case, not an identifier.
+    assert bm25_query_tokens("The What") == []
+
+
+def test_symbol_names_are_never_dropped() -> None:
+    names = frozenset({"once", "close"})
+    assert bm25_query_tokens("run it once then close", names) == ["run", "once", "close"]
+    assert bm25_query_tokens("run it once then close") == ["run", "close"]
+
+
+def test_stopword_list_is_lowercase_without_apostrophes() -> None:
+    assert len(ENGLISH_STOPWORDS) > 120
+    assert all(w == w.lower() and "'" not in w for w in ENGLISH_STOPWORDS)
+
+
+def test_retriever_applies_query_stopwords_to_bm25_only(
+    write_repo: WriteRepo, embedder: HashEmbedder
+) -> None:
+    root = write_repo(
+        {
+            "prose.py": '"""The of and to in is it that the of and to."""\n\ndef helper():\n    pass\n',
+            "cache.py": "def evict(cache):\n    cache.clear()\n",
+        }
+    )
+    retriever = open_retriever(root, embedder)
+    assert retriever.search("what is the", k=5, mode="bm25") == []
+    hits = retriever.search("how is the cache evicted", k=5, mode="bm25")
+    assert [h.chunk_id for h in hits] == ["cache.py::evict"]
+    assert retriever.search("what is the", k=5, mode="dense")  # dense sees the full query
+    assert retriever.search("`helper`", k=5, mode="bm25")[0].chunk_id == "prose.py::helper"
