@@ -7,6 +7,7 @@ Exit codes: 0 on success (including "no results" and an abstaining answer),
 from __future__ import annotations
 
 import json
+import subprocess
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -27,6 +28,7 @@ from chatter.answer import (
     format_line_ranges,
 )
 from chatter.embed import DEFAULT_MODEL, Embedder, EmbedderConfig, SentenceTransformerEmbedder
+from chatter.evaluate import EvalError, format_report, run_eval, save_results
 from chatter.index import (
     IndexConfig,
     IndexMismatchError,
@@ -186,7 +188,48 @@ def make_app(
                 err=True,
             )
 
+    @app.command("eval")
+    def evaluate(
+        questions: Annotated[Path, typer.Argument(help="Eval questions YAML.")],
+        corpora: Annotated[
+            Path | None, typer.Option(help="Corpus manifest. Default: corpora.yaml next to QUESTIONS.")
+        ] = None,
+        model: Annotated[str, typer.Option(help="Embedding model.")] = DEFAULT_MODEL,
+        results_dir: Annotated[
+            Path | None, typer.Option(help="Where to save results JSON. Default: results/ next to QUESTIONS.")
+        ] = None,
+        save: Annotated[bool, typer.Option(help="Save results JSON.")] = True,
+    ) -> None:
+        """Score retrieval (bm25, dense, fused) on an eval set: hit@1, hit@5, MRR@50, recall@10."""
+        if not questions.is_file():
+            _fail(f"No such file: {questions}")
+        corpora_path = corpora or questions.parent / "corpora.yaml"
+        if not corpora_path.is_file():
+            _fail(f"No corpus manifest at {corpora_path}; pass --corpora.")
+        try:
+            results = run_eval(
+                questions,
+                corpora_path,
+                lambda name: _load(lambda: embedder_factory(name), f"embedding model {name!r}"),
+                model_name=model,
+                repo_root=_repo_root(questions.parent),
+                log=lambda line: typer.echo(line, err=True),
+            )
+        except EvalError as exc:
+            _fail(f"Eval aborted: {exc}")
+        typer.echo(format_report(results))
+        if save:
+            path = save_results(results, results_dir or questions.parent / "results")
+            typer.echo(f"\nSaved {path}")
+
     return app
+
+
+def _repo_root(start: Path) -> Path:
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"], cwd=start, capture_output=True, text=True
+    )
+    return Path(result.stdout.strip()) if result.returncode == 0 else start.resolve()
 
 
 def _open_retriever(path: Path, embedder_factory: EmbedderFactory) -> Retriever:

@@ -20,3 +20,6 @@ venv/
 
 # Local index data
 .chatter/
+
+# Materialised eval corpora (rebuilt from eval/corpora.yaml)
+eval/.corpora/

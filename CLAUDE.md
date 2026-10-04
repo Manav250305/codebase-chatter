@@ -31,3 +31,10 @@ questions about functions/modules, with `file:line-range` citations.
 7. Agentic tool loop, git history, incremental indexing, MCP server
 8. Abstention: retrieval currently cannot say "not found"
 - Optional: MLX generator for Apple Silicon
+
+## Known issues (fix after the eval baseline)
+- Orphan comments are not in any chunk: a comment block above a def/class
+  that is separated from it by a blank line belongs to neither the module
+  chunk nor the definition, so it can never be retrieved. Example: the
+  tree-sitter Point workaround comment in src/chatter/extract.py, which is
+  the answer to eval question q17.

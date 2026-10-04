@@ -201,3 +201,23 @@ def test_search_reflects_reindex(write_repo: WriteRepo, embedder: HashEmbedder) 
     (root / "a.py").write_text("def new_name():\n    pass\n")
     hits = open_retriever(root, embedder).search("old_name new_name", k=5)
     assert [h.chunk_id for h in hits] == ["a.py::new_name"]
+
+
+def test_single_retriever_modes(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
+    retriever = open_retriever(write_repo(REPO), embedder)
+    queries_before = len(embedder.queries)
+    bm25 = retriever.search("evict cache", k=10, mode="bm25")
+    assert bm25 and all(h.sources == ("bm25",) for h in bm25)
+    assert len(embedder.queries) == queries_before  # bm25 mode never embeds the query
+    dense = retriever.search("evict cache", k=10, mode="dense")
+    assert dense and all(h.sources == ("dense",) for h in dense)
+    fused = retriever.search("evict cache", k=10)
+    assert [h.chunk_id for h in fused] == [h.chunk_id for h in retriever.search("evict cache", k=10, mode="fused")]
+    with pytest.raises(ValueError, match="unknown retrieval mode"):
+        retriever.search("x", mode="hybrid")  # type: ignore[arg-type]
+
+
+def test_single_mode_preserves_retriever_order(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
+    retriever = open_retriever(write_repo(REPO), embedder)
+    raw = retriever._bm25.search(["cache", "evict"], 50)
+    assert [h.chunk_id for h in retriever.search("cache evict", k=50, mode="bm25")] == [c for c, _ in raw]

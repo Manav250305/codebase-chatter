@@ -1,0 +1,254 @@
+# Codebase Chatter eval set, batch 1.
+#
+# corpus:   stdlib  -> Python 3.13 asyncio, email, http, json (the indexed subset)
+#           chatter -> the codebase-chatter repo itself
+# type:     exact_name | behavior | location | flow | negative
+# relevant: chunk IDs that count as a correct retrieval (any one = hit).
+#           stdlib IDs are UNVERIFIED and must be checked against chunks.jsonl.
+#           chatter IDs are empty; relevant_hint describes what should go there.
+# expect_abstain: true when the corpus does not contain the answer.
+
+# ---------- stdlib: exact names ----------
+
+- id: q01
+  corpus: stdlib
+  type: exact_name
+  question: "What is JSONDecodeError and what extra information does it carry about where parsing failed?"
+  relevant:
+    - "json/decoder.py::JSONDecodeError"
+  expect_abstain: false
+  notes: "Known baseline weakness: the defining class ranked 5th-6th for the bare name."
+
+- id: q02
+  corpus: stdlib
+  type: exact_name
+  question: "What does make_msgid produce and how does it make the value unique?"
+  relevant:
+    - "email/utils.py::make_msgid"
+  expect_abstain: false
+  notes: "Easy control question; should be a top-1 hit."
+
+# ---------- stdlib: behavior ----------
+
+- id: q03
+  corpus: stdlib
+  type: behavior
+  question: "When an asyncio program's main coroutine finishes, what happens to background tasks that are still running?"
+  relevant:
+    - "asyncio/runners.py::_cancel_all_tasks"
+    - "asyncio/runners.py::Runner.close"
+  expect_abstain: false
+  notes: "Rephrased from the query already tried by hand, avoiding the words cancel/pending/shutdown."
+
+- id: q04
+  corpus: stdlib
+  type: behavior
+  question: "What does the JSON encoder do if I try to serialize infinity or not-a-number?"
+  relevant:
+    - "json/encoder.py::JSONEncoder.iterencode.floatstr"
+    - "json/encoder.py::JSONEncoder.iterencode"
+  expect_abstain: false
+  notes: "Answer lives in a nested function; tests whether nested chunks are retrievable."
+
+- id: q05
+  corpus: stdlib
+  type: behavior
+  question: "How does the HTTP client read a response body when the server doesn't say how long it is and sends it in pieces?"
+  relevant:
+    - "http/client.py::HTTPResponse._read_chunked"
+    - "http/client.py::HTTPResponse._read_next_chunk_size"
+    - "http/client.py::HTTPResponse._get_chunk_left"
+  expect_abstain: false
+  notes: "Deliberately avoids the word 'chunked'; dense retrieval should carry this."
+
+- id: q06
+  corpus: stdlib
+  type: behavior
+  question: "Given an email message, how do I loop over just the attached files and skip the main body text?"
+  relevant:
+    - "email/message.py::MIMEPart.iter_attachments"
+  expect_abstain: false
+  notes: ""
+
+- id: q07
+  corpus: stdlib
+  type: behavior
+  question: "A subject line looks like =?utf-8?b?SGVsbG8=?= . How do I turn that into readable text?"
+  relevant:
+    - "email/header.py::decode_header"
+  expect_abstain: false
+  notes: "Query is mostly symbols; BM25 tokenization of =?utf-8?b? is worth inspecting."
+
+- id: q08
+  corpus: stdlib
+  type: behavior
+  question: "How can I put a deadline on a block of async code so it gets stopped if it takes too long?"
+  relevant:
+    - "asyncio/timeouts.py::timeout"
+    - "asyncio/timeouts.py::Timeout"
+    - "asyncio/tasks.py::wait_for"
+  expect_abstain: false
+  notes: "Avoids the word 'timeout'."
+
+- id: q09
+  corpus: stdlib
+  type: behavior
+  question: "What happens to code that is waiting to take an item from an asyncio queue when the queue gets closed down?"
+  relevant:
+    - "asyncio/queues.py::Queue.shutdown"
+    - "asyncio/queues.py::QueueShutDown"
+    - "asyncio/queues.py::Queue.get"
+  expect_abstain: false
+  notes: "Queue.shutdown is new in 3.13; verify the indexed stdlib is 3.13."
+
+# ---------- stdlib: location ----------
+
+- id: q10
+  corpus: stdlib
+  type: location
+  question: "Where does the simple file-serving HTTP server stop a request like /../../etc/passwd from escaping the served folder?"
+  relevant:
+    - "http/server.py::SimpleHTTPRequestHandler.translate_path"
+  expect_abstain: false
+  notes: ""
+
+- id: q11
+  corpus: stdlib
+  type: location
+  question: "Where does json notice that an object contains itself and refuse to encode it?"
+  relevant:
+    - "json/encoder.py::_make_iterencode._iterencode_list"
+    - "json/encoder.py::_make_iterencode._iterencode_dict"
+    - "json/encoder.py::_make_iterencode._iterencode"
+  expect_abstain: false
+  notes: "Three nested functions share the same check; any one counts."
+
+- id: q12
+  corpus: stdlib
+  type: location
+  question: "Where does the HTTP client handle connecting to an HTTPS site through a proxy?"
+  relevant:
+    - "http/client.py::HTTPConnection.set_tunnel"
+    - "http/client.py::HTTPConnection._tunnel"
+  expect_abstain: false
+  notes: ""
+
+# ---------- stdlib: flow ----------
+
+- id: q13
+  corpus: stdlib
+  type: flow
+  question: "In an asyncio task group, if one task crashes, what happens to its sibling tasks and how does the error reach my code?"
+  relevant:
+    - "asyncio/taskgroups.py::TaskGroup._on_task_done"
+    - "asyncio/taskgroups.py::TaskGroup._abort"
+    - "asyncio/taskgroups.py::TaskGroup.__aexit__"
+    - "asyncio/taskgroups.py::TaskGroup._aexit"
+  expect_abstain: false
+  notes: "Spans several methods; expected to score poorly before the call graph (step 5). Verify _aexit exists in 3.13."
+
+- id: q14
+  corpus: stdlib
+  type: flow
+  question: "What are the steps between building an email message object and getting the raw bytes to send over SMTP?"
+  relevant:
+    - "email/message.py::Message.as_bytes"
+    - "email/generator.py::BytesGenerator"
+    - "email/generator.py::Generator.flatten"
+  expect_abstain: false
+  notes: "Cross-file flow; a step 5 motivator."
+
+# ---------- stdlib: negative ----------
+
+- id: q15
+  corpus: stdlib
+  type: negative
+  question: "How does asyncio retry failed HTTP requests with exponential backoff?"
+  relevant: []
+  expect_abstain: true
+  notes: "Not in the stdlib. Retrieval will still return hits; the answer should abstain."
+
+# ---------- chatter (fill relevant IDs, keep questions as written) ----------
+
+- id: q16
+  corpus: chatter
+  type: location
+  question: "How does the tool cope with a source file that has a syntax error halfway through?"
+  relevant:
+    - "src/chatter/extract.py::_extract_segmented"
+    - "src/chatter/extract.py::_split_segments"
+    - "src/chatter/extract.py::_recover_broken"
+  relevant_hint: "The broken-file fallback in extract.py: splitting at column-0 def/class/decorator lines and parsing segments."
+  expect_abstain: false
+  notes: ""
+
+- id: q17
+  corpus: chatter
+  type: location
+  question: "Why are line and column positions read by index rather than by attribute name?"
+  relevant:
+    - "src/chatter/extract.py::_start_row"
+    - "src/chatter/extract.py::_end_row"
+  relevant_hint: "Wherever the tree-sitter Point workaround is implemented or documented in extract.py."
+  expect_abstain: false
+  notes: "The 'why' may live in a comment or docstring; good test of comment retrieval."
+
+- id: q18
+  corpus: chatter
+  type: behavior
+  question: "What stops the local model from repeating the same sentence over and over?"
+  relevant:
+    - "src/chatter/answer.py::RepetitionGuard"
+    - "src/chatter/answer.py::RepetitionGuard.feed"
+    - "src/chatter/answer.py::RepetitionGuard._count_line"
+    - "src/chatter/answer.py::RepetitionGuard._phrase_loop"
+  relevant_hint: "The repetition-loop stop logic in answer.py."
+  expect_abstain: false
+  notes: ""
+
+- id: q19
+  corpus: chatter
+  type: behavior
+  question: "Why doesn't a word that appears in almost every function get a negative keyword score?"
+  relevant:
+    - "src/chatter/retrieve.py::PositiveIdfBM25"
+    - "src/chatter/retrieve.py::PositiveIdfBM25._calc_idf"
+  relevant_hint: "The BM25Okapi subclass using Lucene's idf."
+  expect_abstain: false
+  notes: ""
+
+- id: q20
+  corpus: chatter
+  type: behavior
+  question: "When I index the same folder again, how does it know which functions don't need new vectors?"
+  relevant:
+    - "src/chatter/index.py::build_index"
+    - "src/chatter/index.py::content_hash"
+    - "src/chatter/index.py::_stored_parts"
+  relevant_hint: "The content-hash comparison during re-indexing in index.py."
+  expect_abstain: false
+  notes: ""
+
+- id: q21
+  corpus: chatter
+  type: flow
+  question: "How does a Python file on disk end up as vectors in the store?"
+  relevant:
+    - "src/chatter/index.py::iter_source_files"
+    - "src/chatter/extract.py::extract_file"
+    - "src/chatter/index.py::embedding_text"
+    - "src/chatter/embed.py::SentenceTransformerEmbedder.embed_documents"
+    - "src/chatter/index.py::_PartWriter.flush"
+    - "src/chatter/index.py::build_index"
+    - "src/chatter/index.py::plan_parts"
+  relevant_hint: "File walking, extract_file, embedding-text construction, the embedder's document embedding, and the Chroma write in build_index."
+  expect_abstain: false
+  notes: "Multi-hop flow; step 5 motivator."
+
+- id: q22
+  corpus: chatter
+  type: negative
+  question: "How does chatter send questions to the Anthropic API?"
+  relevant: []
+  expect_abstain: true
+  notes: "The design switched to a local model; nothing calls the Anthropic API. Plausible-sounding trap question."

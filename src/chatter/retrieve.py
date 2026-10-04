@@ -13,6 +13,7 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 from chromadb.api.models.Collection import Collection
@@ -32,6 +33,9 @@ from chatter.index import (
 RRF_K = 60
 BM25 = "bm25"
 DENSE = "dense"
+FUSED = "fused"
+Mode = Literal["fused", "bm25", "dense"]
+MODES: tuple[Mode, ...] = ("bm25", "dense", "fused")
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,14 +156,22 @@ class Retriever:
     def __len__(self) -> int:
         return len(self._chunks)
 
-    def search(self, query: str, k: int = 10, *, candidates: int | None = None) -> list[Hit]:
-        """Top ``k`` chunks for ``query`` with fused scores and provenance."""
+    def search(
+        self, query: str, k: int = 10, *, candidates: int | None = None, mode: Mode = "fused"
+    ) -> list[Hit]:
+        """Top ``k`` chunks for ``query`` with fused scores and provenance.
+
+        ``mode`` restricts retrieval to one retriever ("bm25" or "dense"); its
+        ranking is then passed through RRF unchanged (scores are 1/(k + rank)).
+        """
+        if mode not in MODES:
+            raise ValueError(f"unknown retrieval mode {mode!r}; expected one of {MODES}")
         if k <= 0 or not query.strip() or not self._chunks:
             return []
         n = candidates if candidates is not None else max(4 * k, 50)
 
-        bm25_hits = self._bm25.search(tokenize_code(query), n)
-        dense_hits = self._dense_search(query, n)
+        bm25_hits = self._bm25.search(tokenize_code(query), n) if mode != DENSE else []
+        dense_hits = self._dense_search(query, n) if mode != BM25 else []
         fused = reciprocal_rank_fusion(
             {BM25: [cid for cid, _ in bm25_hits], DENSE: [cid for cid, _, _ in dense_hits]}
         )

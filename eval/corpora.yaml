@@ -1,0 +1,16 @@
+# How `chatter eval` materialises each corpus named in questions.yaml.
+# Paths are relative to this file. Materialised trees and their indexes live
+# under eval/.corpora/ (gitignored) and are rebuilt when the source changes.
+
+stdlib:
+  path: .corpora/stdlib
+  source:
+    kind: python_stdlib
+    python_version: "3.13"  # questions depend on 3.13 APIs (e.g. Queue.shutdown)
+    packages: [asyncio, email, http, json]
+
+chatter:
+  path: .corpora/chatter
+  source:
+    kind: git_archive
+    ref: eval-corpus-v1  # frozen snapshot of this repo; scored instead of the live tree
