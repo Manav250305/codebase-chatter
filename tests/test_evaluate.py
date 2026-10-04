@@ -293,7 +293,8 @@ def test_run_eval_end_to_end(tmp_path: Path) -> None:
     assert by_id["e2"]["modes"]["bm25"]["recall10"] == 0.5  # warm_cache has no query terms
 
     report = format_report(results)
-    assert "fused  overall" in report and "e3   negative" in report and "n/a" in report
+    assert "fused  overall" in report and "e3   tune    negative" in report and "n/a" in report
+    assert "== split: heldout (0 scored, 0 negative)" in report and "(no scored questions)" in report
 
     again = run_eval(questions, corpora, lambda n: HashEmbedder(name=n), model_name="fake-embed", repo_root=repo)
     assert again["summary"] == results["summary"]  # deterministic
@@ -373,3 +374,61 @@ def test_cli_eval_reports_unwritable_index_storage(tmp_path: Path) -> None:
         assert "SQLite cannot write" in result.output and "--index-root" in result.output
     finally:
         (locked / "mini").chmod(0o700)
+
+
+# ---------------------------------------------------------------------------
+# tune / heldout splits
+# ---------------------------------------------------------------------------
+
+
+def test_split_defaults_to_tune_and_rejects_unknown_values(tmp_path: Path) -> None:
+    path = tmp_path / "q.yaml"
+    base = {"corpus": "c", "type": "behavior", "question": "?", "relevant": ["x"]}
+    path.write_text(yaml.safe_dump([
+        {"id": "a", **base},
+        {"id": "b", **base, "split": "heldout"},
+        {"id": "c", **base, "split": "tune"},
+    ]))
+    assert [x.split for x in load_questions(path)] == ["tune", "heldout", "tune"]
+
+    path.write_text(yaml.safe_dump([{"id": "d", **base, "split": "held-out"}]))
+    with pytest.raises(EvalError, match="d: unknown split 'held-out'"):
+        load_questions(path)
+
+
+def test_summary_reports_splits_separately_and_combined() -> None:
+    hit = score_ranking(["a.py::f"], ["a.py::f"])
+    miss = score_ranking(["x"], ["a.py::f"])
+    rows = [
+        (Question("t1", "c", "behavior", "?", ("a.py::f",), False, "tune"), hit),
+        (Question("t2", "c", "flow", "?", ("a.py::f",), False, "tune"), hit),
+        (Question("h1", "c", "behavior", "?", ("a.py::f",), False, "heldout"), miss),
+        (Question("h2", "c", "negative", "?", (), True, "heldout"), miss),
+    ]
+    summary = summarize(rows)
+    assert summary["overall"]["n"] == 3 and summary["overall"]["hit@1"] == pytest.approx(2 / 3)
+    tune, heldout = summary["by_split"]["tune"], summary["by_split"]["heldout"]
+    assert tune["overall"] == {**tune["overall"], "n": 2, "hit@1": 1.0}
+    assert heldout["overall"]["n"] == 1 and heldout["overall"]["hit@1"] == 0.0
+    assert set(heldout["by_type"]) == {"behavior"}  # negatives never get a type row
+
+
+def test_run_eval_reports_heldout_split(tmp_path: Path) -> None:
+    questions = [QUESTIONS[0], {**QUESTIONS[1], "split": "heldout"}, QUESTIONS[2]]
+    repo, qpath, corpora = write_eval(tmp_path, questions)
+    results = run_eval(qpath, corpora, lambda n: HashEmbedder(name=n), model_name="m", repo_root=repo)
+    assert results["schema"] == 2
+    assert [x["split"] for x in results["questions"]] == ["tune", "heldout", "tune"]
+    by_split = results["summary"]["fused"]["by_split"]
+    assert by_split["tune"]["overall"]["n"] == 1 and by_split["heldout"]["overall"]["n"] == 1
+    report = format_report(results)
+    tune_section = report.split("== split: tune")[1].split("== split: heldout")[0]
+    heldout_section = report.split("== split: heldout")[1].split("id   split")[0]
+    assert "(1 scored, 1 negative)" in tune_section and "exact_name" in tune_section
+    assert "flow" not in tune_section
+    assert "(1 scored, 0 negative)" in heldout_section and "flow" in heldout_section
+
+
+def test_repository_questions_use_known_splits() -> None:
+    questions = load_questions(EVAL_DIR / "questions.yaml")
+    assert {x.split for x in questions} <= {"tune", "heldout"}

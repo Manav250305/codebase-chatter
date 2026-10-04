@@ -15,6 +15,11 @@ Metrics (per question, per mode; ``first`` = best rank of any relevant chunk):
 Negative questions (``type: negative``) are excluded from every aggregate;
 their top results are still recorded. Every ``relevant`` id must exist in its
 corpus's index, otherwise evaluation fails before scoring anything.
+
+Splits: each question has ``split: tune`` (the default when absent) or
+``split: heldout``. Aggregates are reported per split, and also combined in
+the JSON for comparison with earlier runs. Tune on ``tune`` only; look at
+``heldout`` to confirm, not to choose.
 """
 
 from __future__ import annotations
@@ -46,10 +51,12 @@ from chatter.index import (
 )
 from chatter.retrieve import MODES, Retriever
 
-RESULTS_SCHEMA = 1
+RESULTS_SCHEMA = 2  # 2: per-question "split" and summary[mode]["by_split"]
 DEPTH = 50  # MRR cutoff and ranking depth recorded per question
 QUESTION_TYPES = ("exact_name", "behavior", "location", "flow", "negative")
 NEGATIVE = "negative"
+SPLITS = ("tune", "heldout")
+DEFAULT_SPLIT = "tune"
 CORPUS_MARKER = ".corpus.json"
 
 
@@ -65,6 +72,7 @@ class Question:
     question: str
     relevant: tuple[str, ...]
     expect_abstain: bool
+    split: str = DEFAULT_SPLIT
 
     @property
     def scored(self) -> bool:
@@ -122,6 +130,9 @@ def load_questions(path: Path) -> list[Question]:
             problems.append(f"{qid}: negative questions must have no relevant ids")
         elif qtype != NEGATIVE and not relevant:
             problems.append(f"{qid}: no relevant ids")
+        split = str(item.get("split", DEFAULT_SPLIT))
+        if split not in SPLITS:
+            problems.append(f"{qid}: unknown split {split!r} (expected one of {', '.join(SPLITS)})")
         questions.append(
             Question(
                 id=qid,
@@ -130,6 +141,7 @@ def load_questions(path: Path) -> list[Question]:
                 question=str(item["question"]),
                 relevant=relevant,
                 expect_abstain=bool(item.get("expect_abstain", False)),
+                split=split,
             )
         )
     if problems:
@@ -294,6 +306,17 @@ def aggregate(rows: Sequence[tuple[Question, Scores]]) -> dict[str, Any]:
 
 
 def summarize(rows: Sequence[tuple[Question, Scores]]) -> dict[str, Any]:
+    """Overall and per-type aggregates, combined and for each split."""
+    return {
+        **_summarize_group(rows),
+        "by_split": {
+            split: _summarize_group([(q, s) for q, s in rows if q.split == split])
+            for split in SPLITS
+        },
+    }
+
+
+def _summarize_group(rows: Sequence[tuple[Question, Scores]]) -> dict[str, Any]:
     by_type = {
         qtype: aggregate([(q, s) for q, s in rows if q.type == qtype])
         for qtype in QUESTION_TYPES
@@ -374,6 +397,7 @@ def run_eval(
                 "id": q.id,
                 "corpus": q.corpus,
                 "type": q.type,
+                "split": q.split,
                 "scored": q.scored,
                 "relevant": list(q.relevant),
                 "modes": {
@@ -431,24 +455,32 @@ def format_report(results: Mapping[str, Any]) -> str:
             f"{name} ({info['chunks']} chunks, {info.get('ref') or 'py' + info.get('python_full_version', '?')})"
             for name, info in results["corpora"].items()
         ),
-        "",
-        f"{'mode':<6} {'type':<11} {'n':>3} {'hit@1':>6} {'hit@5':>6} {'MRR@50':>7} {'R@10':>6} {'test@5':>8}",
     ]
-    for mode in results["settings"]["modes"]:
-        summary = results["summary"][mode]
-        groups = [("overall", summary["overall"]), *summary["by_type"].items()]
-        for label, agg in groups:
-            if not agg.get("n"):
-                continue
-            lines.append(
-                f"{mode:<6} {label:<11} {agg['n']:>3} {agg['hit@1']:>6.3f} {agg['hit@5']:>6.3f} "
-                f"{agg['mrr@50']:>7.3f} {agg['recall@10']:>6.3f} "
-                f"{agg['test_slots@5']:>3}/{agg['slots@5']:<4}"
-            )
-        lines.append("")
+    for split in SPLITS:
+        counts = [q for q in results["questions"] if q.get("split", DEFAULT_SPLIT) == split]
+        scored = sum(q["scored"] for q in counts)
+        lines += ["", f"== split: {split} ({scored} scored, {len(counts) - scored} negative)"]
+        if not scored:
+            lines.append("   (no scored questions)")
+            continue
+        lines.append(
+            f"{'mode':<6} {'type':<11} {'n':>3} {'hit@1':>6} {'hit@5':>6} {'MRR@50':>7} "
+            f"{'R@10':>6} {'test@5':>8}"
+        )
+        for mode in results["settings"]["modes"]:
+            summary = results["summary"][mode]["by_split"][split]
+            groups = [("overall", summary["overall"]), *summary["by_type"].items()]
+            for label, agg in groups:
+                if agg.get("n"):
+                    lines.append(
+                        f"{mode:<6} {label:<11} {agg['n']:>3} {agg['hit@1']:>6.3f} "
+                        f"{agg['hit@5']:>6.3f} {agg['mrr@50']:>7.3f} {agg['recall@10']:>6.3f} "
+                        f"{agg['test_slots@5']:>3}/{agg['slots@5']:<4}"
+                    )
+            lines.append("")
 
     lines.append(
-        f"{'id':<4} {'type':<10} {'corpus':<7} {'bm25':>5} {'dense':>5} {'fused':>5} "
+        f"{'id':<4} {'split':<7} {'type':<10} {'corpus':<7} {'bm25':>5} {'dense':>5} {'fused':>5} "
         f"{'R@10':>5} {'test@5':>6}   (first relevant rank; '-' = not in top 50)"
     )
     for q in results["questions"]:
@@ -457,7 +489,8 @@ def format_report(results: Mapping[str, Any]) -> str:
         recall = f"{fused['recall10']:.2f}" if q["scored"] else "n/a"
         rank_text = [str(r) if r else ("-" if q["scored"] else "n/a") for r in ranks]
         lines.append(
-            f"{q['id']:<4} {q['type']:<10} {q['corpus']:<7} {rank_text[0]:>5} {rank_text[1]:>5} "
-            f"{rank_text[2]:>5} {recall:>5} {fused['test_slots5']:>4}/5"
+            f"{q['id']:<4} {q.get('split', DEFAULT_SPLIT):<7} {q['type']:<10} {q['corpus']:<7} "
+            f"{rank_text[0]:>5} {rank_text[1]:>5} {rank_text[2]:>5} {recall:>5} "
+            f"{fused['test_slots5']:>4}/5"
         )
     return "\n".join(lines)
