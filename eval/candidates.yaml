@@ -1,0 +1,26 @@
+# Retrieval configs frozen for held-out evaluation. Do not edit after the
+# first held-out run; add a new file for new candidates instead.
+#
+# Chosen on the tune split only (20 scored questions), from
+# eval/results/20261004T160306-6789697-tune.json and the earlier k x w grid in
+# eval/results/20261004T155330-292898d-tune.json. Strict MRR@50 on tune and
+# paired wins/losses/ties vs dense-only:
+#   dense-only  0.524           reference
+#   default     0.523  6/8/6    loses dense top-5 hits (q18 1->7, q20 1->3)
+#   k10-w3      0.574  5/5/10   wins near the top; losses only below dense rank 9
+#
+# Evaluate with:
+#   chatter eval eval/questions.yaml --split heldout --candidates eval/candidates.yaml
+
+- name: dense-only
+  mode: dense
+
+- name: default
+  mode: fused
+  rrf_k: 60
+  dense_weight: 1.0
+
+- name: k10-w3
+  mode: fused
+  rrf_k: 10
+  dense_weight: 3.0
