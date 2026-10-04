@@ -126,3 +126,9 @@ class FakeGenerator:
                 yield piece
         finally:
             self.closed = True
+
+
+@pytest.fixture(autouse=True)
+def _no_index_dir_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests must not pick up a CHATTER_INDEX_DIR from the developer's shell."""
+    monkeypatch.delenv("CHATTER_INDEX_DIR", raising=False)

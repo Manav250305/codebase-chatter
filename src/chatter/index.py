@@ -384,6 +384,7 @@ def build_index(
     manifest = read_manifest(out)
     if manifest is not None and not rebuild:
         check_manifest(manifest, embedder)
+        _check_same_repo(manifest, repo_path, out)
     if rebuild:
         _drop_collection(out)
     collection = open_collection(out, create=True)
@@ -422,6 +423,7 @@ def build_index(
         json.dumps(
             {
                 "schema": SCHEMA_VERSION,
+                "repo": str(repo_path),
                 "model": embedder.name,
                 "fingerprint": embedder.fingerprint,
                 "max_tokens": embedder.max_tokens,
@@ -437,6 +439,24 @@ def build_index(
         embedded_parts=writer.embedded,
         reused_chunks=reused,
         deleted_chunks=len(removed),
+    )
+
+
+def _check_same_repo(manifest: dict[str, Any], repo_path: Path, index_dir: Path) -> None:
+    """Refuse to reuse an external index dir for a different repo.
+
+    Re-indexing deletes chunks that are no longer present, so pointing two
+    repos at one directory would silently replace one index with the other.
+    An index inside its own repo may move with it, so that case is allowed.
+    """
+    recorded = manifest.get("repo")
+    if not recorded or Path(recorded) == repo_path:
+        return
+    if index_dir.resolve().is_relative_to(repo_path):
+        return
+    raise IndexMismatchError(
+        f"the index at {index_dir} belongs to {recorded}, not {repo_path}; "
+        "use a different index directory or rebuild it for this repo"
     )
 
 

@@ -42,6 +42,17 @@ from chatter.retrieve import Hit, Retriever
 EmbedderFactory = Callable[[str], Embedder]
 GeneratorFactory = Callable[[GeneratorConfig], Generator]
 
+INDEX_DIR_ENV = "CHATTER_INDEX_DIR"
+IndexDirOption = Annotated[
+    Path | None,
+    typer.Option(
+        "--index-dir",
+        envvar=INDEX_DIR_ENV,
+        show_envvar=True,
+        help="Index directory. Default: <repo>/.chatter.",
+    ),
+]
+
 
 def _default_embedder(model_name: str) -> Embedder:
     return SentenceTransformerEmbedder(EmbedderConfig(model_name=model_name))
@@ -71,11 +82,12 @@ def make_app(
         rebuild: Annotated[
             bool, typer.Option(help="Drop stored vectors and re-embed (needed to change model).")
         ] = False,
+        index_dir: IndexDirOption = None,
     ) -> None:
-        """Build or update the index for PATH (stored in PATH/.chatter)."""
+        """Build or update the index for PATH (stored in PATH/.chatter by default)."""
         if not path.is_dir():
             _fail(f"Not a directory: {path}")
-        index_dir = default_index_dir(path)
+        index_dir = index_dir or default_index_dir(path)
         manifest = read_manifest(index_dir)
         indexed_model = manifest.get("model") if manifest else None
         model_name = model or indexed_model or DEFAULT_MODEL
@@ -89,7 +101,11 @@ def make_app(
         started = time.perf_counter()
         try:
             stats = build_index(
-                path, embedder, config=IndexConfig(batch_size=batch_size), rebuild=rebuild
+                path,
+                embedder,
+                index_dir=index_dir,
+                config=IndexConfig(batch_size=batch_size),
+                rebuild=rebuild,
             )
         except IndexMismatchError as exc:
             _fail(f"{exc}\nRe-run with --rebuild.")
@@ -109,9 +125,10 @@ def make_app(
         k: Annotated[int, typer.Option("-k", "--top-k", min=1, help="Results to show.")] = 10,
         path: Annotated[Path, typer.Option(help="Repository root containing .chatter.")] = Path("."),
         as_json: Annotated[bool, typer.Option("--json", help="Print results as JSON.")] = False,
+        index_dir: IndexDirOption = None,
     ) -> None:
         """Retrieve the most relevant chunks (no answer generation)."""
-        hits = _open_retriever(path, embedder_factory).search(query, k=k)
+        hits = _open_retriever(path, index_dir, embedder_factory).search(query, k=k)
         if as_json:
             typer.echo(json.dumps([_hit_json(rank, hit) for rank, hit in enumerate(hits, 1)], indent=2))
             return
@@ -136,9 +153,10 @@ def make_app(
         max_new_tokens: Annotated[
             int, typer.Option(min=16, help="Maximum answer length in tokens.")
         ] = DEFAULT_MAX_NEW_TOKENS,
+        index_dir: IndexDirOption = None,
     ) -> None:
         """Answer QUESTION from retrieved code, citing chunks."""
-        hits = _open_retriever(path, embedder_factory).search(question, k=k)
+        hits = _open_retriever(path, index_dir, embedder_factory).search(question, k=k)
         if not hits:
             typer.echo("No indexed code matched the question; nothing to answer from.")
             return
@@ -241,19 +259,24 @@ def _repo_root(start: Path) -> Path:
     return Path(result.stdout.strip()) if result.returncode == 0 else start.resolve()
 
 
-def _open_retriever(path: Path, embedder_factory: EmbedderFactory) -> Retriever:
-    index_dir = default_index_dir(path)
+def _open_retriever(
+    path: Path, index_dir: Path | None, embedder_factory: EmbedderFactory
+) -> Retriever:
+    default = default_index_dir(path)
+    index_dir = index_dir or default
     manifest = read_manifest(index_dir)
+    repo = (manifest or {}).get("repo", "<repo>") if index_dir != default else path
+    command = f"chatter index {repo}" + ("" if index_dir == default else f" --index-dir {index_dir}")
     if manifest is None:
-        _fail(f"No index found at {index_dir}.\nRun `chatter index {path}` first.")
+        _fail(f"No index found at {index_dir}.\nRun `{command}` first.")
     model_name = str(manifest.get("model", DEFAULT_MODEL))
     embedder = _load(lambda: embedder_factory(model_name), f"embedding model {model_name!r}")
     try:
         return Retriever.open(index_dir, embedder)
     except IndexMismatchError as exc:
-        _fail(f"{exc}\nRe-run `chatter index {path} --rebuild`.")
+        _fail(f"{exc}\nRe-run `{command} --rebuild`.")
     except FileNotFoundError as exc:
-        _fail(f"Index at {index_dir} is incomplete ({exc}).\nRun `chatter index {path}`.")
+        _fail(f"Index at {index_dir} is incomplete ({exc}).\nRun `{command}`.")
 
 
 def _load(factory: Callable[[], Any], what: str, *, hint: str = "") -> Any:

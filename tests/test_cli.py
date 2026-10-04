@@ -290,3 +290,75 @@ def test_help_lists_commands() -> None:
     assert result.exit_code == 0
     for command in ("index", "search", "ask"):
         assert command in result.output
+
+
+# ---------------------------------------------------------------------------
+# --index-dir / CHATTER_INDEX_DIR
+# ---------------------------------------------------------------------------
+
+
+def test_index_dir_flag_keeps_index_outside_repo(repo: Path, tmp_path: Path) -> None:
+    h = Harness()
+    external = tmp_path / "idx"
+    result = h.run("index", str(repo), "--index-dir", str(external))
+    assert result.exit_code == 0, result.output
+    assert f"Index: {external}" in result.output
+    assert (external / "manifest.json").exists() and not (repo / ".chatter").exists()
+
+    found = h.run("search", "parse_http_response", "--path", str(repo), "--index-dir", str(external))
+    assert found.exit_code == 0 and "net/http.py::parse_http_response" in found.output
+    asked = h.run("ask", "parse", "--path", str(repo), "--index-dir", str(external))
+    assert asked.exit_code == 0 and "Citations:" in asked.output
+
+    missing = h.run("search", "x", "--path", str(repo))  # default location has no index
+    assert missing.exit_code == 1 and "No index found" in missing.output
+
+
+def test_index_dir_env_var_and_flag_precedence(repo: Path, tmp_path: Path) -> None:
+    h = Harness()
+    env_dir, flag_dir = tmp_path / "from_env", tmp_path / "from_flag"
+    env = {"CHATTER_INDEX_DIR": str(env_dir)}
+    assert runner.invoke(h.app, ["index", str(repo)], env=env).exit_code == 0
+    assert (env_dir / "manifest.json").exists()
+    searched = runner.invoke(h.app, ["search", "backoff", "--path", str(repo)], env=env)
+    assert searched.exit_code == 0 and "RetryPolicy.backoff_delay" in searched.output
+
+    runner.invoke(h.app, ["index", str(repo), "--index-dir", str(flag_dir)], env=env)
+    assert (flag_dir / "manifest.json").exists()  # the flag wins over the env var
+
+
+def test_missing_external_index_message(repo: Path, tmp_path: Path) -> None:
+    result = Harness().run("search", "x", "--path", str(repo), "--index-dir", str(tmp_path / "none"))
+    assert result.exit_code == 1
+    assert f"--index-dir {tmp_path / 'none'}" in result.output
+
+
+def test_external_index_dir_cannot_be_shared_between_repos(
+    write_repo: WriteRepo, repo: Path, tmp_path: Path
+) -> None:
+    other = tmp_path / "other_repo"
+    other.mkdir()
+    (other / "x.py").write_text("def x(): pass\n")
+    shared = tmp_path / "shared"
+    h = Harness()
+    assert h.run("index", str(repo), "--index-dir", str(shared)).exit_code == 0
+    clash = h.run("index", str(other), "--index-dir", str(shared))
+    assert clash.exit_code == 1
+    assert f"belongs to {repo.resolve()}" in clash.output and "--rebuild" in clash.output
+    found = h.run("search", "parse_http_response", "--path", str(repo), "--index-dir", str(shared))
+    assert "net/http.py::parse_http_response" in found.output  # first repo's index intact
+
+    rebuilt = h.run("index", str(other), "--index-dir", str(shared), "--rebuild")
+    assert rebuilt.exit_code == 0 and "Indexed 1 files" in rebuilt.output
+
+
+def test_default_index_moves_with_its_repo(repo: Path, tmp_path: Path) -> None:
+    import shutil
+
+    h = Harness()
+    h.run("index", str(repo))
+    moved = tmp_path / "moved_repo"
+    shutil.copytree(repo, moved)
+    result = h.run("index", str(moved))
+    assert result.exit_code == 0, result.output
+    assert "(0 embedded, 6 unchanged, 0 deleted)" in result.output
