@@ -32,6 +32,7 @@ from chatter.evaluate import EvalError, format_report, run_eval, save_results
 from chatter.index import (
     IndexConfig,
     IndexMismatchError,
+    IndexStorageError,
     build_index,
     default_index_dir,
     read_manifest,
@@ -92,6 +93,8 @@ def make_app(
             )
         except IndexMismatchError as exc:
             _fail(f"{exc}\nRe-run with --rebuild.")
+        except IndexStorageError as exc:
+            _fail(str(exc))
         elapsed = time.perf_counter() - started
         typer.echo(
             f"Indexed {stats.files} files: {stats.chunks} chunks "
@@ -199,6 +202,11 @@ def make_app(
             Path | None, typer.Option(help="Where to save results JSON. Default: results/ next to QUESTIONS.")
         ] = None,
         save: Annotated[bool, typer.Option(help="Save results JSON.")] = True,
+        index_root: Annotated[
+            Path | None,
+            typer.Option(help="Store corpus indexes here (one subdirectory per corpus) "
+                         "instead of inside each corpus, e.g. when the repo is on exFAT."),
+        ] = None,
     ) -> None:
         """Score retrieval (bm25, dense, fused) on an eval set: hit@1, hit@5, MRR@50, recall@10."""
         if not questions.is_file():
@@ -213,6 +221,7 @@ def make_app(
                 lambda name: _load(lambda: embedder_factory(name), f"embedding model {name!r}"),
                 model_name=model,
                 repo_root=_repo_root(questions.parent),
+                index_root=index_root,
                 log=lambda line: typer.echo(line, err=True),
             )
         except EvalError as exc:

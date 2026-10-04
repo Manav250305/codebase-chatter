@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 from collections import Counter
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
@@ -57,6 +58,10 @@ _CAMEL_BOUNDARY_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z]
 
 class IndexMismatchError(RuntimeError):
     """The on-disk index was built with a different model or schema."""
+
+
+class IndexStorageError(RuntimeError):
+    """The index directory cannot host the SQLite database Chroma writes."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -277,6 +282,32 @@ def open_collection(index_dir: Path, *, create: bool) -> Collection:
     return client.get_collection(COLLECTION_NAME, embedding_function=None)
 
 
+def check_index_storage(index_dir: Path) -> None:
+    """Fail early if SQLite cannot write here (e.g. some exFAT mounts on macOS).
+
+    Chroma persists to SQLite with its default rollback journal; on such
+    filesystems every write fails with "attempt to write a readonly database".
+    """
+    probe = Path(index_dir) / ".sqlite-probe"
+    try:
+        connection = sqlite3.connect(probe)
+        try:
+            connection.execute("CREATE TABLE IF NOT EXISTS probe (x)")
+            connection.execute("INSERT INTO probe VALUES (1)")
+            connection.commit()
+        finally:
+            connection.close()
+    except sqlite3.Error as exc:
+        raise IndexStorageError(
+            f"SQLite cannot write in {index_dir} ({exc}). The index is stored in SQLite, "
+            "which fails on some filesystems (e.g. exFAT/FAT drives on macOS); "
+            "put the index on another disk."
+        ) from exc
+    finally:
+        for suffix in ("", "-journal", "-wal", "-shm"):
+            Path(f"{probe}{suffix}").unlink(missing_ok=True)
+
+
 def read_manifest(index_dir: Path) -> dict[str, Any] | None:
     try:
         data = json.loads((Path(index_dir) / MANIFEST_FILE).read_text(encoding="utf-8"))
@@ -348,6 +379,7 @@ def build_index(
     embedder = embedder if embedder is not None else SentenceTransformerEmbedder()
     out = Path(index_dir) if index_dir is not None else default_index_dir(repo_path)
     out.mkdir(parents=True, exist_ok=True)
+    check_index_storage(out)
 
     manifest = read_manifest(out)
     if manifest is not None and not rebuild:

@@ -39,6 +39,7 @@ import yaml
 from chatter.embed import Embedder
 from chatter.index import (
     CHUNKS_FILE,
+    IndexStorageError,
     build_index,
     default_index_dir,
     read_manifest,
@@ -314,9 +315,14 @@ def run_eval(
     model_name: str,
     repo_root: Path,
     stdlib_dir: Path | None = None,
+    index_root: Path | None = None,
     log: Callable[[str], None] = lambda _: None,
 ) -> dict[str, Any]:
-    """Materialise and index corpora, score every question in every mode."""
+    """Materialise and index corpora, score every question in every mode.
+
+    Indexes live in ``<corpus>/.chatter`` unless ``index_root`` is given, in
+    which case corpus ``name`` is indexed into ``index_root / name``.
+    """
     questions = load_questions(questions_path)
     specs = load_corpora(corpora_path)
     unknown = sorted({q.corpus for q in questions} - specs.keys())
@@ -330,11 +336,14 @@ def run_eval(
     for name in sorted({q.corpus for q in questions}):
         spec = specs[name]
         info = prepare_corpus(spec, repo_root=repo_root, stdlib_dir=stdlib_dir)
-        manifest = read_manifest(default_index_dir(spec.path))
+        index_dir = Path(index_root) / name if index_root else default_index_dir(spec.path)
+        manifest = read_manifest(index_dir)
         rebuild = manifest is not None and manifest.get("model") != embedder.name
-        stats = build_index(spec.path, embedder, rebuild=rebuild)
+        try:
+            stats = build_index(spec.path, embedder, index_dir=index_dir, rebuild=rebuild)
+        except IndexStorageError as exc:
+            raise EvalError(f"{exc} Use --index-root to keep eval indexes elsewhere.") from exc
         log(f"corpus {name}: {stats.files} files, {stats.chunks} chunks, {stats.embedded_parts} embedded")
-        index_dir = default_index_dir(spec.path)
         retrievers[name] = Retriever.open(index_dir, embedder)
         corpus_ids[name] = _chunk_ids(index_dir)
         corpora_info[name] = {**info, "files": stats.files, "chunks": stats.chunks}

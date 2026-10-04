@@ -367,3 +367,28 @@ def test_custom_index_dir_and_batching(write_repo: WriteRepo, tmp_path: Path) ->
 def test_missing_repo_raises(tmp_path: Path, embedder: HashEmbedder) -> None:
     with pytest.raises(NotADirectoryError):
         build_index(tmp_path / "nope", embedder)
+
+
+def test_unwritable_index_storage_fails_early(write_repo: WriteRepo, embedder: HashEmbedder, tmp_path: Path) -> None:
+    import os
+
+    root = write_repo({"a.py": "def f(): pass\n"})
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    locked.chmod(0o500)  # SQLite cannot create its database here
+    try:
+        if os.access(locked, os.W_OK):
+            pytest.skip("running with privileges that ignore directory permissions")
+        from chatter.index import IndexStorageError
+
+        with pytest.raises(IndexStorageError, match="SQLite cannot write in"):
+            build_index(root, embedder, index_dir=locked)
+        assert embedder.document_batches == []  # failed before any embedding work
+    finally:
+        locked.chmod(0o700)
+
+
+def test_storage_probe_leaves_no_files(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
+    root = write_repo({"a.py": "def f(): pass\n"})
+    build_index(root, embedder)
+    assert not list((root / ".chatter").glob(".sqlite-probe*"))

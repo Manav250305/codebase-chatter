@@ -344,3 +344,32 @@ def test_cli_eval_errors(tmp_path: Path) -> None:
     aborted = runner.invoke(app, ["eval", str(questions), "--no-save"])
     assert aborted.exit_code == 1 and "Eval aborted" in aborted.output and "gone" in aborted.output
     assert not (questions.parent / "results").exists()
+
+
+def test_run_eval_index_root_keeps_indexes_out_of_corpus(tmp_path: Path) -> None:
+    repo, questions, corpora = write_eval(tmp_path)
+    root = tmp_path / "indexes"
+    results = run_eval(
+        questions, corpora, lambda n: HashEmbedder(name=n), model_name="m", repo_root=repo, index_root=root
+    )
+    assert results["summary"]["fused"]["overall"]["n"] == 2
+    assert (root / "mini" / "manifest.json").exists()
+    assert not (questions.parent / ".corpora" / "mini" / ".chatter").exists()
+
+
+def test_cli_eval_reports_unwritable_index_storage(tmp_path: Path) -> None:
+    import os
+
+    _, questions, _ = write_eval(tmp_path)
+    locked = tmp_path / "locked"
+    (locked / "mini").mkdir(parents=True)
+    (locked / "mini").chmod(0o500)
+    try:
+        if os.access(locked / "mini", os.W_OK):
+            pytest.skip("running with privileges that ignore directory permissions")
+        app = make_app(embedder_factory=lambda name: HashEmbedder(name=name))
+        result = CliRunner().invoke(app, ["eval", str(questions), "--index-root", str(locked), "--no-save"])
+        assert result.exit_code == 1
+        assert "SQLite cannot write" in result.output and "--index-root" in result.output
+    finally:
+        (locked / "mini").chmod(0o700)
