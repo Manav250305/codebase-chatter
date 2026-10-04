@@ -19,6 +19,7 @@ from chatter.evaluate import (
     Question,
     aggregate,
     format_report,
+    format_sweep,
     is_test_chunk,
     load_questions,
     prepare_corpus,
@@ -558,3 +559,36 @@ def test_run_eval_containment_counts_parent_class(tmp_path: Path) -> None:
     assert bm25["strict"]["first_rank"] == 2 and bm25["contain"]["first_rank"] == 1
     report = format_report(results)
     assert "(cells: strict/containment)" in report and "2/1" in report
+
+
+# ---------------------------------------------------------------------------
+# Fusion sweep
+# ---------------------------------------------------------------------------
+
+
+def test_fusion_sweep_grid_and_default_cell_matches_fused_mode(tmp_path: Path) -> None:
+    repo, qpath, corpora = write_eval(tmp_path)
+    results = run_eval(
+        qpath, corpora, lambda n: HashEmbedder(name=n), model_name="m", repo_root=repo,
+        sweep=([5, 60], [1.0, 2.0]),
+    )
+    sweep = results["fusion_sweep"]
+    assert [(c["rrf_k"], c["dense_weight"]) for c in sweep["cells"]] == [(5, 1.0), (5, 2.0), (60, 1.0), (60, 2.0)]
+    default = next(c for c in sweep["cells"] if (c["rrf_k"], c["dense_weight"]) == (60, 1.0))
+    assert default["overall"] == results["summary"]["fused"]["overall"]
+    assert set(default["by_corpus"]) == {"mini"} and default["by_corpus"]["mini"]["n"] == 2
+    table = format_sweep(sweep)
+    assert "<- current default" in table and "MRR mini" in table and table.count("\n") == 5
+
+
+def test_cli_sweep_fusion(tmp_path: Path) -> None:
+    _, qpath, _ = write_eval(tmp_path)
+    app = make_app(embedder_factory=lambda name: HashEmbedder(name=name))
+    result = CliRunner().invoke(
+        app, ["eval", str(qpath), "--no-save", "--sweep-fusion", "--rrf-k", "10", "--dense-weight", "1.5"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "fusion sweep" in result.output and "   10     1.5" in result.output
+    full = CliRunner().invoke(app, ["eval", str(qpath), "--no-save", "--sweep-fusion"])
+    assert full.output.count("<- current default") == 1
+    assert sum(line.startswith(("    5", "   10", "   20", "   60")) for line in full.output.splitlines()) == 16

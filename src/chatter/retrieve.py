@@ -149,19 +149,23 @@ class BM25Index:
 
 
 def reciprocal_rank_fusion(
-    rankings: Mapping[str, Sequence[str]], k: int = RRF_K
+    rankings: Mapping[str, Sequence[str]],
+    k: int = RRF_K,
+    weights: Mapping[str, float] | None = None,
 ) -> list[tuple[str, float, dict[str, int]]]:
-    """Fuse ranked id lists: score = sum over retrievers of 1 / (k + rank).
+    """Fuse ranked id lists: score = sum over retrievers of weight / (k + rank).
 
-    Ties are broken by best single rank, then id, so output is deterministic.
+    ``weights`` defaults to 1 for every retriever. Ties are broken by best
+    single rank, then id, so output is deterministic.
     """
     scores: dict[str, float] = defaultdict(float)
     ranks: dict[str, dict[str, int]] = defaultdict(dict)
     for source, ids in rankings.items():
+        weight = 1.0 if weights is None else weights.get(source, 1.0)
         for rank, item in enumerate(ids, start=1):
             if source in ranks[item]:
                 continue  # duplicate within one ranking: keep the best rank
-            scores[item] += 1.0 / (k + rank)
+            scores[item] += weight / (k + rank)
             ranks[item][source] = rank
     return sorted(
         ((item, score, ranks[item]) for item, score in scores.items()),
@@ -223,7 +227,14 @@ class Retriever:
         return self._chunks.get(chunk_id)
 
     def search(
-        self, query: str, k: int = 10, *, candidates: int | None = None, mode: Mode = "fused"
+        self,
+        query: str,
+        k: int = 10,
+        *,
+        candidates: int | None = None,
+        mode: Mode = "fused",
+        rrf_k: int = RRF_K,
+        weights: Mapping[str, float] | None = None,
     ) -> list[Hit]:
         """Top ``k`` chunks for ``query`` with fused scores and provenance.
 
@@ -243,7 +254,9 @@ class Retriever:
         )
         dense_hits = self._dense_search(query, n) if mode != BM25 else []
         fused = reciprocal_rank_fusion(
-            {BM25: [cid for cid, _ in bm25_hits], DENSE: [cid for cid, _, _ in dense_hits]}
+            {BM25: [cid for cid, _ in bm25_hits], DENSE: [cid for cid, _, _ in dense_hits]},
+            k=rrf_k,
+            weights=weights,
         )
 
         bm25_scores = dict(bm25_hits)

@@ -57,10 +57,13 @@ from chatter.index import (
     default_index_dir,
     read_manifest,
 )
-from chatter.retrieve import MODES, Retriever
+from chatter.retrieve import BM25, DENSE, MODES, RRF_K, Retriever, reciprocal_rank_fusion
 
 RESULTS_SCHEMA = 3  # 2: splits; 3: strict and containment metrics
 DEPTH = 50  # MRR cutoff and ranking depth recorded per question
+CANDIDATES = max(4 * DEPTH, 50)  # per-retriever depth, as Retriever.search uses for k=DEPTH
+SWEEP_RRF_K = (5, 10, 20, 60)
+SWEEP_DENSE_WEIGHT = (1.0, 1.5, 2.0, 3.0)
 QUESTION_TYPES = ("exact_name", "behavior", "location", "flow", "negative")
 NEGATIVE = "negative"
 SPLITS = ("tune", "heldout")
@@ -402,6 +405,7 @@ def run_eval(
     stdlib_dir: Path | None = None,
     index_root: Path | None = None,
     split: str | None = None,
+    sweep: tuple[Sequence[int], Sequence[float]] | None = None,
     log: Callable[[str], None] = lambda _: None,
 ) -> dict[str, Any]:
     """Materialise and index corpora, score every question in every mode.
@@ -409,7 +413,8 @@ def run_eval(
     Indexes live in ``<corpus>/.chatter`` unless ``index_root`` is given, in
     which case corpus ``name`` is indexed into ``index_root / name``.
     ``split`` restricts the run to one split (None: all questions); only the
-    selected questions are validated, indexed for, and scored.
+    selected questions are validated, indexed for, and scored. ``sweep`` adds
+    a fusion grid over (rrf_k values, dense weights); see ``fusion_sweep``.
     """
     if split is not None and split not in SPLITS:
         raise EvalError(f"unknown split {split!r} (expected one of {', '.join(SPLITS)})")
@@ -454,7 +459,7 @@ def run_eval(
                 (question, score_ranking(ranked, question.relevant, matchers[question.corpus]))
             )
 
-    return {
+    results: dict[str, Any] = {
         "schema": RESULTS_SCHEMA,
         "created": datetime.now(UTC).isoformat(timespec="seconds"),
         "git": _git_info(repo_root),
@@ -486,6 +491,92 @@ def run_eval(
             for i, q in enumerate(questions)
         ],
     }
+    if sweep is not None:
+        results["fusion_sweep"] = fusion_sweep(
+            questions, retrievers, matchers, rrf_ks=sweep[0], dense_weights=sweep[1]
+        )
+    return results
+
+
+def fusion_sweep(
+    questions: Sequence[Question],
+    retrievers: Mapping[str, Retriever],
+    matchers: Mapping[str, Contains],
+    *,
+    rrf_ks: Sequence[int] = SWEEP_RRF_K,
+    dense_weights: Sequence[float] = SWEEP_DENSE_WEIGHT,
+) -> dict[str, Any]:
+    """Score fused rankings for every (rrf_k, dense weight) pair.
+
+    Each question's BM25 and dense rankings are computed once at the depth
+    the fused mode uses, then re-fused per cell; the (RRF_K, 1.0) cell equals
+    the default fused mode. Aggregates are overall and per corpus.
+    """
+    rankings: list[tuple[Question, dict[str, list[str]]]] = []
+    for question in questions:
+        retriever = retrievers[question.corpus]
+        rankings.append(
+            (
+                question,
+                {
+                    mode: [
+                        h.chunk_id
+                        for h in retriever.search(
+                            question.question, k=CANDIDATES, candidates=CANDIDATES, mode=mode
+                        )
+                    ]
+                    for mode in (BM25, DENSE)
+                },
+            )
+        )
+    corpora = sorted({q.corpus for q in questions})
+    cells = []
+    for rrf_k in rrf_ks:
+        for weight in dense_weights:
+            rows = []
+            for question, lists in rankings:
+                fused = reciprocal_rank_fusion(lists, k=rrf_k, weights={BM25: 1.0, DENSE: weight})
+                ranked = [chunk_id for chunk_id, _, _ in fused[:DEPTH]]
+                rows.append(
+                    (question, score_ranking(ranked, question.relevant, matchers[question.corpus]))
+                )
+            cells.append(
+                {
+                    "rrf_k": rrf_k,
+                    "dense_weight": weight,
+                    "overall": aggregate(rows),
+                    "by_corpus": {c: aggregate([r for r in rows if r[0].corpus == c]) for c in corpora},
+                }
+            )
+    return {"default": {"rrf_k": RRF_K, "dense_weight": 1.0}, "cells": cells}
+
+
+def format_sweep(sweep: Mapping[str, Any]) -> str:
+    """Grid table: strict MRR@50 per corpus and overall, plus overall hit/recall."""
+    corpora = sorted(sweep["cells"][0]["by_corpus"]) if sweep["cells"] else []
+    default = (sweep["default"]["rrf_k"], sweep["default"]["dense_weight"])
+    header = (
+        f"{'rrf_k':>5} {'w_dense':>7}  "
+        + " ".join(f"{'MRR ' + c:>12}" for c in corpora)
+        + f" {'MRR all':>8} {'hit@1':>6} {'hit@5':>6} {'R@10':>6} {'cMRR all':>9}"
+    )
+    lines = ["fusion sweep (strict metrics unless noted; cMRR = containment MRR@50)", header]
+    for cell in sweep["cells"]:
+        overall = cell["overall"]
+        if not overall.get("n"):
+            continue
+        strict = overall["strict"]
+        marker = "  <- current default" if (cell["rrf_k"], cell["dense_weight"]) == default else ""
+        lines.append(
+            f"{cell['rrf_k']:>5} {cell['dense_weight']:>7.1f}  "
+            + " ".join(
+                f"{cell['by_corpus'][c]['strict']['mrr@50']:>12.3f}" if cell["by_corpus"][c].get("n") else f"{'n/a':>12}"
+                for c in corpora
+            )
+            + f" {strict['mrr@50']:>8.3f} {strict['hit@1']:>6.3f} {strict['hit@5']:>6.3f} "
+            f"{strict['recall@10']:>6.3f} {overall['contain']['mrr@50']:>9.3f}{marker}"
+        )
+    return "\n".join(lines)
 
 
 def save_results(results: Mapping[str, Any], results_dir: Path) -> Path:

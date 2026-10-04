@@ -347,3 +347,26 @@ def test_index_built_with_old_schema_requires_rebuild(write_repo: WriteRepo, emb
         build_index(root, embedder)
     build_index(root, embedder, rebuild=True)
     assert Retriever.open(root / ".chatter", embedder).search("f", k=1)
+
+
+def test_weighted_rrf() -> None:
+    fused = reciprocal_rank_fusion({"bm25": ["a", "b"], "dense": ["b", "a"]}, k=10, weights={"dense": 3.0})
+    by_id = {item: score for item, score, _ in fused}
+    assert by_id["b"] == pytest.approx(1 / 12 + 3 / 11) and by_id["a"] == pytest.approx(1 / 11 + 3 / 12)
+    assert [item for item, _, _ in fused] == ["b", "a"]  # dense preference wins
+    unweighted = reciprocal_rank_fusion({"bm25": ["a", "b"], "dense": ["b", "a"]}, k=10)
+    assert unweighted == reciprocal_rank_fusion(
+        {"bm25": ["a", "b"], "dense": ["b", "a"]}, k=10, weights={"bm25": 1.0, "dense": 1.0}
+    )
+
+
+def test_search_passes_fusion_parameters(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
+    retriever = open_retriever(write_repo(REPO), embedder)
+    default = retriever.search("evict cache", k=5)
+    explicit = retriever.search("evict cache", k=5, rrf_k=60, weights={"bm25": 1.0, "dense": 1.0})
+    assert [h.chunk_id for h in default] == [h.chunk_id for h in explicit]
+    weights = {"bm25": 1.0, "dense": 3.0}
+    tuned = retriever.search("evict cache", k=5, rrf_k=5, weights=weights)
+    assert tuned[0].score == pytest.approx(
+        sum(weights[source] / (5 + rank) for source, rank in tuned[0].ranks.items())
+    )

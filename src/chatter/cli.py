@@ -29,7 +29,15 @@ from chatter.answer import (
     format_line_ranges,
 )
 from chatter.embed import DEFAULT_MODEL, Embedder, EmbedderConfig, SentenceTransformerEmbedder
-from chatter.evaluate import EvalError, format_report, run_eval, save_results
+from chatter.evaluate import (
+    SWEEP_DENSE_WEIGHT,
+    SWEEP_RRF_K,
+    EvalError,
+    format_report,
+    format_sweep,
+    run_eval,
+    save_results,
+)
 from chatter.index import (
     IndexConfig,
     IndexMismatchError,
@@ -235,6 +243,16 @@ def make_app(
         split: Annotated[
             SplitChoice, typer.Option(help="Only score questions in this split.")
         ] = SplitChoice.ALL,
+        sweep_fusion: Annotated[
+            bool, typer.Option(help="Also score a grid of RRF k x dense weight (defaults unchanged).")
+        ] = False,
+        rrf_k: Annotated[
+            list[int] | None, typer.Option(help="RRF k values for --sweep-fusion (repeatable).")
+        ] = None,
+        dense_weight: Annotated[
+            list[float] | None,
+            typer.Option(help="Dense weights for --sweep-fusion (repeatable; BM25 weight is 1)."),
+        ] = None,
     ) -> None:
         """Score retrieval (bm25, dense, fused) on an eval set: hit@1, hit@5, MRR@50, recall@10."""
         if not questions.is_file():
@@ -251,11 +269,16 @@ def make_app(
                 repo_root=_repo_root(questions.parent),
                 index_root=index_root,
                 split=None if split is SplitChoice.ALL else split.value,
+                sweep=(rrf_k or list(SWEEP_RRF_K), dense_weight or list(SWEEP_DENSE_WEIGHT))
+                if sweep_fusion
+                else None,
                 log=lambda line: typer.echo(line, err=True),
             )
         except EvalError as exc:
             _fail(f"Eval aborted: {exc}")
         typer.echo(format_report(results))
+        if "fusion_sweep" in results:
+            typer.echo("\n" + format_sweep(results["fusion_sweep"]))
         if save:
             path = save_results(results, results_dir or questions.parent / "results")
             typer.echo(f"\nSaved {path}")
