@@ -252,3 +252,190 @@
   relevant: []
   expect_abstain: true
   notes: "The design switched to a local model; nothing calls the Anthropic API. Plausible-sounding trap question."
+- id: h01
+  split: heldout
+  corpus: stdlib
+  type: behavior
+  question: "json.loads keeps giving me 'Extra data' on a file that looks fine to me. What does that error actually mean and where is it raised?"
+  relevant:
+    - "json/decoder.py::JSONDecoder.decode"
+  expect_abstain: false
+  notes: "Pasted-error style. Realistic, but the error text gives BM25 an easy anchor."
+
+- id: h02
+  split: heldout
+  corpus: stdlib
+  type: behavior
+  question: "json duplicate keys which one wins"
+  relevant:
+    - "json/decoder.py::JSONObject"
+  expect_abstain: false
+  notes: "Terse keyword-style query with no question structure."
+
+- id: h03
+  split: heldout
+  corpus: stdlib
+  type: behavior
+  question: "How does the built-in HTTP server decide whether to keep a connection open for another request or close it?"
+  relevant:
+    - "http/server.py::BaseHTTPRequestHandler.parse_request"
+    - "http/server.py::BaseHTTPRequestHandler.handle"
+  expect_abstain: false
+  notes: "Avoids the term keep-alive."
+
+- id: h04
+  split: heldout
+  corpus: stdlib
+  type: location
+  question: "What stops a malicious server from sending an endless list of response headers to the HTTP client?"
+  relevant:
+    - "http/client.py::_read_headers"
+    - "http/client.py::parse_headers"
+  expect_abstain: false
+  notes: "Verify _read_headers exists in 3.13.5."
+
+- id: h05
+  split: heldout
+  corpus: stdlib
+  type: location
+  question: "where are status codes like 404 defined along with their short descriptions"
+  relevant:
+    - "http/__init__.py::HTTPStatus"
+  expect_abstain: false
+  notes: "Lowercase, no punctuation."
+
+- id: h06
+  split: heldout
+  corpus: stdlib
+  type: behavior
+  question: "I have the Date header of an email as a string. How do I get it as a proper datetime with the timezone?"
+  relevant:
+    - "email/utils.py::parsedate_to_datetime"
+    - "email/headerregistry.py::DateHeader.parse"
+  expect_abstain: false
+  notes: ""
+
+- id: h07
+  split: heldout
+  corpus: stdlib
+  type: location
+  question: "When an email with attachments is written out, how is the separator between the parts chosen so it can't accidentally appear inside the content?"
+  relevant:
+    - "email/generator.py::Generator._make_boundary"
+    - "email/generator.py::Generator._handle_multipart"
+  expect_abstain: false
+  notes: "Avoids the word boundary."
+
+- id: h08
+  split: heldout
+  corpus: stdlib
+  type: behavior
+  question: "how do i run a blocking funtion from async code without freezing the event loop"
+  relevant:
+    - "asyncio/threads.py::to_thread"
+    - "asyncio/base_events.py::BaseEventLoop.run_in_executor"
+  expect_abstain: false
+  notes: "Contains a deliberate typo (funtion)."
+
+- id: h09
+  split: heldout
+  corpus: stdlib
+  type: flow
+  question: "Walk me through what happens when a task awaits asyncio.sleep(0): how does control get back to the event loop, and how does the task resume afterwards?"
+  relevant:
+    - "asyncio/tasks.py::sleep"
+    - "asyncio/tasks.py::__sleep0"
+    - "asyncio/tasks.py::Task.__step"
+    - "asyncio/tasks.py::Task.__step_run_and_handle_result"
+  expect_abstain: false
+  notes: "Multi-hop flow. Verify the exact names of the Task step methods and __sleep0 in 3.13.5."
+
+- id: h10
+  split: heldout
+  corpus: stdlib
+  type: behavior
+  question: "If several coroutines are waiting on an asyncio semaphore, do they get in first-come first-served, and what makes that happen?"
+  relevant:
+    - "asyncio/locks.py::Semaphore.acquire"
+    - "asyncio/locks.py::Semaphore._wake_up_next"
+    - "asyncio/locks.py::Semaphore.release"
+  expect_abstain: false
+  notes: "Verify _wake_up_next exists in 3.13.5."
+
+- id: h11
+  split: heldout
+  corpus: stdlib
+  type: negative
+  question: "How do I open a websocket connection with asyncio and send a message?"
+  relevant: []
+  expect_abstain: true
+  notes: "No websocket support in the indexed stdlib packages."
+
+- id: h12
+  split: heldout
+  corpus: chatter
+  type: behavior
+  question: "If I search for 'http response', would it find a function named parseHTTPResponse? What makes that work?"
+  relevant: []
+  relevant_hint: "The BM25 tokenizer that splits identifiers on snake_case/camelCase/acronyms."
+  expect_abstain: false
+  notes: ""
+
+- id: h13
+  split: heldout
+  corpus: chatter
+  type: behavior
+  question: "What happens if I build the index with one embedding model and later try to search it using a different one?"
+  relevant: []
+  relevant_hint: "The model-mismatch check when an index is opened (manifest model/fingerprint comparison and the error raised)."
+  expect_abstain: false
+  notes: ""
+
+- id: h14
+  split: heldout
+  corpus: chatter
+  type: location
+  question: "Where do the [C1]-style labels in an answer get turned back into real file names and line numbers?"
+  relevant: []
+  relevant_hint: "Citation-tag parsing and mapping back to chunk IDs/spans in answer.py (and unknown-tag warnings)."
+  expect_abstain: false
+  notes: ""
+
+- id: h15
+  split: heldout
+  corpus: chatter
+  type: behavior
+  question: "A function is too long to fit in the prompt. Which lines of it does the model actually get to see?"
+  relevant: []
+  relevant_hint: "The truncation window logic in answer.py (question-word line matching, signature/docstring fallback)."
+  expect_abstain: false
+  notes: ""
+
+- id: h16
+  split: heldout
+  corpus: chatter
+  type: location
+  question: "where does it skip those ._ files that macOS creates"
+  relevant: []
+  relevant_hint: "The AppleDouble skip in the file walker in index.py."
+  expect_abstain: false
+  notes: "Terse, lowercase."
+
+- id: h17
+  split: heldout
+  corpus: chatter
+  type: flow
+  question: "Walk me through everything that happens between typing chatter ask and seeing the answer printed with its sources."
+  relevant: []
+  relevant_hint: "The ask command in cli.py, Retriever.search, prompt building, generator streaming with the repetition guard, abstention classification, and citation mapping."
+  expect_abstain: false
+  notes: "Multi-hop flow; a step 5 test case."
+
+- id: h18
+  split: heldout
+  corpus: chatter
+  type: negative
+  question: "How does chatter notice that I saved a file and re-index it automatically in the background?"
+  relevant: []
+  expect_abstain: true
+  notes: "File watching was not implemented at the snapshot commit. Plausible trap question."

@@ -160,12 +160,16 @@ def test_validate_relevant_fails_loudly_on_stale_ids() -> None:
 
 
 def test_repository_eval_set_is_well_formed() -> None:
-    questions = load_questions(EVAL_DIR / "questions.yaml")
-    assert len(questions) == 22 and len({x.id for x in questions}) == 22
-    negatives = [x for x in questions if x.type == "negative"]
+    questions = load_questions(EVAL_DIR / "questions.yaml", require_relevant=False)
+    assert len({x.id for x in questions}) == len(questions)
+    tune = [x for x in questions if x.split == "tune"]
+    assert len(tune) == 22
+    negatives = [x for x in tune if x.type == "negative"]
     assert [x.id for x in negatives] == ["q15", "q22"]
     assert all(x.expect_abstain for x in negatives)
-    assert all(x.relevant for x in questions if x.scored)
+    assert all(x.relevant for x in tune if x.scored)
+    heldout = [x for x in questions if x.split == "heldout"]
+    assert [x.id for x in heldout if x.type == "negative"] == ["h11", "h18"]
     corpora = yaml.safe_load((EVAL_DIR / "corpora.yaml").read_text())
     assert {x.corpus for x in questions} == set(corpora)
     assert corpora["chatter"]["source"] == {"kind": "git_archive", "ref": "eval-corpus-v1"}
@@ -439,7 +443,7 @@ def test_run_eval_reports_heldout_split(tmp_path: Path) -> None:
 
 
 def test_repository_questions_use_known_splits() -> None:
-    questions = load_questions(EVAL_DIR / "questions.yaml")
+    questions = load_questions(EVAL_DIR / "questions.yaml", require_relevant=False)
     assert {x.split for x in questions} <= {"tune", "heldout"}
 
 
@@ -739,3 +743,15 @@ def test_repository_graph_candidates_file_has_decision_rule() -> None:
     configs, rule = load_config_file(EVAL_DIR / "candidates-graph.yaml")
     assert rule and "tune+heldout" in rule["text"] and "top-3" in rule["text"]
     assert {"dense-only", "default", "k10-w3"} <= {c.name for c in configs}
+
+
+def test_unfinished_split_only_blocks_itself(tmp_path: Path) -> None:
+    questions = [QUESTIONS[0], {**QUESTIONS[1], "split": "heldout", "relevant": []}]
+    repo, qpath, corpora = write_eval(tmp_path, questions)
+    factory = lambda n: HashEmbedder(name=n)  # noqa: E731
+    assert run_eval(qpath, corpora, factory, model_name="m", repo_root=repo, split="tune")
+    for split in ("heldout", None):
+        with pytest.raises(EvalError, match="e2: no relevant ids"):
+            run_eval(qpath, corpora, factory, model_name="m", repo_root=repo, split=split)
+    with pytest.raises(EvalError, match="e2: no relevant ids"):
+        load_questions(qpath)  # strict by default

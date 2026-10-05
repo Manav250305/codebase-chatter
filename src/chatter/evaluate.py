@@ -132,7 +132,12 @@ class Scores:
 # ---------------------------------------------------------------------------
 
 
-def load_questions(path: Path) -> list[Question]:
+def load_questions(path: Path, *, require_relevant: bool = True) -> list[Question]:
+    """Load and validate questions.
+
+    ``require_relevant=False`` defers the "answerable questions need relevant
+    ids" check to the caller, so an unfinished split can't block another one.
+    """
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     if not isinstance(data, list):
         raise EvalError(f"{path}: expected a YAML list of questions")
@@ -158,7 +163,7 @@ def load_questions(path: Path) -> list[Question]:
             problems.append(f"{qid}: unknown type {qtype!r}")
         elif qtype == NEGATIVE and relevant:
             problems.append(f"{qid}: negative questions must have no relevant ids")
-        elif qtype != NEGATIVE and not relevant:
+        elif qtype != NEGATIVE and not relevant and require_relevant:
             problems.append(f"{qid}: no relevant ids")
         split = str(item.get("split", DEFAULT_SPLIT))
         if split not in SPLITS:
@@ -410,9 +415,16 @@ def select_questions(questions_path: Path, split: str | None) -> list[Question]:
     """Load questions, keeping one split (None: all)."""
     if split is not None and split not in SPLITS:
         raise EvalError(f"unknown split {split!r} (expected one of {', '.join(SPLITS)})")
-    questions = [q for q in load_questions(questions_path) if split is None or q.split == split]
+    questions = [
+        q
+        for q in load_questions(questions_path, require_relevant=False)
+        if split is None or q.split == split
+    ]
     if not questions:
         raise EvalError(f"no questions in split {split!r}")
+    unfinished = [q.id for q in questions if q.scored and not q.relevant]
+    if unfinished:
+        raise EvalError("invalid questions:\n  " + "\n  ".join(f"{qid}: no relevant ids" for qid in unfinished))
     return questions
 
 
