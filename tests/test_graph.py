@@ -479,3 +479,274 @@ def test_graph_is_deterministic() -> None:
     assert np.array_equal(first.sources, second.sources)
     assert np.array_equal(first.targets, second.targets)
     assert np.array_equal(first.types, second.types)
+
+
+# ---------------------------------------------------------------------------
+# Phase B: inferred local types
+# ---------------------------------------------------------------------------
+
+
+TYPES = {
+    "models.py": """
+        from typing import Optional
+
+        class Store:
+            def save(self):
+                pass
+
+        class Cache(Store):
+            def evict(self):
+                pass
+
+        class Other:
+            def save(self):
+                pass
+
+        def ctor():
+            s = Store()
+            s.save()
+
+        def with_as():
+            with Cache() as c:
+                c.evict()
+                c.save()  # inherited from Store
+
+        def params(a: Store, b: "Cache", c: Optional[Store], d: Other | None, e: list[Store]):
+            a.save()
+            b.evict()
+            c.save()
+            d.save()
+            e.save()  # generic container: element type not inferred
+
+        def annotated():
+            x: Store = make_store()
+            x.save()
+
+        def ambiguous(flag):
+            y = Store()
+            if flag:
+                y = Other()
+            y.save()
+
+        def untyped_rebind(value):
+            z = Store()
+            z = value
+            z.save()
+
+        def constructor_receiver():
+            Cache().evict()
+            Store().missing()
+    """,
+}
+
+
+def test_inferred_local_types() -> None:
+    edges, stats, _, _ = graph_for(TYPES)
+    for src, dst in [
+        ("ctor", "Store.save"),
+        ("with_as", "Cache.evict"),
+        ("with_as", "Store.save"),
+        ("params", "Store.save"),
+        ("params", "Cache.evict"),
+        ("params", "Other.save"),
+        ("annotated", "Store.save"),
+        ("constructor_receiver", "Cache.evict"),
+    ]:
+        assert has(edges, f"models.py::{src}", f"models.py::{dst}", "calls_inferred"), (src, dst)
+    assert not any(src == "models.py::ambiguous" and kind == "calls_inferred" for src, _, kind in edges)
+    assert not any(src == "models.py::untyped_rebind" and kind == "calls_inferred" for src, _, kind in edges)
+    dropped = stats["dropped_by_reason"]
+    assert dropped["call:ambiguous_local_type"] == 2  # ambiguous(), untyped_rebind()
+    assert dropped["call:instance_attribute"] >= 1  # Store().missing()
+    assert stats["resolved_by_rule"]["constructor_receiver"] == 1
+    assert stats["resolved_by_rule"]["inferred_local"] >= 7
+
+
+def test_q14_shape_local_import_inheritance() -> None:
+    edges, _, _, _ = graph_for(
+        {
+            "email/generator.py": """
+                class Generator:
+                    def flatten(self, msg):
+                        pass
+
+                class BytesGenerator(Generator):
+                    pass
+            """,
+            "email/message.py": """
+                class Message:
+                    def as_bytes(self):
+                        from email.generator import BytesGenerator
+                        g = BytesGenerator()
+                        g.flatten(self)
+            """,
+        }
+    )
+    src = "email/message.py::Message.as_bytes"
+    assert has(edges, src, "email/generator.py::BytesGenerator", "instantiates")
+    assert has(edges, src, "email/generator.py::Generator.flatten", "calls_inferred")
+
+
+# ---------------------------------------------------------------------------
+# Phase B: self.x types from __init__
+# ---------------------------------------------------------------------------
+
+
+def test_self_attribute_types_from_init() -> None:
+    edges, stats, _, _ = graph_for(
+        {
+            "svc.py": """
+                class Store:
+                    def save(self):
+                        pass
+
+                class Clock:
+                    def now(self):
+                        pass
+
+                class Mailer:
+                    def send(self):
+                        pass
+
+                class Service:
+                    def __init__(self, clock: Clock, mailer):
+                        self.store = Store()
+                        self.clock = clock
+                        self.mailer: Mailer = mailer
+                        self.untyped = mailer
+
+                    def run(self):
+                        self.store.save()
+                        self.clock.now()
+                        self.mailer.send()
+                        self.untyped.send()
+
+                    def later(self):
+                        self.cache = Store()
+
+                    def use_later(self):
+                        self.cache.save()
+
+                class Child(Service):
+                    def go(self):
+                        self.store.save()  # attribute typed in the base's __init__
+            """
+        }
+    )
+    for dst in ("Store.save", "Clock.now", "Mailer.send"):
+        assert has(edges, "svc.py::Service.run", f"svc.py::{dst}", "calls_inferred"), dst
+    assert has(edges, "svc.py::Child.go", "svc.py::Store.save", "calls_inferred")
+    assert not has(edges, "svc.py::Service.use_later", "svc.py::Store.save", "calls_inferred")
+    assert stats["resolved_by_rule"]["self_attribute_type"] >= 4
+    assert stats["dropped_by_reason"]["call:instance_attribute"] >= 2  # untyped, set outside __init__
+
+
+# ---------------------------------------------------------------------------
+# Phase B: protocol / ABC implements
+# ---------------------------------------------------------------------------
+
+
+PROTOCOLS = {
+    "embed.py": """
+        import abc
+        from typing import Protocol
+
+        class Embedder(Protocol):
+            def embed_documents(self, texts):
+                ...
+
+            def embed_query(self, text):
+                ...
+
+        class Closer(Protocol):
+            def close(self):
+                ...
+
+        class Real:
+            def embed_documents(self, texts):
+                return []
+
+            def embed_query(self, text):
+                return []
+
+            def close(self):
+                pass
+
+        class Partial:
+            def embed_documents(self, texts):
+                return []
+
+        class Base(abc.ABC):
+            @abc.abstractmethod
+            def run(self):
+                ...
+
+        class Impl(Base):
+            def run(self):
+                return 1
+
+        def index(embedder: Embedder):
+            return embedder.embed_documents([])
+    """,
+    "tests/test_embed.py": """
+        class FakeEmbedder:
+            def embed_documents(self, texts):
+                return []
+
+            def embed_query(self, text):
+                return []
+    """,
+}
+
+
+def test_protocol_and_abc_implements_never_target_test_classes() -> None:
+    edges, stats, graph, ids = graph_for(PROTOCOLS)
+    assert has(edges, "embed.py::Embedder.embed_documents", "embed.py::Real.embed_documents", "implements")
+    assert has(edges, "embed.py::Embedder.embed_query", "embed.py::Real.embed_query", "implements")
+    assert has(edges, "embed.py::Base.run", "embed.py::Impl.run", "implements")  # nominal ABC
+    assert not any(dst.startswith("embed.py::Partial") and kind == "implements" for _, dst, kind in edges)
+    assert not any(dst.startswith("tests/") and kind == "implements" for _, dst, kind in edges)
+    assert not any(src.startswith("embed.py::Closer") for src, _, kind in edges if kind == "implements")
+    assert has(edges, "embed.py::index", "embed.py::Embedder.embed_documents", "calls_inferred")
+    assert stats["protocols"] == 2 and stats["abcs"] == 1
+
+    index = GraphIndex(*_csr(graph, len(ids)))
+    first_hop = set(index.neighbors(ids.index("embed.py::index")))
+    proto = ids.index("embed.py::Embedder.embed_documents")
+    assert proto in first_hop
+    assert ids.index("embed.py::Real.embed_documents") in index.neighbors(proto)  # reached at 2 hops
+
+
+# ---------------------------------------------------------------------------
+# Phase B: module-level aliases
+# ---------------------------------------------------------------------------
+
+
+def test_module_level_aliases() -> None:
+    edges, stats, _, _ = graph_for(
+        {
+            "events.py": """
+                def _c_get_event_loop():
+                    pass
+
+                get_event_loop = _c_get_event_loop
+                COUNT = 3
+
+                def local_use():
+                    get_event_loop()
+            """,
+            "app.py": """
+                import events
+                from events import get_event_loop
+
+                def a():
+                    get_event_loop()
+
+                def b():
+                    events.get_event_loop()
+            """,
+        }
+    )
+    for src in ("events.py::local_use", "app.py::a", "app.py::b"):
+        assert has(edges, src, "events.py::_c_get_event_loop"), src
+    assert stats["resolved_by_rule"]["module_alias"] >= 1

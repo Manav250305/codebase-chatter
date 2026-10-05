@@ -1,4 +1,4 @@
-"""Call graph between chunks: extraction, resolution, storage (Phase A).
+"""Call graph between chunks: extraction, resolution, storage.
 
 Pass 1 (``collect_file_refs``) walks one file's tree-sitter parse and records
 raw references, each attributed to the innermost chunk whose lines contain
@@ -28,9 +28,23 @@ Resolution rules (Phase A):
     contains         parent chunk -> nested chunk
     inherits         class -> resolved base class
 
-Anything else (local variables used as receivers, instance attributes,
-subscripts, call results, builtins, external libraries) is dropped and
-counted by reason. Edges whose source chunk is in a test file get type
+Phase B rules (inferred types; edges typed ``calls_inferred``):
+    local types      a local's type when every binding in its scope agrees:
+                     ``x = Cls(...)``, ``with Cls(...) as x``, annotations
+                     (``x: Cls``, ``"Cls"``, ``Cls | None``, ``Optional[Cls]``)
+                     on parameters and assignments (an annotation wins over
+                     the value assigned with it)
+    constructor      ``Cls(...).m()``
+    self.x types     from ``self.x = Cls(...)`` / ``self.x: Cls`` / an
+                     annotated parameter assigned in ``__init__`` (through the MRO)
+    module aliases   module-level ``name = other_function``
+    implements       protocol/ABC method -> implementations in nominal
+                     subclasses, and for ``Protocol``s (2+ methods) in classes
+                     defining all its methods; never targets test classes
+
+Anything else (untyped or ambiguous locals, other instance attributes,
+subscripts, unknown return types, builtins, external libraries) is dropped
+and counted by reason. Edges whose source chunk is in a test file get type
 ``tested_by``: stored, never used for expansion.
 """
 
@@ -38,6 +52,7 @@ from __future__ import annotations
 
 import builtins
 import json
+import re
 from collections import Counter, defaultdict
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -50,7 +65,7 @@ from tree_sitter import Language, Node, Parser
 
 from chatter.extract import Chunk, normalize_newlines
 
-GRAPH_VERSION = 2  # resolver version; 2: finer drop reasons (literal/subscript/external base)
+GRAPH_VERSION = 3  # resolver version; 2: finer drop reasons; 3: Phase B inferred types
 
 # Edge type codes (stable: stored in graph_types.npy).
 CALLS = 1
@@ -60,6 +75,8 @@ CONTEXT_MANAGER = 4
 CONTAINS = 5
 INHERITS = 6
 TESTED_BY = 7
+CALLS_INFERRED = 8
+IMPLEMENTS = 9
 EDGE_TYPES = {
     CALLS: "calls",
     INSTANTIATES: "instantiates",
@@ -68,6 +85,8 @@ EDGE_TYPES = {
     CONTAINS: "contains",
     INHERITS: "inherits",
     TESTED_BY: "tested_by",
+    CALLS_INFERRED: "calls_inferred",
+    IMPLEMENTS: "implements",
 }
 # Expansion weights by edge type, (forward, reverse). TESTED_BY is never expanded.
 EDGE_WEIGHTS: dict[int, tuple[float, float]] = {
@@ -77,6 +96,8 @@ EDGE_WEIGHTS: dict[int, tuple[float, float]] = {
     CONTEXT_MANAGER: (1.0, 1.0),
     CONTAINS: (0.7, 0.5),
     INHERITS: (0.5, 0.5),
+    CALLS_INFERRED: (0.8, 0.8),
+    IMPLEMENTS: (0.5, 0.5),
 }
 
 INDPTR_FILE = "graph_indptr.npy"
@@ -87,6 +108,11 @@ GRAPH_FILES = (INDPTR_FILE, TARGETS_FILE, TYPES_FILE, META_FILE)
 
 _BUILTINS = frozenset(dir(builtins))
 _CLASS_SCOPE = -1  # names bound in a class body (not visible to its methods)
+_CALL = "()"  # marks "the result of calling what precedes" inside an Expr
+_PROTOCOL_BASE_RE = re.compile(r"^(?:typing\.|typing_extensions\.)?Protocol(?:\[.*\])?$", re.S)
+_ABC_BASE_RE = re.compile(r"^(?:abc\.)?ABC$|^metaclass\s*=\s*(?:abc\.)?ABCMeta$")
+_DOTTED_RE = re.compile(r"^[^\W\d]\w*(?:\.[^\W\d]\w*)*$")
+_STRUCTURAL_MIN_METHODS = 2
 _EXAMPLES_PER_REASON = 8
 _FUNCTION_KINDS = frozenset({"function", "method", "lambda"})
 
@@ -138,6 +164,27 @@ class Import:
     wildcard: bool = False  # from X import * (target = X)
 
 
+@dataclass(frozen=True, slots=True)
+class Binding:
+    """One way a name gets a value: ctor (``= Cls(...)``, ``with Cls() as``),
+    annotation, alias (``= other_name``), or other (anything untyped)."""
+
+    scope: int | None  # function chunk index; None = module scope
+    name: str
+    kind: str  # ctor | annotation | alias | other
+    expr: Expr | None
+
+
+@dataclass(frozen=True, slots=True)
+class AttrBinding:
+    """``self.<attr>`` set in ``__init__`` (chunk ``init``)."""
+
+    init: int
+    attr: str
+    kind: str  # ctor | annotation | alias | other
+    expr: Expr | None
+
+
 @dataclass(slots=True)
 class FileRefs:
     path: str
@@ -147,6 +194,9 @@ class FileRefs:
     refs: list[Ref] = field(default_factory=list)
     imports: list[Import] = field(default_factory=list)
     local_names: dict[int | None, set[str]] = field(default_factory=lambda: defaultdict(set))
+    bindings: list[Binding] = field(default_factory=list)
+    attr_bindings: list[AttrBinding] = field(default_factory=list)
+    class_bases: dict[int, list[str]] = field(default_factory=dict)  # raw base texts
 
 
 def _parser() -> Parser:
@@ -165,6 +215,7 @@ def collect_file_refs(
         (idx for chunk, idx in zip(chunks, chunk_indices) if chunk.kind == "module"), None
     )
     scope_kinds = {idx: chunk.kind for chunk, idx in zip(chunks, chunk_indices)}
+    chunk_at = dict(zip(chunk_indices, chunks))
 
     def owner(line: int) -> int | None:
         return lines_to_chunk.get(line, module_chunk)
@@ -176,10 +227,18 @@ def collect_file_refs(
             return None
         return idx if scope_kinds.get(idx) in _FUNCTION_KINDS else _CLASS_SCOPE
 
-    def bind(line: int, names: Iterator[str]) -> None:
+    def bind(line: int, names: Iterator[str], kind: str = "other", expr: Expr | None = None) -> None:
         owner_scope = scope(line)
-        if owner_scope != _CLASS_SCOPE:  # class bodies don't leak into method scopes
-            result.local_names[owner_scope].update(names)
+        if owner_scope == _CLASS_SCOPE:  # class bodies don't leak into method scopes
+            return
+        for name in names:
+            result.local_names[owner_scope].add(name)
+            result.bindings.append(Binding(owner_scope, name, kind, expr))
+
+    def init_method(line: int) -> int | None:
+        idx = lines_to_chunk.get(line)
+        chunk = chunk_at.get(idx) if idx is not None else None
+        return idx if chunk is not None and chunk.kind == "method" and chunk.name == "__init__" else None
 
     module = module_name(path)
     result = FileRefs(
@@ -221,7 +280,12 @@ def collect_file_refs(
                     target = item.child_by_field_name("value")
                     alias = target.child_by_field_name("alias") if target is not None else None
                     if alias is not None:
-                        bind(line, _identifiers(alias))
+                        names = list(_identifiers(alias))
+                        callee = value.child_by_field_name("function") if value is not None and value.type == "call" else None
+                        if len(names) == 1 and callee is not None:
+                            bind(line, iter(names), "ctor", _expr(callee))
+                        else:
+                            bind(line, iter(names))
                 if value is not None and value.type == "call" and source is not None:
                     function = value.child_by_field_name("function")
                     if function is not None:
@@ -233,6 +297,7 @@ def collect_file_refs(
             source = lines_to_chunk.get(name.start_point[0] + 1) if name is not None else None
             bases = node.child_by_field_name("superclasses")
             if source is not None and bases is not None:
+                result.class_bases[source] = [" ".join(_text(b).split()) for b in bases.named_children]
                 for base in bases.named_children:
                     if base.type in ("identifier", "attribute"):
                         result.refs.append(Ref("base", source, _expr(base), base.start_point[0] + 1, _text(base)))
@@ -248,8 +313,25 @@ def collect_file_refs(
             for name_node in node.children_by_field_name("name"):
                 _record_import(result, scope(line), name_node, (base, level))
         elif kind in ("parameters", "lambda_parameters"):
-            bind(line, _parameter_names(node))
-        elif kind in ("assignment", "augmented_assignment", "for_statement", "for_in_clause"):
+            for name, annotation in _parameters(node):
+                if annotation is not None:
+                    bind(line, iter([name]), "annotation", annotation)
+                else:
+                    bind(line, iter([name]))
+        elif kind == "assignment":
+            left = node.child_by_field_name("left")
+            if left is not None:
+                binding = _assignment_binding(node)
+                target = _expr(left) if left.type == "attribute" else None
+                is_self_attr = target is not None and len(target) == 2 and target[0] == "self"
+                init = init_method(line) if is_self_attr else None
+                if left.type == "identifier":
+                    bind(line, iter([_text(left)]), *binding)
+                elif init is not None and target is not None:
+                    result.attr_bindings.append(AttrBinding(init, target[1], *binding))
+                else:
+                    bind(line, _identifiers(left))
+        elif kind in ("augmented_assignment", "for_statement", "for_in_clause"):
             left = node.child_by_field_name("left")
             if left is not None:
                 bind(line, _identifiers(left))
@@ -304,26 +386,95 @@ def _absolute(module: str, is_package: bool, base: str, level: int) -> str:
     return ".".join([*package, *([base] if base else [])])
 
 
-def _expr(node: Node) -> Expr | None:
-    """Flatten ``a.b.c`` / ``super().m`` into a tuple; None for other shapes."""
-    names: list[str] = []
-    while node.type == "attribute":
+def _expr(node: Node, depth: int = 0) -> Expr | None:
+    """Flatten ``a.b.c``, ``super().m`` and ``Cls(...).m`` into a tuple.
+
+    A call inside the chain becomes the token ``()``; None for other shapes.
+    """
+    if depth > 32:
+        return None
+    if node.type == "identifier":
+        return (_text(node),)
+    if node.type == "attribute":
         attribute = node.child_by_field_name("attribute")
         obj = node.child_by_field_name("object")
         if attribute is None or obj is None:
             return None
-        names.append(_text(attribute))
-        node = obj
-    if node.type == "identifier":
-        names.append(_text(node))
-    elif node.type == "call":
+        base = _expr(obj, depth + 1)
+        return None if base is None else (*base, _text(attribute))
+    if node.type == "call":
         function = node.child_by_field_name("function")
-        if function is None or function.type != "identifier" or _text(function) != "super":
+        if function is None:
             return None
-        names.append("super()")
-    else:
+        if function.type == "identifier" and _text(function) == "super":
+            return ("super()",)
+        inner = _expr(function, depth + 1)
+        return None if inner is None else (*inner, _CALL)
+    return None
+
+
+def _annotation_expr(node: Node | None) -> Expr | None:
+    """The class an annotation names: ``Cls``, ``"mod.Cls"``, ``Cls | None``, ``Optional[Cls]``."""
+    if node is None:
         return None
-    return tuple(reversed(names))
+    if node.type == "type":
+        return _annotation_expr(node.named_children[0]) if node.named_children else None
+    if node.type in ("identifier", "attribute"):
+        return _expr(node)
+    if node.type == "string":
+        content = "".join(_text(c) for c in node.named_children if c.type == "string_content")
+        return tuple(content.split(".")) if _DOTTED_RE.match(content) else None
+    if node.type == "binary_operator" and _text(node.child_by_field_name("operator")) == "|":
+        sides = [node.child_by_field_name("left"), node.child_by_field_name("right")]
+        found = [e for side in sides if side is not None and side.type != "none" for e in [_annotation_expr(side)]]
+        return found[0] if len(found) == 1 else None
+    if node.type == "generic_type" and node.named_children:
+        name = _text(node.named_children[0]).rsplit(".", 1)[-1]
+        params = [c for p in node.named_children[1:] if p.type == "type_parameter" for c in p.named_children]
+        options = [p for p in params if not (p.type == "type" and _text(p) == "None")]
+        if name in ("Optional", "Union") and len(options) == 1:
+            return _annotation_expr(options[0])
+    return None
+
+
+def _assignment_binding(node: Node) -> tuple[str, Expr | None]:
+    """(kind, expr) for ``target [: T] = value``: an annotation wins over the value."""
+    annotation = node.child_by_field_name("type")
+    if annotation is not None:
+        return "annotation", _annotation_expr(annotation)
+    right = node.child_by_field_name("right")
+    if right is None:
+        return "other", None
+    if right.type == "call":
+        function = right.child_by_field_name("function")
+        return ("ctor", _expr(function)) if function is not None else ("other", None)
+    if right.type in ("identifier", "attribute"):
+        return "alias", _expr(right)
+    return "other", None
+
+
+def _parameters(node: Node) -> Iterator[tuple[str, Expr | None]]:
+    """(name, annotation expr) for every parameter; splats have no type."""
+    for param in node.named_children:
+        if param.type == "identifier":
+            yield _text(param), None
+        elif param.type in ("typed_parameter", "typed_default_parameter"):
+            name = param.child_by_field_name("name") or next(
+                (c for c in param.named_children if c.type == "identifier"), None
+            )
+            if name is not None:
+                yield _text(name), _annotation_expr(param.child_by_field_name("type"))
+            else:  # *args: T / **kwargs: T
+                yield from ((_text(c), None) for c in param.named_children if c.type == "identifier")
+                for c in param.named_children:
+                    if c.type in ("list_splat_pattern", "dictionary_splat_pattern"):
+                        yield from ((_text(i), None) for i in c.named_children if i.type == "identifier")
+        else:
+            name = param.child_by_field_name("name")
+            if name is not None and name.type == "identifier":
+                yield _text(name), None
+            else:
+                yield from ((_text(c), None) for c in param.named_children if c.type == "identifier")
 
 
 _LITERALS = frozenset(
@@ -366,18 +517,6 @@ def _identifiers(node: Node) -> Iterator[str]:
             stack.extend(current.named_children)
 
 
-def _parameter_names(node: Node) -> Iterator[str]:
-    for param in node.named_children:
-        if param.type == "identifier":
-            yield _text(param)
-        else:
-            name = param.child_by_field_name("name")
-            if name is not None and name.type == "identifier":
-                yield _text(name)
-            else:
-                yield from (_text(c) for c in param.named_children if c.type == "identifier")
-
-
 def _text(node: Node | None) -> str:
     return (node.text or b"").decode("utf-8", errors="replace") if node is not None else ""
 
@@ -403,9 +542,9 @@ def _innermost_chunk_by_line(chunks: Sequence[Chunk], indices: Sequence[int]) ->
 
 @dataclass(frozen=True, slots=True)
 class Value:
-    kind: str  # module | chunk | external | stop
+    kind: str  # module | chunk | instance | external | stop
     name: str = ""  # module name, external dotted name, or stop reason
-    index: int = -1  # chunk index for kind == "chunk"
+    index: int = -1  # chunk index (the class, for an instance)
 
 
 @dataclass(slots=True)
@@ -453,9 +592,28 @@ class _Resolver:
                     self.local_imports[imp.scope][imp.name] = imp
             for scope, names in f.local_names.items():
                 self.local_names[(f.module, scope)] = names
+        self.bindings: dict[tuple[str, int | None], dict[str, list[Binding]]] = defaultdict(lambda: defaultdict(list))
+        self.attr_bindings: dict[int, dict[str, list[AttrBinding]]] = defaultdict(lambda: defaultdict(list))
+        self.protocols: set[int] = set()
+        self.abcs: set[int] = set()
+        for f in files:
+            for binding in f.bindings:
+                self.bindings[(f.module, binding.scope)][binding.name].append(binding)
+            for attr in f.attr_bindings:
+                init = chunks[attr.init]
+                owner = self.by_qualname.get((init.path, init.parent)) if init.parent else None
+                if owner is not None:
+                    self.attr_bindings[owner][attr.attr].append(attr)
+            for cls, bases in f.class_bases.items():
+                if any(_PROTOCOL_BASE_RE.match(b) for b in bases):
+                    self.protocols.add(cls)
+                if any(_ABC_BASE_RE.match(b) for b in bases):
+                    self.abcs.add(cls)
         self.bases: dict[int, list[int]] = defaultdict(list)
         self.external_bases: set[int] = set()  # classes with a base outside the repo
         self._mro_cache: dict[int, list[int]] = {}
+        self._type_cache: dict[tuple[Any, ...], tuple[Value | None, str]] = {}
+        self._resolving: set[tuple[Any, ...]] = set()
 
     # --- values ---------------------------------------------------------
 
@@ -468,6 +626,9 @@ class _Resolver:
         imp = self.module_imports.get(module, {}).get(name)
         if imp is not None and depth < 8:  # re-export
             return self.import_value(imp, depth + 1)
+        alias = self.module_alias(module, name)
+        if alias is not None:
+            return alias
         for star in self.wildcards.get(module, []):
             if depth < 8 and star in self.files:
                 value = self.module_member(star, name, depth + 1)
@@ -510,12 +671,18 @@ class _Resolver:
             if imp is not None:
                 return self.import_value(imp), "local_import"
             if name in self.local_names.get((module, scope), set()):
-                return Value("stop", "local_variable"), ""
+                value, status = self.local_type(module, scope, name)
+                if value is not None:
+                    return value, "inferred_local"
+                return Value("stop", "ambiguous_local_type" if status == "ambiguous" else "local_variable"), ""
         if name in self.top.get(module, {}):
             return Value("chunk", index=self.top[module][name]), "module_def"
         imp = self.module_imports.get(module, {}).get(name)
         if imp is not None:
             return self.import_value(imp), "import"
+        alias = self.module_alias(module, name)
+        if alias is not None:
+            return alias, "module_alias"
         if name in self.local_names.get((module, None), set()):
             return Value("stop", "module_variable"), ""
         for star in self.wildcards.get(module, []):
@@ -568,43 +735,182 @@ class _Resolver:
                 return member
         return None
 
-    def resolve(self, expr: Expr | None, source: int) -> tuple[Value, str]:
-        """Resolve an expression to a value and the rule that found it."""
-        if expr is None:
-            return Value("stop", "dynamic"), ""
+    # --- Phase B: inferred types -------------------------------------------
+
+    def _typed(self, kind: str, expr: Expr | None, source: int | None, module: str) -> Value | None:
+        """The value one binding gives a name, or None if it is untyped."""
+        if expr is None or kind == "other":
+            return None
+        if source is None:  # module scope: only aliases are considered
+            if kind != "alias":
+                return None
+            value, _, _ = self.resolve_in_module(expr, module)
+        else:
+            value, _, _ = self.resolve(expr, source)
+        if kind in ("ctor", "annotation"):
+            if value.kind == "chunk" and self.chunks[value.index].kind == "class":
+                return Value("instance", index=value.index)
+            return None
+        return value if value.kind in ("chunk", "instance", "module") else None  # alias
+
+    def _consensus(self, key: tuple[Any, ...], typed: Iterator[Value | None]) -> tuple[Value | None, str]:
+        if key in self._type_cache:
+            return self._type_cache[key]
+        if key in self._resolving:  # cyclic definition (x = y; y = x)
+            return None, "ambiguous"
+        self._resolving.add(key)
+        try:
+            values = list(typed)
+        finally:
+            self._resolving.discard(key)
+        if not values:
+            result: tuple[Value | None, str] = (None, "untyped")
+        elif all(v is not None for v in values) and len(set(values)) == 1:
+            result = (values[0], "typed")
+        else:
+            result = (None, "ambiguous" if any(v is not None for v in values) else "untyped")
+        self._type_cache[key] = result
+        return result
+
+    def local_type(self, module: str, scope: int, name: str) -> tuple[Value | None, str]:
+        """A local's value if every binding in its scope gives the same one."""
+        bindings = self.bindings.get((module, scope), {}).get(name, [])
+        return self._consensus(
+            ("local", module, scope, name),
+            (self._typed(b.kind, b.expr, scope, module) for b in bindings),
+        )
+
+    def module_alias(self, module: str, name: str) -> Value | None:
+        """``name = other_function`` at module level (every binding must agree)."""
+        bindings = self.bindings.get((module, None), {}).get(name, [])
+        if not bindings or any(b.kind != "alias" for b in bindings):
+            return None
+        value, _ = self._consensus(
+            ("alias", module, name),
+            (self._typed(b.kind, b.expr, None, module) for b in bindings),
+        )
+        return value if value is not None and value.kind == "chunk" else None
+
+    def attribute_type(self, cls: int, name: str) -> Value | None:
+        """Type of ``self.<name>`` from ``__init__`` assignments, through the MRO."""
+        for klass in self.mro(cls):
+            bindings = self.attr_bindings.get(klass, {}).get(name, [])
+            if bindings:
+                value, _ = self._consensus(
+                    ("attr", klass, name),
+                    (self._typed(b.kind, b.expr, b.init, "") for b in bindings),
+                )
+                return value
+        return None
+
+    def resolve_in_module(self, expr: Expr, module: str) -> tuple[Value, str, bool]:
+        """Resolve a module-level expression (no function scope)."""
         head, rest = expr[0], expr[1:]
-        if head in ("self", "cls") or head == "super()":
+        if head in self.top.get(module, {}):
+            value, rule = Value("chunk", index=self.top[module][head]), "module_def"
+        elif head in self.module_imports.get(module, {}):
+            value, rule = self.import_value(self.module_imports[module][head]), "import"
+        else:
+            return Value("stop", "module_variable"), "", False
+        return self._walk(value, rule, False, rest)
+
+    # --- resolution -------------------------------------------------------
+
+    def resolve(self, expr: Expr | None, source: int) -> tuple[Value, str, bool]:
+        """Resolve an expression: (value, rule that found it, inferred?)."""
+        if expr is None:
+            return Value("stop", "dynamic"), "", False
+        head, rest = expr[0], expr[1:]
+        if head in ("self", "cls", "super()"):
             cls = self.enclosing_class(source)
             if cls is None:
-                return Value("stop", "self_outside_method"), ""
-            if not rest:
-                return Value("chunk", index=cls), "self_mro"
-            member = self.class_attr(cls, rest[0], skip_self=head == "super()")
-            if member is None:
-                if any(klass in self.external_bases for klass in self.mro(cls)):
-                    return Value("stop", "inherited_from_external_base"), ""
-                return Value("stop", "instance_attribute"), ""
-            value, rule = Value("chunk", index=member), "super_mro" if head == "super()" else "self_mro"
-            rest = rest[1:]
-        else:
-            value, rule = self.lookup(head, source)
-        for name in rest:
-            if value.kind == "module":
-                value, rule = self.module_member(value.name, name), "module_attr"
-            elif value.kind == "chunk" and self.chunks[value.index].kind == "class":
-                member = self.class_attr(value.index, name)
-                value = Value("chunk", index=member) if member is not None else Value("stop", "class_attr_unknown")
-                rule = "class_attr"
-            elif value.kind == "chunk":
-                return Value("stop", "function_attribute"), ""
-            elif value.kind == "external":
-                return value, ""
-            else:
+                return Value("stop", "self_outside_method"), "", False
+            if head == "super()":
+                if not rest:
+                    return Value("stop", "dynamic"), "", False
+                member = self.class_attr(cls, rest[0], skip_self=True)
+                if member is None:
+                    return self._missing_member(cls), "", False
+                return self._walk(Value("chunk", index=member), "super_mro", False, rest[1:])
+            value = Value("instance", index=cls) if head == "self" else Value("chunk", index=cls)
+            return self._walk(value, "self_mro", False, rest)
+        value, rule = self.lookup(head, source)
+        return self._walk(value, rule, rule == "inferred_local", rest)
+
+    def _walk(self, value: Value, rule: str, inferred: bool, rest: Sequence[str]) -> tuple[Value, str, bool]:
+        """Apply attribute and call steps to a resolved head."""
+        for step in rest:
+            if value.kind == "stop":
                 stop = value.name
-                if stop in ("local_variable", "module_variable"):
+                if step == _CALL:  # the inner call is counted on its own; this calls its result
+                    stop = "call_result"
+                elif stop in ("local_variable", "module_variable"):
                     stop = "untyped_receiver" if stop == "local_variable" else "module_variable_receiver"
-                return Value("stop", stop), ""
-        return value, rule
+                return Value("stop", stop), "", False
+            if value.kind == "external":
+                return value, "", False
+            if step == _CALL:
+                if value.kind == "chunk" and self.chunks[value.index].kind == "class":
+                    value, rule, inferred = Value("instance", index=value.index), "constructor_receiver", True
+                elif value.kind == "instance":
+                    return Value("stop", "instance_call"), "", False
+                else:
+                    return Value("stop", "call_result"), "", False
+            elif value.kind == "module":
+                value, rule = self.module_member(value.name, step), "module_attr"
+            elif value.kind == "instance":
+                member = self.class_attr(value.index, step)
+                if member is not None:
+                    value = Value("chunk", index=member)
+                    rule = rule if rule in ("self_mro", "constructor_receiver", "inferred_local", "self_attribute_type") else "inferred_local"
+                else:
+                    typed = self.attribute_type(value.index, step)
+                    if typed is None:
+                        return self._missing_member(value.index), "", False
+                    value, rule, inferred = typed, "self_attribute_type", True
+            elif value.kind == "chunk" and self.chunks[value.index].kind == "class":
+                member = self.class_attr(value.index, step)
+                value = Value("chunk", index=member) if member is not None else Value("stop", "class_attr_unknown")
+                rule = rule if rule == "self_mro" else "class_attr"
+            elif value.kind == "chunk":
+                return Value("stop", "function_attribute"), "", False
+        return value, rule, inferred
+
+    def _missing_member(self, cls: int) -> Value:
+        if any(klass in self.external_bases for klass in self.mro(cls)):
+            return Value("stop", "inherited_from_external_base")
+        return Value("stop", "instance_attribute")
+
+    def implementations(self) -> Iterator[tuple[int, int]]:
+        """(protocol/ABC method, implementing method) pairs; never into test files."""
+        classes = [i for i, c in enumerate(self.chunks) if c.kind == "class" and not is_test_path(c.path)]
+        for proto in sorted(self.protocols | self.abcs):
+            methods = {
+                name: idx
+                for name, idx in self.members.get(proto, {}).items()
+                if self.chunks[idx].kind == "method" and name != "__init__"
+            }
+            if not methods:
+                continue
+            own = set(methods.values())
+            structural_ok = proto in self.protocols and len(methods) >= _STRUCTURAL_MIN_METHODS
+            for cls in classes:
+                if cls == proto:
+                    continue
+                nominal = proto in self.mro(cls)[1:]
+                impls = {name: self.class_attr(cls, name) for name in methods}
+                structural = (
+                    structural_ok
+                    and not nominal
+                    and cls not in self.protocols
+                    and all(impl is not None and impl not in own for impl in impls.values())
+                )
+                if not (nominal or structural):
+                    continue
+                for name, method in methods.items():
+                    impl = impls[name]
+                    if impl is not None and impl not in own and not is_test_path(self.chunks[impl].path):
+                        yield method, impl
 
 
 def build_graph(chunks: Sequence[Chunk], ids: Sequence[str], files: Sequence[FileRefs]) -> Graph:
@@ -627,18 +933,19 @@ def build_graph(chunks: Sequence[Chunk], ids: Sequence[str], files: Sequence[Fil
     all_refs = [ref for f in files for ref in f.refs]
     for ref in all_refs:
         if ref.kind == "base":
-            value, _ = resolver.resolve(ref.expr, ref.source)
+            value, _, _ = resolver.resolve(ref.expr, ref.source)
             if value.kind == "chunk" and chunks[value.index].kind == "class":
                 resolver.bases[ref.source].append(value.index)
             else:
                 resolver.external_bases.add(ref.source)
     resolver._mro_cache.clear()
+    resolver._type_cache.clear()
 
     for ref in all_refs:
         counted = ref.kind != "reference"  # unresolved argument values are usually data
         if counted:
             stats["references"][ref.kind] += 1
-        value, rule = resolver.resolve(ref.expr, ref.source)
+        value, rule, inferred = resolver.resolve(ref.expr, ref.source)
         target = value.index if value.kind == "chunk" else None
         target_kind = chunks[target].kind if target is not None else None
         if ref.kind == "base":
@@ -655,7 +962,7 @@ def build_graph(chunks: Sequence[Chunk], ids: Sequence[str], files: Sequence[Fil
                     add(ref.source, init, CALLS)
                 stats["resolved_by_rule"]["instantiation"] += 1
             elif target_kind in _FUNCTION_KINDS:
-                add(ref.source, target, CALLS)
+                add(ref.source, target, CALLS_INFERRED if inferred else CALLS)
                 stats["resolved_by_rule"][rule or "call"] += 1
             else:
                 _drop(stats, ref, value, chunks)
@@ -685,6 +992,11 @@ def build_graph(chunks: Sequence[Chunk], ids: Sequence[str], files: Sequence[Fil
             if parent is not None:
                 add(parent, i, CONTAINS)
 
+    for method, impl in resolver.implementations():
+        add(method, impl, IMPLEMENTS)
+    stats["protocols"] = len(resolver.protocols)
+    stats["abcs"] = len(resolver.abcs)
+
     tests = np.array([is_test_path(chunk.path) for chunk in chunks], dtype=bool)
     typed = sorted({(s, d, TESTED_BY if tests[s] else k) for s, d, k in edges})
     array = np.array(typed, dtype=np.int64).reshape(-1, 3)
@@ -702,6 +1014,8 @@ def _drop(stats: dict[str, Any], ref: Ref, value: Value, chunks: Sequence[Chunk]
         reason = ref.shape
     elif value.kind == "external":
         reason = "external"
+    elif value.kind == "instance":
+        reason = "instance_call"
     elif value.kind == "chunk":
         reason = f"not_callable_{chunks[value.index].kind}"
     else:
