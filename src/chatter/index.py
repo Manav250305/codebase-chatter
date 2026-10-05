@@ -2,68 +2,66 @@
 
 Layout of an index directory (default ``<repo>/.chatter``)::
 
-    manifest.json   schema version, embedding model, fingerprint
-    chunks.jsonl    one record per chunk: id, chunk fields, BM25 tokens
-    chroma/         Chroma collection of embedded chunk parts
+    manifest.json        schema, repo, embedding model, and the committed build
+    gen-<id>/
+        chunks.jsonl     one record per chunk: id, chunk fields, BM25 tokens,
+                         content hash, vector rows [start, count], part lines
+        vectors.npy      float32 L2-normalized part vectors, one row per part
 
 Chunks whose embedding text exceeds the model's token budget are split by lines
-into parts (``<chunk id>#<n>``); each part repeats the chunk header. Every part
-stores a hash of its chunk's embedding text, so re-indexing only embeds chunks
-that are new or changed and deletes chunks that disappeared.
+into parts; each part repeats the chunk header and gets its own vector row.
+Each chunk records a hash of its embedding text, so re-indexing copies the
+vectors of unchanged chunks and only embeds new or changed ones. A build is
+committed by atomically replacing manifest.json.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import filecmp
 import functools
 import hashlib
 import json
 import logging
 import os
 import re
-import sqlite3
+import shutil
+import uuid
 from collections import Counter
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import chromadb
+import numpy as np
 import pathspec
 import snowballstemmer
-from chromadb.api import ClientAPI
-from chromadb.api.models.Collection import Collection
-from chromadb.config import Settings
 
 from chatter.embed import Embedder, SentenceTransformerEmbedder
 from chatter.extract import DEFAULT_MAX_BYTES, Chunk, extract_file
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 2  # 2: BM25 tokens include Snowball stems
+SCHEMA_VERSION = 3  # 2: Snowball stems in BM25 tokens; 3: exact numpy vectors, no Chroma
 INDEX_DIRNAME = ".chatter"
 MANIFEST_FILE = "manifest.json"
 CHUNKS_FILE = "chunks.jsonl"
-CHROMA_DIR = "chroma"
-COLLECTION_NAME = "chunks"
+VECTORS_FILE = "vectors.npy"
+GENERATION_PREFIX = "gen-"
+_LEGACY_ENTRIES = frozenset({"chroma", CHUNKS_FILE})  # schema 1-2 layout
 
 SKIP_DIRS = frozenset(
     {".git", ".hg", ".svn", ".venv", "venv", "node_modules", "__pycache__", INDEX_DIRNAME}
 )
 SOURCE_SUFFIXES = frozenset({".py"})
 HEADER_DOCSTRING_CHARS = 400
-_CHROMA_PAGE = 5_000
 
 _IDENTIFIER_RE = re.compile(r"[^\W\d]\w*|\d+")
 _CAMEL_BOUNDARY_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
 
 class IndexMismatchError(RuntimeError):
-    """The on-disk index was built with a different model or schema."""
-
-
-class IndexStorageError(RuntimeError):
-    """The index directory cannot host the SQLite database Chroma writes."""
+    """The on-disk index was built with a different model, schema, or repo."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -289,54 +287,31 @@ def _ignored(
 
 
 # ---------------------------------------------------------------------------
-# Storage helpers (shared with retrieve.py)
+# Storage (shared with retrieve.py)
 # ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class IndexData:
+    """Files of one committed build (the generation the manifest points to)."""
+
+    directory: Path
+    chunks_path: Path
+    vectors_path: Path
+
+
+@dataclass(frozen=True, slots=True)
+class _Previous:
+    """What a re-index needs from the last build to reuse a chunk's vectors."""
+
+    hash: str
+    start: int
+    count: int
+    parts: list[list[int]]
 
 
 def default_index_dir(repo: Path) -> Path:
     return Path(repo).resolve() / INDEX_DIRNAME
-
-
-def _client(index_dir: Path) -> ClientAPI:
-    return chromadb.PersistentClient(
-        path=str(Path(index_dir) / CHROMA_DIR),
-        settings=Settings(anonymized_telemetry=False),
-    )
-
-
-def open_collection(index_dir: Path, *, create: bool) -> Collection:
-    client = _client(index_dir)
-    if create:
-        return client.get_or_create_collection(
-            COLLECTION_NAME, embedding_function=None, configuration={"hnsw": {"space": "cosine"}}
-        )
-    return client.get_collection(COLLECTION_NAME, embedding_function=None)
-
-
-def check_index_storage(index_dir: Path) -> None:
-    """Fail early if SQLite cannot write here (e.g. some exFAT mounts on macOS).
-
-    Chroma persists to SQLite with its default rollback journal; on such
-    filesystems every write fails with "attempt to write a readonly database".
-    """
-    probe = Path(index_dir) / ".sqlite-probe"
-    try:
-        connection = sqlite3.connect(probe)
-        try:
-            connection.execute("CREATE TABLE IF NOT EXISTS probe (x)")
-            connection.execute("INSERT INTO probe VALUES (1)")
-            connection.commit()
-        finally:
-            connection.close()
-    except sqlite3.Error as exc:
-        raise IndexStorageError(
-            f"SQLite cannot write in {index_dir} ({exc}). The index is stored in SQLite, "
-            "which fails on some filesystems (e.g. exFAT/FAT drives on macOS); "
-            "put the index on another disk."
-        ) from exc
-    finally:
-        for suffix in ("", "-journal", "-wal", "-shm"):
-            Path(f"{probe}{suffix}").unlink(missing_ok=True)
 
 
 def read_manifest(index_dir: Path) -> dict[str, Any] | None:
@@ -357,6 +332,35 @@ def check_manifest(manifest: dict[str, Any], embedder: Embedder) -> None:
             f"index was built with model {manifest.get('model')!r}, not {embedder.name!r}; "
             "rebuild the index or use the same model"
         )
+
+
+def index_data(index_dir: Path, manifest: dict[str, Any] | None = None) -> IndexData | None:
+    """The committed build's files, or None if there is no (current-schema) build."""
+    manifest = manifest if manifest is not None else read_manifest(index_dir)
+    generation = (manifest or {}).get("data")
+    if not generation:
+        return None
+    directory = Path(index_dir) / generation
+    return IndexData(directory, directory / CHUNKS_FILE, directory / VECTORS_FILE)
+
+
+def iter_records(chunks_path: Path) -> Iterator[dict[str, Any]]:
+    with Path(chunks_path).open(encoding="utf-8") as records:
+        for line in records:
+            yield json.loads(line)
+
+
+def load_vectors(path: Path) -> np.ndarray:
+    """Memory-map the float32 part vectors (an empty array cannot be mapped)."""
+    try:
+        return np.load(path, mmap_mode="r")
+    except ValueError:
+        return np.load(path)
+
+
+def chunk_ids_in_index(index_dir: Path) -> set[str]:
+    data = index_data(index_dir)
+    return set() if data is None else {record["id"] for record in iter_records(data.chunks_path)}
 
 
 def chunk_to_dict(chunk: Chunk) -> dict[str, Any]:
@@ -385,12 +389,6 @@ def _write_atomic(path: Path, text: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-@dataclass(slots=True)
-class _Stored:
-    hash: str
-    part_ids: set[str] = field(default_factory=set)
-
-
 def build_index(
     repo: Path | str,
     embedder: Embedder | None = None,
@@ -401,8 +399,14 @@ def build_index(
 ) -> IndexStats:
     """Index every Python file under ``repo``; re-running only embeds changes.
 
-    Raises ``IndexMismatchError`` if an existing index used a different model
-    or schema, unless ``rebuild`` is set (which drops all stored vectors).
+    Each build writes a new generation directory and then commits it by
+    replacing ``manifest.json``; older generations are removed afterwards, so
+    an interrupted build never leaves records and vectors out of step. A build
+    whose output is byte-identical to the committed one is discarded, so an
+    unchanged re-index leaves the index untouched.
+    Unchanged chunks (same content hash) copy their vectors from the previous
+    build. Raises ``IndexMismatchError`` if an existing index used a different
+    model, schema, or repo, unless ``rebuild`` is set (nothing is reused).
     """
     repo_path = Path(repo).resolve()
     if not repo_path.is_dir():
@@ -410,73 +414,102 @@ def build_index(
     embedder = embedder if embedder is not None else SentenceTransformerEmbedder()
     out = Path(index_dir) if index_dir is not None else default_index_dir(repo_path)
     out.mkdir(parents=True, exist_ok=True)
-    check_index_storage(out)
 
     manifest = read_manifest(out)
     if manifest is not None and not rebuild:
         check_manifest(manifest, embedder)
         _check_same_repo(manifest, repo_path, out)
-    if rebuild:
-        _drop_collection(out)
-    collection = open_collection(out, create=True)
-    stored = _stored_parts(collection)
+    previous: dict[str, _Previous] = {}
+    old_vectors: np.ndarray | None = None
+    data = None if rebuild else index_data(out, manifest)
+    if data is not None:
+        previous = {
+            r["id"]: _Previous(r["hash"], r["rows"][0], r["rows"][1], r["parts"])
+            for r in iter_records(data.chunks_path)
+        }
+        old_vectors = load_vectors(data.vectors_path)
 
-    writer = _PartWriter(collection, embedder, config.batch_size)
+    generation = f"{GENERATION_PREFIX}{uuid.uuid4().hex[:12]}"
+    gen_dir = out / generation
+    gen_dir.mkdir()
     seen: set[str] = set()
     files = reused = 0
-    chunks_tmp = out / (CHUNKS_FILE + ".tmp")
-    with chunks_tmp.open("w", encoding="utf-8") as records:
-        for path in iter_source_files(repo_path):
-            files += 1
-            rel = path.relative_to(repo_path).as_posix()
-            chunks = extract_file(path, display_path=rel, max_bytes=config.max_file_bytes)
-            for chunk_id, chunk in zip(assign_chunk_ids(chunks), chunks):
-                seen.add(chunk_id)
-                digest = content_hash(embedder.fingerprint, embedding_text(chunk))
-                previous = stored.get(chunk_id)
-                if previous is not None and previous.hash == digest:
-                    reused += 1
-                else:
-                    stale = previous.part_ids if previous is not None else set()
-                    writer.add(chunk_id, chunk, digest, stale)
-                record = {"id": chunk_id, "chunk": chunk_to_dict(chunk), "tokens": bm25_tokens(chunk)}
-                records.write(json.dumps(record, ensure_ascii=False) + "\n")
-            if files % 500 == 0:
-                logger.info("indexed %d files (%d chunks)", files, len(seen))
-    writer.flush()
-
-    removed = [cid for cid in stored if cid not in seen]
-    _delete_ids(collection, [pid for cid in removed for pid in stored[cid].part_ids])
-
-    os.replace(chunks_tmp, out / CHUNKS_FILE)
-    _write_atomic(
-        out / MANIFEST_FILE,
-        json.dumps(
-            {
-                "schema": SCHEMA_VERSION,
-                "repo": str(repo_path),
-                "model": embedder.name,
-                "fingerprint": embedder.fingerprint,
-                "max_tokens": embedder.max_tokens,
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-    )
+    unchanged = False
+    try:
+        writer = _VectorWriter(gen_dir / "vectors.f32", embedder, config.batch_size)
+        with (gen_dir / CHUNKS_FILE).open("w", encoding="utf-8") as records:
+            for path in iter_source_files(repo_path):
+                files += 1
+                rel = path.relative_to(repo_path).as_posix()
+                chunks = extract_file(path, display_path=rel, max_bytes=config.max_file_bytes)
+                ids = assign_chunk_ids(chunks)
+                digests = [content_hash(embedder.fingerprint, embedding_text(c)) for c in chunks]
+                stale = [
+                    i
+                    for i, (cid, digest) in enumerate(zip(ids, digests))
+                    if old_vectors is None or cid not in previous or previous[cid].hash != digest
+                ]
+                plans = dict(zip(stale, plan_parts([chunks[i] for i in stale], embedder)))
+                for i, (chunk_id, chunk, digest) in enumerate(zip(ids, chunks, digests)):
+                    seen.add(chunk_id)
+                    if i in plans:
+                        parts = [[part.first, part.last] for part in plans[i]]
+                        start = writer.add([part.text for part in plans[i]])
+                    else:
+                        old = previous[chunk_id]
+                        assert old_vectors is not None
+                        parts = old.parts
+                        start = writer.copy(old_vectors[old.start : old.start + old.count])
+                        reused += 1
+                    record = {
+                        "id": chunk_id,
+                        "chunk": chunk_to_dict(chunk),
+                        "tokens": bm25_tokens(chunk),
+                        "hash": digest,
+                        "rows": [start, len(parts)],
+                        "parts": parts,
+                    }
+                    records.write(json.dumps(record, ensure_ascii=False) + "\n")
+                if files % 500 == 0:
+                    logger.info("indexed %d files (%d chunks)", files, len(seen))
+        rows, dim = writer.finish(gen_dir / VECTORS_FILE)
+        new_manifest = {
+            "schema": SCHEMA_VERSION,
+            "repo": str(repo_path),
+            "model": embedder.name,
+            "fingerprint": embedder.fingerprint,
+            "max_tokens": embedder.max_tokens,
+            "data": generation,
+            "rows": rows,
+            "dim": dim,
+        }
+        unchanged = data is not None and _same_build(manifest, new_manifest, data, gen_dir)
+        if not unchanged:
+            _write_atomic(
+                out / MANIFEST_FILE, json.dumps(new_manifest, indent=2, sort_keys=True) + "\n"
+            )
+    except BaseException:
+        shutil.rmtree(gen_dir, ignore_errors=True)
+        raise
+    old_vectors = None  # release the memory map before deleting its file
+    if unchanged:
+        assert manifest is not None
+        shutil.rmtree(gen_dir)  # identical to the committed build: keep that one
+        generation = str(manifest["data"])
+    _remove_stale_files(out, keep=generation, legacy=manifest is not None)
     return IndexStats(
         files=files,
         chunks=len(seen),
         embedded_parts=writer.embedded,
         reused_chunks=reused,
-        deleted_chunks=len(removed),
+        deleted_chunks=len(previous.keys() - seen),
     )
 
 
 def _check_same_repo(manifest: dict[str, Any], repo_path: Path, index_dir: Path) -> None:
     """Refuse to reuse an external index dir for a different repo.
 
-    Re-indexing deletes chunks that are no longer present, so pointing two
+    Re-indexing drops chunks that are no longer present, so pointing two
     repos at one directory would silently replace one index with the other.
     An index inside its own repo may move with it, so that case is allowed.
     """
@@ -491,82 +524,111 @@ def _check_same_repo(manifest: dict[str, Any], repo_path: Path, index_dir: Path)
     )
 
 
-class _PartWriter:
-    """Buffers changed chunks; splits, embeds, and upserts them in batches."""
+def _same_build(
+    old_manifest: dict[str, Any] | None,
+    new_manifest: dict[str, Any],
+    old: IndexData,
+    gen_dir: Path,
+) -> bool:
+    """True if the new generation's manifest and files equal the committed ones."""
+    if old_manifest is None:
+        return False
+    if {k: v for k, v in old_manifest.items() if k != "data"} != {
+        k: v for k, v in new_manifest.items() if k != "data"
+    }:
+        return False
+    return filecmp.cmp(old.chunks_path, gen_dir / CHUNKS_FILE, shallow=False) and filecmp.cmp(
+        old.vectors_path, gen_dir / VECTORS_FILE, shallow=False
+    )
 
-    def __init__(self, collection: Collection, embedder: Embedder, batch_size: int) -> None:
-        self._collection = collection
+
+def _remove_stale_files(index_dir: Path, *, keep: str, legacy: bool) -> None:
+    """Delete older generations, and schema 1-2 (Chroma) files if ``legacy``.
+
+    ``legacy`` is only set when the directory already held an index, so an
+    unrelated ``chroma/`` or ``chunks.jsonl`` elsewhere is never touched.
+    """
+    for entry in index_dir.iterdir():
+        stale_generation = entry.name.startswith(GENERATION_PREFIX) and entry.name != keep
+        if not (stale_generation or (legacy and entry.name in _LEGACY_ENTRIES)):
+            continue
+        if entry.is_dir():
+            shutil.rmtree(entry, ignore_errors=True)
+        else:
+            entry.unlink(missing_ok=True)
+
+
+class _VectorWriter:
+    """Writes L2-normalized float32 part vectors by row, embedding new texts in batches.
+
+    Rows are assigned in record order; reused vectors are written at once and
+    new ones when their batch is embedded, into a raw scratch file that
+    ``finish`` turns into a ``.npy``.
+    """
+
+    def __init__(self, raw_path: Path, embedder: Embedder, batch_size: int) -> None:
+        self._raw_path = raw_path
+        self._file = raw_path.open("w+b")
         self._embedder = embedder
         self._batch_size = max(1, batch_size)
-        self._pending: list[tuple[str, Chunk, str, set[str]]] = []
+        self._pending: list[tuple[int, str]] = []  # (row, text)
+        self._rows = 0
+        self._dim: int | None = None
         self.embedded = 0
 
-    def add(self, chunk_id: str, chunk: Chunk, digest: str, stale: set[str]) -> None:
-        self._pending.append((chunk_id, chunk, digest, stale))
+    def copy(self, vectors: np.ndarray) -> int:
+        start = self._rows
+        self._rows += len(vectors)
+        self._write(start, np.asarray(vectors, dtype=np.float32))
+        return start
+
+    def add(self, texts: Sequence[str]) -> int:
+        start = self._rows
+        self._pending += [(start + i, text) for i, text in enumerate(texts)]
+        self._rows += len(texts)
         if len(self._pending) >= self._batch_size:
             self.flush()
+        return start
 
     def flush(self) -> None:
-        if not self._pending:
-            return
-        pending, self._pending = self._pending, []
-        plans = plan_parts([chunk for _, chunk, _, _ in pending], self._embedder)
+        while self._pending:
+            batch, self._pending = self._pending[: self._batch_size], self._pending[self._batch_size :]
+            vectors = _normalized(self._embedder.embed_documents([text for _, text in batch]))
+            self.embedded += len(batch)
+            # Rows within a batch are consecutive except where reused rows interleave.
+            for (row, _), vector in zip(batch, vectors):
+                self._write(row, vector[None, :])
 
-        ids: list[str] = []
-        texts: list[str] = []
-        metadatas: list[dict[str, Any]] = []
-        obsolete: list[str] = []
-        for (chunk_id, _, digest, stale), parts in zip(pending, plans):
-            new_ids = [f"{chunk_id}#{part.index}" for part in parts]
-            obsolete.extend(sorted(stale - set(new_ids)))
-            for part_id, part in zip(new_ids, parts):
-                ids.append(part_id)
-                texts.append(part.text)
-                metadatas.append(
-                    {
-                        "chunk_id": chunk_id,
-                        "hash": digest,
-                        "part": part.index,
-                        "parts": len(parts),
-                        "first": part.first,
-                        "last": part.last,
-                    }
-                )
-
-        _delete_ids(self._collection, obsolete)
-        for start in range(0, len(ids), self._batch_size):
-            end = start + self._batch_size
-            vectors = self._embedder.embed_documents(texts[start:end])
-            self._collection.upsert(
-                ids=ids[start:end], embeddings=vectors, metadatas=metadatas[start:end]
+    def finish(self, npy_path: Path) -> tuple[int, int]:
+        self.flush()
+        dim = self._dim or 0
+        self._file.close()
+        if self._rows == 0:
+            np.save(npy_path, np.zeros((0, dim), dtype=np.float32))
+        else:
+            raw = np.memmap(self._raw_path, dtype=np.float32, mode="r", shape=(self._rows, dim))
+            final = np.lib.format.open_memmap(
+                npy_path, mode="w+", dtype=np.float32, shape=(self._rows, dim)
             )
-            self.embedded += len(vectors)
+            for start in range(0, self._rows, 65_536):
+                final[start : start + 65_536] = raw[start : start + 65_536]
+            final.flush()
+            del final, raw
+        self._raw_path.unlink()
+        return self._rows, dim
+
+    def _write(self, row: int, block: np.ndarray) -> None:
+        if len(block) == 0:
+            return
+        if self._dim is None:
+            self._dim = int(block.shape[1])
+        elif block.shape[1] != self._dim:
+            raise ValueError(f"embedding width changed from {self._dim} to {block.shape[1]}")
+        self._file.seek(row * self._dim * 4)
+        self._file.write(np.ascontiguousarray(block, dtype=np.float32).tobytes())
 
 
-def _stored_parts(collection: Collection) -> dict[str, _Stored]:
-    """chunk id -> stored hash and part ids. Mixed hashes force a re-embed."""
-    stored: dict[str, _Stored] = {}
-    offset = 0
-    while True:
-        page = collection.get(include=["metadatas"], limit=_CHROMA_PAGE, offset=offset)
-        ids = page["ids"]
-        if not ids:
-            return stored
-        for part_id, meta in zip(ids, page["metadatas"] or []):
-            chunk_id = str(meta["chunk_id"])
-            entry = stored.setdefault(chunk_id, _Stored(hash=str(meta["hash"])))
-            if entry.hash != meta["hash"]:
-                entry.hash = ""  # interrupted earlier update; never matches
-            entry.part_ids.add(part_id)
-        offset += len(ids)
-
-
-def _delete_ids(collection: Collection, ids: Sequence[str]) -> None:
-    for start in range(0, len(ids), _CHROMA_PAGE):
-        collection.delete(ids=list(ids[start : start + _CHROMA_PAGE]))
-
-
-def _drop_collection(index_dir: Path) -> None:
-    client = _client(index_dir)
-    if any(c.name == COLLECTION_NAME for c in client.list_collections()):
-        client.delete_collection(COLLECTION_NAME)
+def _normalized(vectors: Sequence[Sequence[float]]) -> np.ndarray:
+    array = np.asarray(vectors, dtype=np.float32)
+    norms = np.linalg.norm(array, axis=1, keepdims=True)
+    return np.divide(array, norms, out=np.zeros_like(array), where=norms > 0)

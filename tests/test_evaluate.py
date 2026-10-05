@@ -380,7 +380,7 @@ def test_cli_eval_reports_unwritable_index_storage(tmp_path: Path) -> None:
         app = make_app(embedder_factory=lambda name: HashEmbedder(name=name))
         result = CliRunner().invoke(app, ["eval", str(questions), "--index-root", str(locked), "--no-save"])
         assert result.exit_code == 1
-        assert "SQLite cannot write" in result.output and "--index-root" in result.output
+        assert "cannot write the index" in result.output and "--index-root" in result.output
     finally:
         (locked / "mini").chmod(0o700)
 

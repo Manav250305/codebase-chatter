@@ -370,3 +370,76 @@ def test_search_passes_fusion_parameters(write_repo: WriteRepo, embedder: HashEm
     assert tuned[0].score == pytest.approx(
         sum(weights[source] / (5 + rank) for source, rank in tuned[0].ranks.items())
     )
+
+
+# ---------------------------------------------------------------------------
+# Exact search: tie-breaking and cross-process determinism
+# ---------------------------------------------------------------------------
+
+import json as _json  # noqa: E402
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+
+import numpy as np  # noqa: E402
+
+from chatter.retrieve import top_k  # noqa: E402
+
+
+def test_top_k_breaks_ties_by_tiebreak_including_at_the_cutoff() -> None:
+    scores = np.array([0.5, 0.9, 0.5, 0.5, 0.1, 0.9])
+    tiebreak = np.array([3, 5, 1, 2, 0, 4])
+    assert top_k(scores, 3, tiebreak).tolist() == [5, 1, 2]  # 0.9s by tiebreak, then best 0.5
+    assert top_k(scores, 10, tiebreak).tolist() == [5, 1, 2, 3, 0, 4]
+    assert top_k(scores, 0, tiebreak).tolist() == []
+    assert top_k(np.array([0.0, 2.0, 0.0]), 5, np.arange(3), positive_only=True).tolist() == [1]
+
+
+def test_identical_chunks_rank_by_chunk_id(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
+    body = "def clone():\n    return parse_header(value)\n"
+    root = write_repo({"b.py": body, "a.py": body, "c/z.py": body})
+    retriever = open_retriever(root, embedder)
+    expected = ["a.py::clone", "b.py::clone", "c/z.py::clone"]
+    for mode in ("bm25", "dense", "fused"):
+        assert [h.chunk_id for h in retriever.search("parse_header", k=3, mode=mode)] == expected
+
+
+_RANKING_SCRIPT = """
+import json, sys
+sys.path[:0] = [sys.argv[1], sys.argv[2]]
+from conftest import HashEmbedder
+from chatter.retrieve import Retriever
+retriever = Retriever.open(sys.argv[3], HashEmbedder())
+out = {}
+for query in ["parse header value", "cache evict entries", "zzz unmatched", "handler 7 request"]:
+    for mode in ("bm25", "dense", "fused"):
+        hits = retriever.search(query, k=200, candidates=200, mode=mode)
+        out[f"{mode}:{query}"] = [[h.chunk_id, round(h.score, 12), list(h.lines)] for h in hits]
+print(json.dumps(out))
+"""
+
+
+def test_two_processes_return_identical_rankings_to_depth_200(
+    write_repo: WriteRepo, embedder: HashEmbedder, tmp_path: Path
+) -> None:
+    files = {}
+    for i in range(110):
+        files[f"pkg/mod{i:03}.py"] = (
+            f"def handler_{i}(request):\n    return parse_header(request, {i})\n\n"
+            f"def evict_{i}(cache):\n    cache.pop({i % 7})\n\n"
+            # Identical in every file: equal vectors and equal BM25 scores.
+            "def shared_helper(value):\n    return parse_header(value)\n"
+        )
+    root = write_repo(files)
+    build_index(root, embedder)
+    runs = []
+    for seed in ("1", "987654"):
+        result = subprocess.run(
+            [sys.executable, "-c", _RANKING_SCRIPT,
+             str(Path(__file__).parent), str(Path(__file__).parents[1] / "src"), str(root / ".chatter")],
+            capture_output=True, text=True, env={**__import__("os").environ, "PYTHONHASHSEED": seed},
+            check=True,
+        )
+        runs.append(_json.loads(result.stdout.strip().splitlines()[-1]))
+    assert runs[0] == runs[1]
+    assert len(runs[0]["dense:parse header value"]) == 200
+    assert len(runs[0]["fused:parse header value"]) == 200

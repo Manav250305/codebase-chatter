@@ -13,7 +13,6 @@ dependencies = [
     "tree-sitter>=0.23,!=0.26.0",  # 0.26.0: Point.row refcount bug
     "tree-sitter-python>=0.23",
     "sentence-transformers>=3.0",
-    "chromadb>=1.0",
     "rank-bm25>=0.2.2",
     "pathspec>=0.12",
     "psutil>=5.9",

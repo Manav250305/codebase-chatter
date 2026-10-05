@@ -51,7 +51,6 @@ from chatter.evaluate import (
 from chatter.index import (
     IndexConfig,
     IndexMismatchError,
-    IndexStorageError,
     build_index,
     default_index_dir,
     read_manifest,
@@ -140,8 +139,8 @@ def make_app(
             )
         except IndexMismatchError as exc:
             _fail(f"{exc}\nRe-run with --rebuild.")
-        except IndexStorageError as exc:
-            _fail(str(exc))
+        except OSError as exc:
+            _fail(f"Cannot write the index at {index_dir}: {exc}")
         elapsed = time.perf_counter() - started
         typer.echo(
             f"Indexed {stats.files} files: {stats.chunks} chunks "
@@ -258,7 +257,7 @@ def make_app(
         index_root: Annotated[
             Path | None,
             typer.Option(help="Store corpus indexes here (one subdirectory per corpus) "
-                         "instead of inside each corpus, e.g. when the repo is on exFAT."),
+                         "instead of inside each corpus."),
         ] = None,
         split: Annotated[
             SplitChoice, typer.Option(help="Only score questions in this split.")

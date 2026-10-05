@@ -50,10 +50,9 @@ import yaml
 from chatter.embed import Embedder
 from chatter.extract import Chunk
 from chatter.index import (
-    CHUNKS_FILE,
     SCHEMA_VERSION,
-    IndexStorageError,
     build_index,
+    chunk_ids_in_index,
     default_index_dir,
     read_manifest,
 )
@@ -452,11 +451,14 @@ def open_corpora(
         )
         try:
             stats = build_index(spec.path, embedder, index_dir=index_dir, rebuild=rebuild)
-        except IndexStorageError as exc:
-            raise EvalError(f"{exc} Use --index-root to keep eval indexes elsewhere.") from exc
+        except OSError as exc:
+            raise EvalError(
+                f"cannot write the index for corpus {name!r} at {index_dir}: {exc}. "
+                "Use --index-root to keep eval indexes elsewhere."
+            ) from exc
         log(f"corpus {name}: {stats.files} files, {stats.chunks} chunks, {stats.embedded_parts} embedded")
         retrievers[name] = Retriever.open(index_dir, embedder)
-        corpus_ids[name] = _chunk_ids(index_dir)
+        corpus_ids[name] = chunk_ids_in_index(index_dir)
         info[name] = {**provenance, "files": stats.files, "chunks": stats.chunks}
     validate_relevant(questions, corpus_ids)
     matchers = {name: containment(retriever.chunk) for name, retriever in retrievers.items()}
@@ -728,11 +730,6 @@ def save_results(results: Mapping[str, Any], results_dir: Path, *, label: str = 
     path = results_dir / f"{stamp}-{commit}{dirty}{tag}{suffix}.json"
     path.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
     return path
-
-
-def _chunk_ids(index_dir: Path) -> set[str]:
-    with (index_dir / CHUNKS_FILE).open(encoding="utf-8") as records:
-        return {json.loads(line)["id"] for line in records}
 
 
 def _git_info(repo_root: Path) -> dict[str, Any]:

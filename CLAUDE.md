@@ -5,7 +5,8 @@ questions about functions/modules, with `file:line-range` citations.
 
 ## Stack
 - Python 3.11+, tree-sitter (py-tree-sitter + tree-sitter-python)
-- Embeddings: sentence-transformers (local); store: Chroma; keyword: rank-bm25
+- Embeddings: sentence-transformers (local); store: exact cosine search over
+  memory-mapped float32 .npy vectors; keyword: rank-bm25
 - Answers: local Hugging Face model via transformers (default
   Qwen/Qwen3-4B-Instruct-2507)
 - CLI: typer; tests: pytest

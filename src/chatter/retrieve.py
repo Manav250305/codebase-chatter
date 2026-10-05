@@ -7,7 +7,6 @@ nearest neighbours, so a query with no real answer still yields hits; only the
 
 from __future__ import annotations
 
-import json
 import math
 import re
 from collections import defaultdict
@@ -17,17 +16,17 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from chromadb.api.models.Collection import Collection
 from rank_bm25 import BM25Okapi
 
 from chatter.embed import Embedder, EmbedderConfig, SentenceTransformerEmbedder
 from chatter.extract import Chunk
 from chatter.index import (
-    CHUNKS_FILE,
     check_manifest,
     chunk_from_dict,
     identifier_words,
-    open_collection,
+    index_data,
+    iter_records,
+    load_vectors,
     read_manifest,
     tokenize_code,
     tokenize_identifier,
@@ -127,20 +126,89 @@ class PositiveIdfBM25(BM25Okapi):
             self.idf[word] = math.log(1.0 + (self.corpus_size - freq + 0.5) / (freq + 0.5))
 
 
+def id_ranks(ids: Sequence[str]) -> np.ndarray:
+    """Position of each id in sorted order: the tie-break key (lower wins)."""
+    ranks = np.empty(len(ids), dtype=np.int64)
+    ranks[np.argsort(np.asarray(ids, dtype=object), kind="stable")] = np.arange(len(ids))
+    return ranks
+
+
+def top_k(
+    scores: np.ndarray, k: int, tiebreak: np.ndarray, *, positive_only: bool = False
+) -> np.ndarray:
+    """Indices of the ``k`` highest scores, best first; equal scores by ``tiebreak``.
+
+    Exact and deterministic: argpartition finds the k-th best score, every
+    candidate tied with it is kept, and a stable lexicographic sort on
+    (-score, tiebreak) picks the final order.
+    """
+    candidates = np.flatnonzero(scores > 0) if positive_only else np.arange(len(scores))
+    if k <= 0 or len(candidates) == 0:
+        return np.empty(0, dtype=np.int64)
+    values = scores[candidates]
+    if k < len(values):
+        kth = values[np.argpartition(-values, k - 1)[k - 1]]
+        keep = values >= kth
+        candidates, values = candidates[keep], values[keep]
+    order = np.lexsort((tiebreak[candidates], -values))
+    return candidates[order][:k]
+
+
 class BM25Index:
     def __init__(self, ids: Sequence[str], token_lists: Sequence[Sequence[str]]) -> None:
         self._ids = list(ids)
+        self._ranks = id_ranks(self._ids)
         has_tokens = any(token_lists)
         self._bm25 = PositiveIdfBM25([list(t) for t in token_lists]) if has_tokens else None
 
     def search(self, query_tokens: Sequence[str], n: int) -> list[tuple[str, float]]:
-        """Top ``n`` (id, score) with score > 0, best first."""
+        """Top ``n`` (id, score) with score > 0, best first; ties by chunk id."""
         if self._bm25 is None or not query_tokens or n <= 0:
             return []
         scores = self._bm25.get_scores(list(query_tokens))
-        matched = np.flatnonzero(scores > 0)
-        order = matched[np.argsort(-scores[matched], kind="stable")][:n]
+        order = top_k(scores, n, self._ranks, positive_only=True)
         return [(self._ids[i], float(scores[i])) for i in order]
+
+
+class DenseIndex:
+    """Exact cosine search over L2-normalized part vectors, ranked per chunk.
+
+    A chunk's score is its best part's cosine similarity. Rows of one chunk
+    are contiguous, starting at ``row_starts[i]``.
+    """
+
+    def __init__(
+        self,
+        ids: Sequence[str],
+        vectors: np.ndarray,
+        row_starts: Sequence[int],
+        row_counts: Sequence[int],
+    ) -> None:
+        self._ids = list(ids)
+        self._ranks = id_ranks(self._ids)
+        self._vectors = vectors
+        self._starts = np.asarray(row_starts, dtype=np.int64)
+        self._counts = np.asarray(row_counts, dtype=np.int64)
+
+    def __len__(self) -> int:
+        return len(self._ids)
+
+    def search(self, query: Sequence[float], n: int) -> list[tuple[str, float, int]]:
+        """Top ``n`` (chunk id, cosine similarity, best part index), best first."""
+        if n <= 0 or not self._ids or self._vectors.shape[0] == 0:
+            return []
+        q = np.asarray(query, dtype=np.float32)
+        norm = float(np.linalg.norm(q))
+        if norm > 0:
+            q = q / norm
+        part_scores = np.asarray(self._vectors @ q, dtype=np.float32)
+        chunk_scores = np.maximum.reduceat(part_scores, self._starts)
+        hits = []
+        for i in top_k(chunk_scores, n, self._ranks):
+            start, count = self._starts[i], self._counts[i]
+            best_part = int(np.argmax(part_scores[start : start + count]))
+            hits.append((self._ids[i], float(chunk_scores[i]), best_part))
+        return hits
 
 
 # ---------------------------------------------------------------------------
@@ -182,16 +250,18 @@ class Retriever:
     def __init__(
         self,
         chunks: Mapping[str, Chunk],
+        parts: Mapping[str, Sequence[Sequence[int]]],
         bm25: BM25Index,
-        collection: Collection,
+        dense: DenseIndex,
         embedder: Embedder,
     ) -> None:
         self._chunks = dict(chunks)
+        self._parts = dict(parts)
         self._symbol_names = frozenset(
             c.name.lower() for c in self._chunks.values() if c.kind != "module"
         )
         self._bm25 = bm25
-        self._collection = collection
+        self._dense = dense
         self._embedder = embedder
 
     @classmethod
@@ -203,20 +273,35 @@ class Retriever:
         if embedder is None:
             embedder = SentenceTransformerEmbedder(EmbedderConfig(model_name=manifest["model"]))
         check_manifest(manifest, embedder)
+        data = index_data(index_path, manifest)
+        if data is None:
+            raise FileNotFoundError(f"index at {index_path} has no committed build")
 
         chunks: dict[str, Chunk] = {}
+        parts: dict[str, list[list[int]]] = {}
         ids: list[str] = []
         token_lists: list[list[str]] = []
-        with (index_path / CHUNKS_FILE).open(encoding="utf-8") as records:
-            for line in records:
-                record = json.loads(line)
-                chunks[record["id"]] = chunk_from_dict(record["chunk"])
-                ids.append(record["id"])
-                token_lists.append(record["tokens"])
+        starts: list[int] = []
+        counts: list[int] = []
+        for record in iter_records(data.chunks_path):
+            chunk_id = record["id"]
+            chunks[chunk_id] = chunk_from_dict(record["chunk"])
+            parts[chunk_id] = record["parts"]
+            ids.append(chunk_id)
+            token_lists.append(record["tokens"])
+            starts.append(record["rows"][0])
+            counts.append(record["rows"][1])
+        vectors = load_vectors(data.vectors_path)
+        if vectors.shape[0] != sum(counts) or vectors.shape[0] != manifest.get("rows"):
+            raise FileNotFoundError(
+                f"index at {index_path} is inconsistent ({vectors.shape[0]} vectors for "
+                f"{sum(counts)} parts); rebuild it"
+            )
         return cls(
             chunks,
+            parts,
             BM25Index(ids, token_lists),
-            open_collection(index_path, create=False),
+            DenseIndex(ids, vectors, starts, counts),
             embedder,
         )
 
@@ -285,34 +370,18 @@ class Retriever:
 
     def _dense_search(self, query: str, n: int) -> list[tuple[str, float, tuple[int, int]]]:
         """Best part per chunk: (chunk id, cosine similarity, part line range)."""
-        count = self._collection.count()
-        if count == 0:
+        if len(self._dense) == 0 or n <= 0:
             return []
-        result = self._collection.query(
-            query_embeddings=[self._embedder.embed_query(query)],
-            n_results=min(count, 2 * n),  # split chunks may occupy several slots
-            include=["metadatas", "distances"],
-        )
-        metadatas = (result["metadatas"] or [[]])[0]
-        distances = (result["distances"] or [[]])[0]
-        hits: list[tuple[str, float, tuple[int, int]]] = []
-        seen: set[str] = set()
-        for meta, distance in zip(metadatas, distances):
-            chunk_id = str(meta["chunk_id"])
-            chunk = self._chunks.get(chunk_id)
-            if chunk is None or chunk_id in seen:
-                continue
-            seen.add(chunk_id)
-            hits.append((chunk_id, 1.0 - float(distance), _part_lines(chunk, meta)))
-            if len(hits) == n:
-                break
-        return hits
+        return [
+            (chunk_id, similarity, _part_lines(self._chunks[chunk_id], self._parts[chunk_id], part))
+            for chunk_id, similarity, part in self._dense.search(self._embedder.embed_query(query), n)
+        ]
 
 
-def _part_lines(chunk: Chunk, meta: Mapping[str, object]) -> tuple[int, int]:
-    if meta.get("parts", 1) == 1:
+def _part_lines(chunk: Chunk, parts: Sequence[Sequence[int]], part: int) -> tuple[int, int]:
+    """File line range of one embedding part (the whole chunk if unsplit)."""
+    if len(parts) <= 1:
         return (chunk.start_line, chunk.end_line)
     numbers = chunk.line_numbers()
-    first = min(int(meta["first"]), len(numbers) - 1)  # type: ignore[arg-type]
-    last = min(int(meta["last"]), len(numbers) - 1)  # type: ignore[arg-type]
-    return (numbers[first], numbers[last])
+    first, last = parts[part]
+    return (numbers[min(first, len(numbers) - 1)], numbers[min(last, len(numbers) - 1)])

@@ -7,7 +7,6 @@ import pytest
 
 from chatter.extract import Chunk, extract_source
 from chatter.index import (
-    CHUNKS_FILE,
     MANIFEST_FILE,
     IndexConfig,
     IndexMismatchError,
@@ -17,8 +16,10 @@ from chatter.index import (
     chunk_to_dict,
     embedding_header,
     embedding_text,
+    index_data,
+    iter_records,
     iter_source_files,
-    open_collection,
+    load_vectors,
     plan_parts,
     tokenize_code,
 )
@@ -31,13 +32,23 @@ def chunk(code: str, path: str = "pkg/mod.py") -> list[Chunk]:
     return extract_source(textwrap.dedent(code), path)
 
 
+def chunks_file(index_dir: Path) -> Path:
+    data = index_data(index_dir)
+    assert data is not None, f"no committed build in {index_dir}"
+    return data.chunks_path
+
+
 def stored_ids(index_dir: Path) -> list[str]:
-    return sorted(open_collection(index_dir, create=False).get()["ids"])
+    """One id per stored vector row: ``<chunk id>#<part>``."""
+    return sorted(
+        f"{record['id']}#{part}"
+        for record in iter_records(chunks_file(index_dir))
+        for part in range(record["rows"][1])
+    )
 
 
 def record_ids(index_dir: Path) -> list[str]:
-    lines = (index_dir / CHUNKS_FILE).read_text(encoding="utf-8").splitlines()
-    return [json.loads(line)["id"] for line in lines]
+    return [record["id"] for record in iter_records(chunks_file(index_dir))]
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +228,7 @@ def test_empty_repo(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
     stats = build_index(root, embedder)
     assert (stats.files, stats.chunks, stats.embedded_parts) == (0, 0, 0)
     index_dir = root / ".chatter"
-    assert (index_dir / CHUNKS_FILE).read_text() == ""
+    assert chunks_file(index_dir).read_text() == ""
     assert json.loads((index_dir / MANIFEST_FILE).read_text())["model"] == "fake-hash"
     assert stored_ids(index_dir) == []
 
@@ -244,7 +255,7 @@ def test_single_file(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
     expected = ["calc.py::<module>", "calc.py::Calc", "calc.py::Calc.mul", "calc.py::add"]
     assert sorted(record_ids(index_dir)) == expected
     assert stored_ids(index_dir) == sorted(f"{cid}#0" for cid in expected)
-    record = json.loads((index_dir / CHUNKS_FILE).read_text().splitlines()[0])
+    record = json.loads(chunks_file(index_dir).read_text().splitlines()[0])
     assert {"id", "chunk", "tokens"} <= record.keys()
 
 
@@ -283,7 +294,7 @@ def test_reindex_is_idempotent(write_repo: WriteRepo, embedder: HashEmbedder) ->
     index_dir = root / ".chatter"
     first = build_index(root, emb)
     snapshot = (
-        (index_dir / CHUNKS_FILE).read_bytes(),
+        chunks_file(index_dir).read_bytes(),
         (index_dir / MANIFEST_FILE).read_bytes(),
         stored_ids(index_dir),
     )
@@ -293,7 +304,7 @@ def test_reindex_is_idempotent(write_repo: WriteRepo, embedder: HashEmbedder) ->
     assert second.embedded_parts == 0 and len(emb.document_batches) == calls
     assert (second.chunks, second.reused_chunks, second.deleted_chunks) == (first.chunks, first.chunks, 0)
     assert snapshot == (
-        (index_dir / CHUNKS_FILE).read_bytes(),
+        chunks_file(index_dir).read_bytes(),
         (index_dir / MANIFEST_FILE).read_bytes(),
         stored_ids(index_dir),
     )
@@ -326,7 +337,7 @@ def test_reindex_embeds_only_changes_and_removes_deleted(
     assert stored_ids(index_dir) == ["a.py::change#0", "a.py::keep#0", "a.py::new#0"]
     keep = next(
         json.loads(line)["chunk"]
-        for line in (index_dir / CHUNKS_FILE).read_text().splitlines()
+        for line in chunks_file(index_dir).read_text().splitlines()
         if json.loads(line)["id"] == "a.py::keep"
     )
     assert keep["start_line"] == 3  # moved lines are refreshed without re-embedding
@@ -369,26 +380,130 @@ def test_missing_repo_raises(tmp_path: Path, embedder: HashEmbedder) -> None:
         build_index(tmp_path / "nope", embedder)
 
 
-def test_unwritable_index_storage_fails_early(write_repo: WriteRepo, embedder: HashEmbedder, tmp_path: Path) -> None:
+def test_unwritable_index_dir_raises_os_error(
+    write_repo: WriteRepo, embedder: HashEmbedder, tmp_path: Path
+) -> None:
     import os
 
     root = write_repo({"a.py": "def f(): pass\n"})
     locked = tmp_path / "locked"
     locked.mkdir()
-    locked.chmod(0o500)  # SQLite cannot create its database here
+    locked.chmod(0o500)
     try:
         if os.access(locked, os.W_OK):
             pytest.skip("running with privileges that ignore directory permissions")
-        from chatter.index import IndexStorageError
-
-        with pytest.raises(IndexStorageError, match="SQLite cannot write in"):
+        with pytest.raises(PermissionError):
             build_index(root, embedder, index_dir=locked)
         assert embedder.document_batches == []  # failed before any embedding work
     finally:
         locked.chmod(0o700)
 
 
-def test_storage_probe_leaves_no_files(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
-    root = write_repo({"a.py": "def f(): pass\n"})
+# ---------------------------------------------------------------------------
+# Storage layout: generations, vectors, no-op rebuilds, legacy cleanup
+# ---------------------------------------------------------------------------
+
+
+def test_vectors_are_normalized_float32_and_memory_mapped(
+    write_repo: WriteRepo, embedder: HashEmbedder
+) -> None:
+    import numpy as np
+
+    root = write_repo({"a.py": "def f():\n    return 1\n\nclass K:\n    def m(self): pass\n"})
     build_index(root, embedder)
-    assert not list((root / ".chatter").glob(".sqlite-probe*"))
+    data = index_data(root / ".chatter")
+    assert data is not None and data.directory.name.startswith("gen-")
+    vectors = load_vectors(data.vectors_path)
+    assert isinstance(vectors, np.memmap) and vectors.dtype == np.float32
+    assert vectors.shape == (3, 64)
+    assert np.allclose(np.linalg.norm(vectors, axis=1), 1.0, atol=1e-5)
+    manifest = json.loads((root / ".chatter" / MANIFEST_FILE).read_text())
+    assert (manifest["rows"], manifest["dim"], manifest["schema"]) == (3, 64, 3)
+    rows = [r["rows"] for r in iter_records(data.chunks_path)]
+    assert [start for start, _ in rows] == [0, 1, 2]  # contiguous, in record order
+
+
+def test_unchanged_reindex_keeps_the_committed_generation(
+    write_repo: WriteRepo, embedder: HashEmbedder
+) -> None:
+    root = write_repo({"a.py": "def f(): pass\n"})
+    index_dir = root / ".chatter"
+    build_index(root, embedder)
+    first = index_data(index_dir)
+    build_index(root, embedder)
+    assert index_data(index_dir) == first
+    assert sorted(p.name for p in index_dir.iterdir()) == sorted([first.directory.name, MANIFEST_FILE])
+
+
+def test_changed_reindex_replaces_generation_and_removes_old(
+    write_repo: WriteRepo, embedder: HashEmbedder
+) -> None:
+    root = write_repo({"a.py": "def f(): pass\n"})
+    index_dir = root / ".chatter"
+    build_index(root, embedder)
+    first = index_data(index_dir)
+    (root / "a.py").write_text("def g(): pass\n")
+    build_index(root, embedder)
+    second = index_data(index_dir)
+    assert second != first and not first.directory.exists()
+    assert record_ids(index_dir) == ["a.py::g"]
+
+
+def test_failed_build_leaves_committed_index_intact(
+    write_repo: WriteRepo, embedder: HashEmbedder
+) -> None:
+    root = write_repo({"a.py": "def f(): pass\n"})
+    index_dir = root / ".chatter"
+    build_index(root, embedder)
+    committed = index_data(index_dir)
+    (root / "b.py").write_text("def g(): pass\n")
+
+    class Exploding(HashEmbedder):
+        def embed_documents(self, texts):  # type: ignore[no-untyped-def]
+            raise RuntimeError("embedder crashed")
+
+    with pytest.raises(RuntimeError, match="embedder crashed"):
+        build_index(root, Exploding())
+    assert index_data(index_dir) == committed  # manifest still points at the old build
+    assert record_ids(index_dir) == ["a.py::f"]
+    assert [p.name for p in index_dir.iterdir() if p.name.startswith("gen-")] == [committed.directory.name]
+
+
+def test_stray_generations_are_cleaned_up(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
+    root = write_repo({"a.py": "def f(): pass\n"})
+    index_dir = root / ".chatter"
+    build_index(root, embedder)
+    (index_dir / "gen-crashed").mkdir()  # e.g. left by a killed process
+    (root / "a.py").write_text("def g(): pass\n")
+    build_index(root, embedder)
+    assert [p.name for p in index_dir.iterdir() if p.name.startswith("gen-")] == [
+        index_data(index_dir).directory.name
+    ]
+
+
+def test_legacy_chroma_index_needs_rebuild_and_is_cleaned(
+    write_repo: WriteRepo, embedder: HashEmbedder
+) -> None:
+    root = write_repo({"a.py": "def f(): pass\n"})
+    index_dir = root / ".chatter"
+    index_dir.mkdir()
+    (index_dir / "chroma").mkdir()
+    (index_dir / "chroma" / "chroma.sqlite3").write_bytes(b"old")
+    (index_dir / "chunks.jsonl").write_text("{}\n")
+    (index_dir / MANIFEST_FILE).write_text(json.dumps({"schema": 2, "model": embedder.name}))
+    with pytest.raises(IndexMismatchError, match="schema 2"):
+        build_index(root, embedder)
+    build_index(root, embedder, rebuild=True)
+    assert not (index_dir / "chroma").exists() and not (index_dir / "chunks.jsonl").exists()
+    assert record_ids(index_dir) == ["a.py::f"]
+
+
+def test_unrelated_files_in_a_fresh_index_dir_are_kept(
+    write_repo: WriteRepo, embedder: HashEmbedder, tmp_path: Path
+) -> None:
+    root = write_repo({"a.py": "def f(): pass\n"})
+    shared = tmp_path / "shared"
+    (shared / "chroma").mkdir(parents=True)  # not ours: no manifest yet
+    (shared / "chunks.jsonl").write_text("user data\n")
+    build_index(root, embedder, index_dir=shared)
+    assert (shared / "chroma").is_dir() and (shared / "chunks.jsonl").read_text() == "user data\n"
