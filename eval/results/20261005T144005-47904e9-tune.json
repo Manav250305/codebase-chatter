@@ -1,0 +1,5289 @@
+{
+  "schema": 4,
+  "created": "2026-10-05T14:40:05+00:00",
+  "git": {
+    "commit": "47904e93255d6010be0aed0567470528fd68bfbb",
+    "dirty": false
+  },
+  "questions_file": "eval/questions.yaml",
+  "questions_sha256": "ef7c8804dd3a0be4d6cb0a0ef18dda1e90f006d4e31eb8655c05315e9a9728b1",
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "embedding_fingerprint": "BAAI/bge-small-en-v1.5|max_tokens=510|document_prefix=\"\"",
+  "corpora": {
+    "chatter": {
+      "kind": "git_archive",
+      "ref": "eval-corpus-v1",
+      "commit": "710c604f1abbd64e7097a15d9f48ec910bc1a4d7",
+      "files": 17,
+      "chunks": 427,
+      "graph": {
+        "call_sites": 1474,
+        "calls_resolved": 458,
+        "resolved_by_rule": {
+          "callback_reference": 10,
+          "class_attr": 6,
+          "import": 105,
+          "instantiation": 85,
+          "local_import": 2,
+          "module_def": 252,
+          "self_mro": 8
+        },
+        "dropped_by_reason": {
+          "base:builtin": 3,
+          "base:external": 5,
+          "call:builtin": 309,
+          "call:dynamic": 134,
+          "call:external": 192,
+          "call:instance_attribute": 26,
+          "call:local_variable": 41,
+          "call:module_attr_unknown": 1,
+          "call:module_variable": 1,
+          "call:module_variable_receiver": 15,
+          "call:unknown_name": 2,
+          "call:untyped_receiver": 295,
+          "with:dynamic": 1,
+          "with:external": 7,
+          "with:untyped_receiver": 2
+        },
+        "dropped_examples": {
+          "base:builtin": [
+            "src/chatter/answer.py:145 ValueError",
+            "src/chatter/index.py:58 RuntimeError",
+            "tests/test_answer.py:352 dict"
+          ],
+          "base:external": [
+            "src/chatter/answer.py:86 enum.Enum",
+            "src/chatter/answer.py:92 Protocol",
+            "src/chatter/answer.py:578 StoppingCriteria",
+            "src/chatter/embed.py:18 Protocol",
+            "src/chatter/retrieve.py:53 BM25Okapi"
+          ],
+          "call:builtin": [
+            "src/chatter/answer.py:78 frozenset",
+            "src/chatter/answer.py:155 frozenset",
+            "src/chatter/answer.py:155 len",
+            "src/chatter/answer.py:177 list",
+            "src/chatter/answer.py:179 enumerate",
+            "src/chatter/answer.py:184 any",
+            "src/chatter/answer.py:184 zip",
+            "src/chatter/answer.py:189 zip"
+          ],
+          "call:dynamic": [
+            "src/chatter/answer.py:79 \"a an and are as at be by can do does for from how i in is it of on or should \"\n    \"that the this to use used uses what when where which who why with work works\".split",
+            "src/chatter/answer.py:159 \"\\n\\n\".join",
+            "src/chatter/answer.py:315 \"\\n\".join(lines).replace",
+            "src/chatter/answer.py:315 \"\\n\".join",
+            "src/chatter/answer.py:326 value.replace(\"&\", \"&amp;\").replace('\"', \"&quot;\").replace",
+            "src/chatter/answer.py:326 value.replace(\"&\", \"&amp;\").replace",
+            "src/chatter/answer.py:341 \",\".join",
+            "src/chatter/answer.py:362 \" \".join(text.split()).strip"
+          ],
+          "call:external": [
+            "src/chatter/answer.py:82 re.compile",
+            "src/chatter/answer.py:83 re.compile",
+            "src/chatter/answer.py:109 dataclass",
+            "src/chatter/answer.py:127 dataclass",
+            "src/chatter/answer.py:133 dataclass",
+            "src/chatter/answer.py:361 re.sub",
+            "src/chatter/answer.py:504 dataclass",
+            "src/chatter/answer.py:511 dataclass"
+          ],
+          "call:instance_attribute": [
+            "src/chatter/answer.py:415 self._text.rfind",
+            "src/chatter/answer.py:416 self._text.find",
+            "src/chatter/answer.py:426 self._line_counts.get",
+            "src/chatter/answer.py:555 self._tokenizer",
+            "src/chatter/answer.py:559 self._tokenizer.apply_chat_template",
+            "src/chatter/answer.py:567 self._tokenizer.apply_chat_template",
+            "src/chatter/answer.py:584 self._model.generate",
+            "src/chatter/embed.py:98 self._model.tokenizer"
+          ],
+          "call:local_variable": [
+            "src/chatter/answer.py:479 on_text",
+            "src/chatter/answer.py:483 close",
+            "src/chatter/cli.py:85 embedder_factory",
+            "src/chatter/cli.py:142 generator_factory",
+            "src/chatter/cli.py:198 embedder_factory",
+            "src/chatter/cli.py:209 factory",
+            "tests/test_cli.py:63 write_repo",
+            "tests/test_cli.py:150 indexed"
+          ],
+          "call:module_attr_unknown": [
+            "tests/test_answer.py:258 ABSTENTION.lower"
+          ],
+          "call:module_variable": [
+            "src/chatter/cli.py:248 app"
+          ],
+          "call:module_variable_receiver": [
+            "src/chatter/answer.py:373 _TAG_GROUP_RE.finditer",
+            "src/chatter/answer.py:374 _TAG_RE.findall",
+            "src/chatter/extract.py:126 logger.info",
+            "src/chatter/extract.py:130 logger.warning",
+            "src/chatter/extract.py:133 logger.info",
+            "src/chatter/extract.py:268 _IMPORT_NOISE_RE.sub",
+            "src/chatter/extract.py:607 _HEADER_RE.match",
+            "src/chatter/extract.py:636 _HEADER_RE.match"
+          ],
+          "call:unknown_name": [
+            "tests/test_answer.py:359 kwargs.get",
+            "tests/fixtures/sample.py:23 other.decorator"
+          ],
+          "call:untyped_receiver": [
+            "src/chatter/answer.py:171 generator.prompt_tokens",
+            "src/chatter/answer.py:180 generator.count_tokens",
+            "src/chatter/answer.py:185 candidates.pop",
+            "src/chatter/answer.py:192 generator.prompt_tokens",
+            "src/chatter/answer.py:195 candidates.pop",
+            "src/chatter/answer.py:209 pending.pop",
+            "src/chatter/answer.py:224 hit.chunk.source.split",
+            "src/chatter/answer.py:225 hit.chunk.line_numbers"
+          ],
+          "with:dynamic": [
+            "src/chatter/retrieve.py:139 (index_path / CHUNKS_FILE).open"
+          ],
+          "with:external": [
+            "tests/test_answer.py:202 pytest.raises",
+            "tests/test_answer.py:398 pytest.raises",
+            "tests/test_extract.py:546 pytest.raises",
+            "tests/test_index.py:350 pytest.raises",
+            "tests/test_index.py:368 pytest.raises",
+            "tests/test_retrieve.py:185 pytest.raises",
+            "tests/test_retrieve.py:194 pytest.raises"
+          ],
+          "with:untyped_receiver": [
+            "src/chatter/index.py:364 chunks_tmp.open",
+            "tests/test_answer.py:464 capsys.disabled"
+          ]
+        },
+        "edges_by_type": {
+          "calls": 150,
+          "contains": 52,
+          "instantiates": 38,
+          "references": 1,
+          "tested_by": 319
+        }
+      }
+    },
+    "stdlib": {
+      "kind": "python_stdlib",
+      "python_version": "3.13",
+      "python_full_version": "3.13.5",
+      "packages": [
+        "asyncio",
+        "email",
+        "http",
+        "json"
+      ],
+      "stdlib_dir": "/Users/manav/miniconda3/lib/python3.13",
+      "files": 72,
+      "chunks": 2178,
+      "graph": {
+        "call_sites": 7304,
+        "calls_resolved": 2073,
+        "resolved_by_rule": {
+          "base:import": 8,
+          "base:module_attr": 48,
+          "base:module_def": 153,
+          "callback_reference": 425,
+          "class_attr": 17,
+          "context_manager": 1,
+          "import": 10,
+          "instantiation": 473,
+          "local_def": 32,
+          "module_attr": 150,
+          "module_def": 422,
+          "self_mro": 901,
+          "super_mro": 68
+        },
+        "dropped_by_reason": {
+          "async_with:not_callable_function": 2,
+          "base:builtin": 28,
+          "base:external": 15,
+          "base:module_attr_unknown": 1,
+          "call:builtin": 1325,
+          "call:class_attr_unknown": 3,
+          "call:dynamic": 371,
+          "call:external": 518,
+          "call:function_attribute": 2,
+          "call:instance_attribute": 850,
+          "call:local_variable": 151,
+          "call:module_attr_unknown": 99,
+          "call:module_variable": 35,
+          "call:module_variable_receiver": 133,
+          "call:self_outside_method": 7,
+          "call:untyped_receiver": 1737,
+          "with:builtin": 1,
+          "with:external": 6,
+          "with:local_variable": 1
+        },
+        "dropped_examples": {
+          "async_with:not_callable_function": [
+            "asyncio/base_events.py:615 timeouts.timeout",
+            "asyncio/tasks.py:506 timeouts.timeout"
+          ],
+          "base:builtin": [
+            "asyncio/exceptions.py:10 BaseException",
+            "asyncio/exceptions.py:17 Exception",
+            "asyncio/exceptions.py:21 RuntimeError",
+            "asyncio/exceptions.py:29 EOFError",
+            "asyncio/exceptions.py:47 Exception",
+            "asyncio/exceptions.py:61 RuntimeError",
+            "asyncio/queues.py:18 Exception",
+            "asyncio/queues.py:23 Exception"
+          ],
+          "base:external": [
+            "asyncio/__main__.py:19 InteractiveColoredConsole",
+            "asyncio/__main__.py:80 threading.Thread",
+            "asyncio/constants.py:38 enum.Enum",
+            "asyncio/events.py:681 threading.local",
+            "asyncio/events.py:748 threading.local",
+            "asyncio/locks.py:469 enum.Enum",
+            "asyncio/runners.py:14 enum.Enum",
+            "asyncio/sslproto.py:23 enum.Enum"
+          ],
+          "base:module_attr_unknown": [
+            "asyncio/tasks.py:71 futures._PyFuture"
+          ],
+          "call:builtin": [
+            "asyncio/__main__.py:22 super",
+            "asyncio/__main__.py:100 compile",
+            "asyncio/__main__.py:101 exec",
+            "asyncio/__main__.py:103 getattr",
+            "asyncio/__main__.py:158 locals",
+            "asyncio/__main__.py:170 getattr",
+            "asyncio/base_events.py:65 hasattr",
+            "asyncio/base_events.py:73 isinstance"
+          ],
+          "call:class_attr_unknown": [
+            "http/client.py:108 http.HTTPStatus.__members__.values",
+            "http/client.py:1541 HTTPException.__init__",
+            "http/server.py:642 HTTPStatus.__members__.values"
+          ],
+          "call:dynamic": [
+            "asyncio/base_events.py:167 addrinfos_by_family[family].append",
+            "asyncio/base_events.py:188 futures._get_loop(fut).stop",
+            "asyncio/base_events.py:918 ', '.join",
+            "asyncio/base_events.py:1002 \"count must be a positive integer (got {!r})\".format",
+            "asyncio/base_events.py:1005 \"count must be a positive integer (got {!r})\".format",
+            "asyncio/base_events.py:1008 \"offset must be a non-negative integer (got {!r})\".format",
+            "asyncio/base_events.py:1012 \"offset must be a non-negative integer (got {!r})\".format",
+            "asyncio/base_events.py:1035 str(exc).lower"
+          ],
+          "call:external": [
+            "asyncio/__main__.py:26 contextvars.copy_context",
+            "asyncio/__main__.py:30 concurrent.futures.Future",
+            "asyncio/__main__.py:40 types.FunctionType",
+            "asyncio/__main__.py:55 inspect.iscoroutine",
+            "asyncio/__main__.py:95 os.getenv",
+            "asyncio/__main__.py:96 sys.audit",
+            "asyncio/__main__.py:99 tokenize.open",
+            "asyncio/__main__.py:104 can_colorize"
+          ],
+          "call:function_attribute": [
+            "email/_header_value_parser.py:510 super().value.split",
+            "email/_header_value_parser.py:657 super().value.split"
+          ],
+          "call:instance_attribute": [
+            "asyncio/__main__.py:22 super().__init__",
+            "asyncio/__main__.py:45 self.loop.stop",
+            "asyncio/__main__.py:60 self.loop.create_task",
+            "asyncio/__main__.py:71 self.loop.stop",
+            "asyncio/__main__.py:75 self.write",
+            "asyncio/__main__.py:77 self.showtraceback",
+            "asyncio/base_events.py:218 self._transport._loop.create_future",
+            "asyncio/base_events.py:223 self._transport.is_closing"
+          ],
+          "call:local_variable": [
+            "asyncio/__main__.py:42 func",
+            "asyncio/base_events.py:764 _warn",
+            "asyncio/base_events.py:1213 protocol_factory",
+            "asyncio/base_events.py:1469 protocol_factory",
+            "asyncio/base_events.py:1687 protocol_factory",
+            "asyncio/base_events.py:1703 protocol_factory",
+            "asyncio/base_events.py:1754 protocol_factory",
+            "asyncio/base_events.py:1787 protocol_factory"
+          ],
+          "call:module_attr_unknown": [
+            "asyncio/base_events.py:703 futures.isfuture",
+            "asyncio/base_events.py:748 logger.debug",
+            "asyncio/base_events.py:919 logger.debug",
+            "asyncio/base_events.py:927 logger.info",
+            "asyncio/base_events.py:929 logger.debug",
+            "asyncio/base_events.py:1201 logger.debug",
+            "asyncio/base_events.py:1399 logger.error",
+            "asyncio/base_events.py:1475 logger.info"
+          ],
+          "call:module_variable": [
+            "asyncio/__main__.py:174 interactive_hook",
+            "asyncio/futures.py:369 isfuture",
+            "asyncio/futures.py:372 isfuture",
+            "asyncio/futures.py:375 isfuture",
+            "asyncio/futures.py:376 isfuture",
+            "asyncio/futures.py:379 isfuture",
+            "asyncio/futures.py:408 isfuture",
+            "asyncio/tasks.py:111 _task_name_counter"
+          ],
+          "call:module_variable_receiver": [
+            "asyncio/__main__.py:65 loop.call_soon_threadsafe",
+            "asyncio/__main__.py:93 console.write",
+            "asyncio/__main__.py:106 console.write",
+            "asyncio/__main__.py:119 console.showtraceback",
+            "asyncio/__main__.py:120 console.write",
+            "asyncio/__main__.py:123 console.interact",
+            "asyncio/__main__.py:130 loop.call_soon_threadsafe",
+            "asyncio/__main__.py:189 repl_thread.start"
+          ],
+          "call:self_outside_method": [
+            "email/_policybase.py:100 cls.__doc__.startswith",
+            "email/_policybase.py:102 cls.__dict__.items",
+            "email/iterators.py:26 self.is_multipart",
+            "email/iterators.py:27 self.get_payload",
+            "json/__init__.py:173 cls",
+            "json/__init__.py:234 cls",
+            "json/__init__.py:359 cls"
+          ],
+          "call:untyped_receiver": [
+            "asyncio/__main__.py:49 future.set_exception",
+            "asyncio/__main__.py:52 future.set_exception",
+            "asyncio/__main__.py:56 future.set_result",
+            "asyncio/__main__.py:63 future.set_exception",
+            "asyncio/__main__.py:68 future.result",
+            "asyncio/__main__.py:100 f.read",
+            "asyncio/__main__.py:139 r.threading_hook.add",
+            "asyncio/base_events.py:94 sock.setsockopt"
+          ],
+          "with:builtin": [
+            "http/cookiejar.py:1802 open"
+          ],
+          "with:external": [
+            "asyncio/__main__.py:99 tokenize.open",
+            "asyncio/staggered.py:98 contextlib.suppress",
+            "asyncio/unix_events.py:200 warnings.catch_warnings",
+            "http/cookiejar.py:1894 os.fdopen",
+            "http/cookiejar.py:2088 os.fdopen",
+            "http/server.py:1314 contextlib.suppress"
+          ],
+          "with:local_variable": [
+            "http/server.py:1270 ServerClass"
+          ]
+        },
+        "edges_by_type": {
+          "calls": 1573,
+          "contains": 1515,
+          "context_manager": 2,
+          "inherits": 209,
+          "instantiates": 350,
+          "references": 359
+        }
+      }
+    }
+  },
+  "settings": {
+    "depth": 50,
+    "modes": [
+      "bm25",
+      "dense",
+      "fused"
+    ],
+    "split": "tune"
+  },
+  "summary": {
+    "bm25": {
+      "overall": {
+        "n": 20,
+        "strict": {
+          "hit@1": 0.25,
+          "hit@5": 0.55,
+          "mrr@50": 0.37402805527805527,
+          "recall@10": 0.45476190476190476
+        },
+        "contain": {
+          "hit@1": 0.3,
+          "hit@5": 0.55,
+          "mrr@50": 0.40942694805194807,
+          "recall@10": 0.4797619047619047
+        },
+        "test_slots@5": 15,
+        "slots@5": 100
+      },
+      "by_type": {
+        "exact_name": {
+          "n": 2,
+          "strict": {
+            "hit@1": 1.0,
+            "hit@5": 1.0,
+            "mrr@50": 1.0,
+            "recall@10": 1.0
+          },
+          "contain": {
+            "hit@1": 1.0,
+            "hit@5": 1.0,
+            "mrr@50": 1.0,
+            "recall@10": 1.0
+          },
+          "test_slots@5": 0,
+          "slots@5": 10
+        },
+        "behavior": {
+          "n": 10,
+          "strict": {
+            "hit@1": 0.2,
+            "hit@5": 0.5,
+            "mrr@50": 0.3215909090909091,
+            "recall@10": 0.4
+          },
+          "contain": {
+            "hit@1": 0.3,
+            "hit@5": 0.5,
+            "mrr@50": 0.39223484848484846,
+            "recall@10": 0.4
+          },
+          "test_slots@5": 9,
+          "slots@5": 50
+        },
+        "location": {
+          "n": 5,
+          "strict": {
+            "hit@1": 0.0,
+            "hit@5": 0.2,
+            "mrr@50": 0.10293040293040293,
+            "recall@10": 0.3
+          },
+          "contain": {
+            "hit@1": 0.0,
+            "hit@5": 0.2,
+            "mrr@50": 0.10323809523809524,
+            "recall@10": 0.3
+          },
+          "test_slots@5": 5,
+          "slots@5": 25
+        },
+        "flow": {
+          "n": 3,
+          "strict": {
+            "hit@1": 0.3333333333333333,
+            "hit@5": 1.0,
+            "mrr@50": 0.5833333333333334,
+            "recall@10": 0.5317460317460317
+          },
+          "contain": {
+            "hit@1": 0.3333333333333333,
+            "hit@5": 1.0,
+            "mrr@50": 0.5833333333333334,
+            "recall@10": 0.6984126984126985
+          },
+          "test_slots@5": 1,
+          "slots@5": 15
+        }
+      },
+      "by_split": {
+        "tune": {
+          "overall": {
+            "n": 20,
+            "strict": {
+              "hit@1": 0.25,
+              "hit@5": 0.55,
+              "mrr@50": 0.37402805527805527,
+              "recall@10": 0.45476190476190476
+            },
+            "contain": {
+              "hit@1": 0.3,
+              "hit@5": 0.55,
+              "mrr@50": 0.40942694805194807,
+              "recall@10": 0.4797619047619047
+            },
+            "test_slots@5": 15,
+            "slots@5": 100
+          },
+          "by_type": {
+            "exact_name": {
+              "n": 2,
+              "strict": {
+                "hit@1": 1.0,
+                "hit@5": 1.0,
+                "mrr@50": 1.0,
+                "recall@10": 1.0
+              },
+              "contain": {
+                "hit@1": 1.0,
+                "hit@5": 1.0,
+                "mrr@50": 1.0,
+                "recall@10": 1.0
+              },
+              "test_slots@5": 0,
+              "slots@5": 10
+            },
+            "behavior": {
+              "n": 10,
+              "strict": {
+                "hit@1": 0.2,
+                "hit@5": 0.5,
+                "mrr@50": 0.3215909090909091,
+                "recall@10": 0.4
+              },
+              "contain": {
+                "hit@1": 0.3,
+                "hit@5": 0.5,
+                "mrr@50": 0.39223484848484846,
+                "recall@10": 0.4
+              },
+              "test_slots@5": 9,
+              "slots@5": 50
+            },
+            "location": {
+              "n": 5,
+              "strict": {
+                "hit@1": 0.0,
+                "hit@5": 0.2,
+                "mrr@50": 0.10293040293040293,
+                "recall@10": 0.3
+              },
+              "contain": {
+                "hit@1": 0.0,
+                "hit@5": 0.2,
+                "mrr@50": 0.10323809523809524,
+                "recall@10": 0.3
+              },
+              "test_slots@5": 5,
+              "slots@5": 25
+            },
+            "flow": {
+              "n": 3,
+              "strict": {
+                "hit@1": 0.3333333333333333,
+                "hit@5": 1.0,
+                "mrr@50": 0.5833333333333334,
+                "recall@10": 0.5317460317460317
+              },
+              "contain": {
+                "hit@1": 0.3333333333333333,
+                "hit@5": 1.0,
+                "mrr@50": 0.5833333333333334,
+                "recall@10": 0.6984126984126985
+              },
+              "test_slots@5": 1,
+              "slots@5": 15
+            }
+          }
+        },
+        "heldout": {
+          "overall": {
+            "n": 0
+          },
+          "by_type": {}
+        }
+      }
+    },
+    "dense": {
+      "overall": {
+        "n": 20,
+        "strict": {
+          "hit@1": 0.4,
+          "hit@5": 0.7,
+          "mrr@50": 0.5236351981351981,
+          "recall@10": 0.5434523809523809
+        },
+        "contain": {
+          "hit@1": 0.5,
+          "hit@5": 0.8,
+          "mrr@50": 0.6318888888888889,
+          "recall@10": 0.763095238095238
+        },
+        "test_slots@5": 9,
+        "slots@5": 100
+      },
+      "by_type": {
+        "exact_name": {
+          "n": 2,
+          "strict": {
+            "hit@1": 1.0,
+            "hit@5": 1.0,
+            "mrr@50": 1.0,
+            "recall@10": 1.0
+          },
+          "contain": {
+            "hit@1": 1.0,
+            "hit@5": 1.0,
+            "mrr@50": 1.0,
+            "recall@10": 1.0
+          },
+          "test_slots@5": 0,
+          "slots@5": 10
+        },
+        "behavior": {
+          "n": 10,
+          "strict": {
+            "hit@1": 0.5,
+            "hit@5": 0.7,
+            "mrr@50": 0.578068376068376,
+            "recall@10": 0.5333333333333333
+          },
+          "contain": {
+            "hit@1": 0.5,
+            "hit@5": 0.9,
+            "mrr@50": 0.6553333333333333,
+            "recall@10": 0.7833333333333333
+          },
+          "test_slots@5": 6,
+          "slots@5": 50
+        },
+        "location": {
+          "n": 5,
+          "strict": {
+            "hit@1": 0.0,
+            "hit@5": 0.4,
+            "mrr@50": 0.1884040404040404,
+            "recall@10": 0.36666666666666664
+          },
+          "contain": {
+            "hit@1": 0.2,
+            "hit@5": 0.4,
+            "mrr@50": 0.3502222222222222,
+            "recall@10": 0.6666666666666667
+          },
+          "test_slots@5": 3,
+          "slots@5": 25
+        },
+        "flow": {
+          "n": 3,
+          "strict": {
+            "hit@1": 0.3333333333333333,
+            "hit@5": 1.0,
+            "mrr@50": 0.5833333333333334,
+            "recall@10": 0.5674603174603174
+          },
+          "contain": {
+            "hit@1": 0.6666666666666666,
+            "hit@5": 1.0,
+            "mrr@50": 0.7777777777777778,
+            "recall@10": 0.6984126984126985
+          },
+          "test_slots@5": 0,
+          "slots@5": 15
+        }
+      },
+      "by_split": {
+        "tune": {
+          "overall": {
+            "n": 20,
+            "strict": {
+              "hit@1": 0.4,
+              "hit@5": 0.7,
+              "mrr@50": 0.5236351981351981,
+              "recall@10": 0.5434523809523809
+            },
+            "contain": {
+              "hit@1": 0.5,
+              "hit@5": 0.8,
+              "mrr@50": 0.6318888888888889,
+              "recall@10": 0.763095238095238
+            },
+            "test_slots@5": 9,
+            "slots@5": 100
+          },
+          "by_type": {
+            "exact_name": {
+              "n": 2,
+              "strict": {
+                "hit@1": 1.0,
+                "hit@5": 1.0,
+                "mrr@50": 1.0,
+                "recall@10": 1.0
+              },
+              "contain": {
+                "hit@1": 1.0,
+                "hit@5": 1.0,
+                "mrr@50": 1.0,
+                "recall@10": 1.0
+              },
+              "test_slots@5": 0,
+              "slots@5": 10
+            },
+            "behavior": {
+              "n": 10,
+              "strict": {
+                "hit@1": 0.5,
+                "hit@5": 0.7,
+                "mrr@50": 0.578068376068376,
+                "recall@10": 0.5333333333333333
+              },
+              "contain": {
+                "hit@1": 0.5,
+                "hit@5": 0.9,
+                "mrr@50": 0.6553333333333333,
+                "recall@10": 0.7833333333333333
+              },
+              "test_slots@5": 6,
+              "slots@5": 50
+            },
+            "location": {
+              "n": 5,
+              "strict": {
+                "hit@1": 0.0,
+                "hit@5": 0.4,
+                "mrr@50": 0.1884040404040404,
+                "recall@10": 0.36666666666666664
+              },
+              "contain": {
+                "hit@1": 0.2,
+                "hit@5": 0.4,
+                "mrr@50": 0.3502222222222222,
+                "recall@10": 0.6666666666666667
+              },
+              "test_slots@5": 3,
+              "slots@5": 25
+            },
+            "flow": {
+              "n": 3,
+              "strict": {
+                "hit@1": 0.3333333333333333,
+                "hit@5": 1.0,
+                "mrr@50": 0.5833333333333334,
+                "recall@10": 0.5674603174603174
+              },
+              "contain": {
+                "hit@1": 0.6666666666666666,
+                "hit@5": 1.0,
+                "mrr@50": 0.7777777777777778,
+                "recall@10": 0.6984126984126985
+              },
+              "test_slots@5": 0,
+              "slots@5": 15
+            }
+          }
+        },
+        "heldout": {
+          "overall": {
+            "n": 0
+          },
+          "by_type": {}
+        }
+      }
+    },
+    "fused": {
+      "overall": {
+        "n": 20,
+        "strict": {
+          "hit@1": 0.4,
+          "hit@5": 0.7,
+          "mrr@50": 0.5225535458085673,
+          "recall@10": 0.5601190476190476
+        },
+        "contain": {
+          "hit@1": 0.5,
+          "hit@5": 0.75,
+          "mrr@50": 0.6004383116883117,
+          "recall@10": 0.6547619047619048
+        },
+        "test_slots@5": 9,
+        "slots@5": 100
+      },
+      "by_type": {
+        "exact_name": {
+          "n": 2,
+          "strict": {
+            "hit@1": 1.0,
+            "hit@5": 1.0,
+            "mrr@50": 1.0,
+            "recall@10": 1.0
+          },
+          "contain": {
+            "hit@1": 1.0,
+            "hit@5": 1.0,
+            "mrr@50": 1.0,
+            "recall@10": 1.0
+          },
+          "test_slots@5": 0,
+          "slots@5": 10
+        },
+        "behavior": {
+          "n": 10,
+          "strict": {
+            "hit@1": 0.4,
+            "hit@5": 0.6,
+            "mrr@50": 0.505940424950468,
+            "recall@10": 0.5
+          },
+          "contain": {
+            "hit@1": 0.5,
+            "hit@5": 0.7,
+            "mrr@50": 0.5817099567099567,
+            "recall@10": 0.65
+          },
+          "test_slots@5": 5,
+          "slots@5": 50
+        },
+        "location": {
+          "n": 5,
+          "strict": {
+            "hit@1": 0.2,
+            "hit@5": 0.6,
+            "mrr@50": 0.31166666666666665,
+            "recall@10": 0.5
+          },
+          "contain": {
+            "hit@1": 0.2,
+            "hit@5": 0.6,
+            "mrr@50": 0.3716666666666667,
+            "recall@10": 0.5
+          },
+          "test_slots@5": 4,
+          "slots@5": 25
+        },
+        "flow": {
+          "n": 3,
+          "strict": {
+            "hit@1": 0.3333333333333333,
+            "hit@5": 1.0,
+            "mrr@50": 0.611111111111111,
+            "recall@10": 0.5674603174603174
+          },
+          "contain": {
+            "hit@1": 0.6666666666666666,
+            "hit@5": 1.0,
+            "mrr@50": 0.7777777777777778,
+            "recall@10": 0.6984126984126985
+          },
+          "test_slots@5": 0,
+          "slots@5": 15
+        }
+      },
+      "by_split": {
+        "tune": {
+          "overall": {
+            "n": 20,
+            "strict": {
+              "hit@1": 0.4,
+              "hit@5": 0.7,
+              "mrr@50": 0.5225535458085673,
+              "recall@10": 0.5601190476190476
+            },
+            "contain": {
+              "hit@1": 0.5,
+              "hit@5": 0.75,
+              "mrr@50": 0.6004383116883117,
+              "recall@10": 0.6547619047619048
+            },
+            "test_slots@5": 9,
+            "slots@5": 100
+          },
+          "by_type": {
+            "exact_name": {
+              "n": 2,
+              "strict": {
+                "hit@1": 1.0,
+                "hit@5": 1.0,
+                "mrr@50": 1.0,
+                "recall@10": 1.0
+              },
+              "contain": {
+                "hit@1": 1.0,
+                "hit@5": 1.0,
+                "mrr@50": 1.0,
+                "recall@10": 1.0
+              },
+              "test_slots@5": 0,
+              "slots@5": 10
+            },
+            "behavior": {
+              "n": 10,
+              "strict": {
+                "hit@1": 0.4,
+                "hit@5": 0.6,
+                "mrr@50": 0.505940424950468,
+                "recall@10": 0.5
+              },
+              "contain": {
+                "hit@1": 0.5,
+                "hit@5": 0.7,
+                "mrr@50": 0.5817099567099567,
+                "recall@10": 0.65
+              },
+              "test_slots@5": 5,
+              "slots@5": 50
+            },
+            "location": {
+              "n": 5,
+              "strict": {
+                "hit@1": 0.2,
+                "hit@5": 0.6,
+                "mrr@50": 0.31166666666666665,
+                "recall@10": 0.5
+              },
+              "contain": {
+                "hit@1": 0.2,
+                "hit@5": 0.6,
+                "mrr@50": 0.3716666666666667,
+                "recall@10": 0.5
+              },
+              "test_slots@5": 4,
+              "slots@5": 25
+            },
+            "flow": {
+              "n": 3,
+              "strict": {
+                "hit@1": 0.3333333333333333,
+                "hit@5": 1.0,
+                "mrr@50": 0.611111111111111,
+                "recall@10": 0.5674603174603174
+              },
+              "contain": {
+                "hit@1": 0.6666666666666666,
+                "hit@5": 1.0,
+                "mrr@50": 0.7777777777777778,
+                "recall@10": 0.6984126984126985
+              },
+              "test_slots@5": 0,
+              "slots@5": 15
+            }
+          }
+        },
+        "heldout": {
+          "overall": {
+            "n": 0
+          },
+          "by_type": {}
+        }
+      }
+    }
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "corpus": "stdlib",
+      "type": "exact_name",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "json/decoder.py::JSONDecodeError"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "json/decoder.py::JSONDecodeError",
+            "json/decoder.py::JSONDecoder.decode",
+            "json/decoder.py::JSONDecodeError.__reduce__",
+            "json/decoder.py::_decode_uXXXX",
+            "json/decoder.py::JSONDecoder.raw_decode",
+            "json/decoder.py::JSONDecoder",
+            "json/decoder.py::py_scanstring",
+            "json/decoder.py::JSONArray",
+            "json/decoder.py::JSONObject",
+            "json/decoder.py::JSONDecodeError.__init__"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "json/decoder.py::JSONDecodeError",
+            "json/decoder.py::<module>",
+            "json/decoder.py::JSONDecoder",
+            "json/decoder.py::JSONDecoder.decode",
+            "json/decoder.py::JSONObject",
+            "json/decoder.py::JSONArray",
+            "json/decoder.py::py_scanstring",
+            "json/decoder.py::JSONDecodeError.__init__",
+            "json/decoder.py::JSONDecodeError.__reduce__",
+            "json/encoder.py::JSONEncoder"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "json/decoder.py::JSONDecodeError",
+            "json/decoder.py::JSONDecoder.decode",
+            "json/decoder.py::JSONDecoder",
+            "json/decoder.py::JSONDecodeError.__reduce__",
+            "json/decoder.py::<module>",
+            "json/decoder.py::JSONObject",
+            "json/decoder.py::JSONArray",
+            "json/decoder.py::py_scanstring",
+            "json/decoder.py::JSONDecoder.raw_decode",
+            "json/decoder.py::JSONDecodeError.__init__"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q02",
+      "corpus": "stdlib",
+      "type": "exact_name",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "email/utils.py::make_msgid"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "email/utils.py::make_msgid",
+            "email/headerregistry.py::<module>",
+            "email/headerregistry.py::UniqueAddressHeader",
+            "email/headerregistry.py::UniqueDateHeader",
+            "email/headerregistry.py::UniqueUnstructuredHeader",
+            "email/headerregistry.py::UniqueSingleAddressHeader",
+            "email/utils.py::<module>",
+            "email/_header_value_parser.py::make_quoted_pairs",
+            "email/_header_value_parser.py::MsgID",
+            "email/policy.py::EmailPolicy.__init__"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "email/utils.py::make_msgid",
+            "email/_header_value_parser.py::MsgID",
+            "email/generator.py::BytesGenerator._handle_text",
+            "email/_header_value_parser.py::MsgID.fold",
+            "email/generator.py::Generator._handle_text",
+            "email/generator.py::Generator._handle_multipart",
+            "email/_header_value_parser.py::TokenList.all_defects",
+            "email/generator.py::Generator._handle_message",
+            "email/contentmanager.py::get_and_fixup_unknown_message_content",
+            "email/_header_value_parser.py::MessageID"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "email/utils.py::make_msgid",
+            "email/_header_value_parser.py::MsgID",
+            "email/_header_value_parser.py::MsgID.fold",
+            "email/_header_value_parser.py::MessageID",
+            "email/headerregistry.py::UniqueAddressHeader",
+            "email/utils.py::<module>",
+            "email/headerregistry.py::UniqueSingleAddressHeader",
+            "email/headerregistry.py::UniqueDateHeader",
+            "email/_header_value_parser.py::get_msg_id",
+            "email/headerregistry.py::UniqueUnstructuredHeader"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q03",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "asyncio/runners.py::_cancel_all_tasks",
+        "asyncio/runners.py::Runner.close"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 44,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.022727272727272728,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 16,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0625,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/runners.py::run",
+            "asyncio/staggered.py::staggered_race",
+            "asyncio/staggered.py::staggered_race.run_one_coro",
+            "asyncio/runners.py::Runner.run",
+            "asyncio/tasks.py::run_coroutine_threadsafe",
+            "asyncio/tasks.py::create_task",
+            "asyncio/tasks.py::run_coroutine_threadsafe.callback",
+            "asyncio/base_events.py::BaseEventLoop._run_forever_cleanup",
+            "asyncio/base_events.py::BaseEventLoop.run_until_complete",
+            "asyncio/tasks.py::__sleep0"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 26,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.038461538461538464,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 0.5
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/runners.py::run",
+            "asyncio/runners.py::Runner",
+            "asyncio/staggered.py::staggered_race",
+            "asyncio/tasks.py::_AsCompletedIterator",
+            "asyncio/taskgroups.py::TaskGroup",
+            "asyncio/tasks.py::sleep",
+            "asyncio/tasks.py::Task",
+            "asyncio/base_events.py::BaseEventLoop",
+            "asyncio/base_events.py::BaseEventLoop.run_until_complete",
+            "asyncio/tasks.py::<module>"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 41,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.024390243902439025,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 4,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.25,
+            "recall10": 0.5
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/runners.py::run",
+            "asyncio/staggered.py::staggered_race",
+            "asyncio/runners.py::Runner.run",
+            "asyncio/runners.py::Runner",
+            "asyncio/staggered.py::staggered_race.run_one_coro",
+            "asyncio/tasks.py::create_task",
+            "asyncio/base_events.py::BaseEventLoop.run_until_complete",
+            "asyncio/tasks.py::sleep",
+            "asyncio/tasks.py::run_coroutine_threadsafe",
+            "asyncio/base_events.py::BaseEventLoop._run_forever_cleanup"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q04",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "json/encoder.py::JSONEncoder.iterencode.floatstr",
+        "json/encoder.py::JSONEncoder.iterencode"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "json/encoder.py::JSONEncoder.iterencode.floatstr",
+            "json/__init__.py::dumps",
+            "json/encoder.py::<module>",
+            "json/encoder.py::JSONEncoder.iterencode",
+            "json/__init__.py::dump",
+            "json/encoder.py::JSONEncoder",
+            "json/encoder.py::JSONEncoder.__init__",
+            "json/decoder.py::<module>",
+            "json/scanner.py::py_make_scanner._scan_once",
+            "json/scanner.py::py_make_scanner"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 3,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.3333333333333333,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "json/encoder.py::JSONEncoder.__init__",
+            "json/encoder.py::JSONEncoder",
+            "json/encoder.py::JSONEncoder.iterencode.floatstr",
+            "json/__init__.py::dumps",
+            "json/encoder.py::JSONEncoder.default",
+            "json/encoder.py::JSONEncoder.iterencode",
+            "json/__init__.py::dump",
+            "json/encoder.py::<module>",
+            "json/decoder.py::JSONDecoder",
+            "json/encoder.py::_make_iterencode"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "json/encoder.py::JSONEncoder.iterencode.floatstr",
+            "json/__init__.py::dumps",
+            "json/encoder.py::JSONEncoder.__init__",
+            "json/encoder.py::JSONEncoder",
+            "json/encoder.py::JSONEncoder.iterencode",
+            "json/encoder.py::<module>",
+            "json/__init__.py::dump",
+            "json/encoder.py::JSONEncoder.default",
+            "json/decoder.py::JSONDecoder",
+            "json/encoder.py::JSONEncoder.encode"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q05",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "http/client.py::HTTPResponse._read_chunked",
+        "http/client.py::HTTPResponse._read_next_chunk_size",
+        "http/client.py::HTTPResponse._get_chunk_left"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 22,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.045454545454545456,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 22,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.045454545454545456,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "http/server.py::BaseHTTPRequestHandler.send_error",
+            "http/client.py::<module>",
+            "http/client.py::HTTPConnection",
+            "http/client.py::HTTPConnection.endheaders",
+            "http/server.py::BaseHTTPRequestHandler.handle_expect_100",
+            "http/server.py::BaseHTTPRequestHandler",
+            "http/client.py::HTTPConnection.request",
+            "http/server.py::BaseHTTPRequestHandler.send_response",
+            "http/client.py::HTTPResponse._read_status",
+            "http/client.py::HTTPResponse._read_and_discard_trailer"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 18,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.05555555555555555,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 5,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.2,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "http/client.py::HTTPResponse.read",
+            "http/server.py::BaseHTTPRequestHandler",
+            "http/client.py::HTTPConnection",
+            "http/client.py::HTTPResponse.begin",
+            "http/client.py::HTTPResponse",
+            "http/client.py::HTTPResponse.__init__",
+            "http/client.py::HTTPResponse.readinto",
+            "http/client.py::<module>",
+            "http/client.py::HTTPConnection.getresponse",
+            "http/client.py::HTTPConnection._get_content_length"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 17,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.058823529411764705,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 11,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.09090909090909091,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "http/client.py::HTTPConnection",
+            "http/server.py::BaseHTTPRequestHandler",
+            "http/client.py::<module>",
+            "http/client.py::HTTPResponse.read",
+            "http/server.py::BaseHTTPRequestHandler.send_error",
+            "http/client.py::HTTPResponse.begin",
+            "http/client.py::HTTPResponse.__init__",
+            "http/client.py::HTTPResponse._read_status",
+            "http/client.py::HTTPConnection.getresponse",
+            "http/client.py::HTTPConnection.endheaders"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q06",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "email/message.py::MIMEPart.iter_attachments"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "http/client.py::HTTPConnection._send_output",
+            "email/message.py::MIMEPart.iter_attachments",
+            "email/message.py::MIMEPart.get_body",
+            "email/message.py::MIMEPart._find_body",
+            "http/client.py::HTTPConnection._send_request",
+            "email/message.py::MIMEPart",
+            "email/generator.py::Generator._dispatch",
+            "email/message.py::Message.set_charset",
+            "email/generator.py::DecodedGenerator",
+            "http/client.py::HTTPConnection.endheaders"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "email/message.py::MIMEPart.iter_attachments",
+            "email/_parseaddr.py::AddrlistClass.gotonext",
+            "email/message.py::MIMEPart",
+            "email/iterators.py::body_line_iterator",
+            "email/generator.py::DecodedGenerator._dispatch",
+            "email/message.py::MIMEPart._find_body",
+            "email/header.py::_ValueFormatter._append_chunk",
+            "email/iterators.py::typed_subpart_iterator",
+            "email/utils.py::<module>",
+            "email/utils.py::_strip_quoted_realnames"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "email/message.py::MIMEPart.iter_attachments",
+            "email/message.py::MIMEPart",
+            "email/message.py::MIMEPart._find_body",
+            "email/message.py::MIMEPart.get_body",
+            "email/contentmanager.py::_encode_text.embedded_body",
+            "email/contentmanager.py::_encode_text.normal_body",
+            "email/generator.py::Generator._handle_multipart",
+            "email/iterators.py::typed_subpart_iterator",
+            "email/quoprimime.py::body_encode",
+            "email/iterators.py::body_line_iterator"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q07",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "email/header.py::decode_header"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "http/client.py::HTTPConnection._read_readable",
+            "email/utils.py::_sanitize",
+            "json/__init__.py::detect_encoding",
+            "http/client.py::HTTPResponse.readable",
+            "email/charset.py::<module>",
+            "email/quoprimime.py::header_encode",
+            "email/contentmanager.py::_encode_text",
+            "email/mime/text.py::MIMEText.__init__",
+            "email/mime/text.py::MIMEText",
+            "http/client.py::HTTPConnection.send"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 50,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.02,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 50,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.02,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "email/message.py::_formatparam",
+            "email/quoprimime.py::decode",
+            "email/header.py::_ValueFormatter.feed",
+            "email/quoprimime.py::body_encode",
+            "email/quoprimime.py::<module>",
+            "email/utils.py::collapse_rfc2231_value",
+            "email/mime/text.py::MIMEText.__init__",
+            "email/header.py::_ValueFormatter",
+            "email/charset.py::Charset.body_encode",
+            "email/base64mime.py::body_encode"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "email/mime/text.py::MIMEText.__init__",
+            "email/charset.py::<module>",
+            "email/utils.py::_sanitize",
+            "email/quoprimime.py::<module>",
+            "email/contentmanager.py::_encode_text",
+            "email/utils.py::collapse_rfc2231_value",
+            "json/__init__.py::detect_encoding",
+            "email/message.py::_decode_uu",
+            "email/mime/text.py::MIMEText",
+            "email/quoprimime.py::header_encode"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q08",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "asyncio/timeouts.py::timeout",
+        "asyncio/timeouts.py::Timeout",
+        "asyncio/tasks.py::wait_for"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 4,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.25,
+            "recall10": 0.3333333333333333
+          },
+          "contain": {
+            "first_rank": 4,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.25,
+            "recall10": 0.3333333333333333
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/timeouts.py::timeout_at",
+            "asyncio/timeouts.py::Timeout.when",
+            "asyncio/queues.py::Queue.shutdown",
+            "asyncio/timeouts.py::timeout",
+            "asyncio/queues.py::Queue.put",
+            "asyncio/queues.py::Queue",
+            "asyncio/windows_events.py::IocpProactor._stop_serving",
+            "asyncio/queues.py::Queue.get",
+            "asyncio/__main__.py::AsyncIOInteractiveConsole",
+            "asyncio/__main__.py::AsyncIOInteractiveConsole.runcode"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/timeouts.py::Timeout",
+            "asyncio/timeouts.py::timeout",
+            "asyncio/locks.py::Barrier._block",
+            "asyncio/locks.py::Barrier",
+            "asyncio/base_events.py::_SendfileFallbackProtocol",
+            "asyncio/locks.py::Event.wait",
+            "asyncio/timeouts.py::Timeout.__aexit__",
+            "asyncio/timeouts.py::Timeout.when",
+            "asyncio/tasks.py::wait_for",
+            "asyncio/timeouts.py::timeout_at"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.6666666666666666
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.6666666666666666
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/timeouts.py::timeout",
+            "asyncio/timeouts.py::Timeout.when",
+            "asyncio/timeouts.py::timeout_at",
+            "asyncio/locks.py::Event.wait",
+            "asyncio/locks.py::Barrier._block",
+            "asyncio/queues.py::Queue",
+            "asyncio/locks.py::Barrier",
+            "asyncio/__main__.py::AsyncIOInteractiveConsole",
+            "asyncio/timeouts.py::Timeout",
+            "asyncio/__main__.py::AsyncIOInteractiveConsole.runcode"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q09",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "asyncio/queues.py::Queue.shutdown",
+        "asyncio/queues.py::QueueShutDown",
+        "asyncio/queues.py::Queue.get"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 3,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.3333333333333333,
+            "recall10": 0.6666666666666666
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.6666666666666666
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/queues.py::Queue",
+            "asyncio/queues.py::Queue.put",
+            "asyncio/queues.py::Queue.shutdown",
+            "asyncio/queues.py::Queue.get",
+            "asyncio/queues.py::Queue.join",
+            "asyncio/queues.py::Queue.get_nowait",
+            "asyncio/queues.py::LifoQueue",
+            "asyncio/queues.py::PriorityQueue",
+            "asyncio/queues.py::Queue.task_done",
+            "asyncio/queues.py::Queue._put"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/queues.py::Queue.get",
+            "asyncio/queues.py::Queue",
+            "asyncio/queues.py::Queue.put",
+            "asyncio/queues.py::Queue.get_nowait",
+            "asyncio/queues.py::Queue.join",
+            "asyncio/queues.py::Queue.shutdown",
+            "asyncio/queues.py::QueueShutDown",
+            "asyncio/queues.py::Queue.put_nowait",
+            "asyncio/base_events.py::Server.wait_closed",
+            "asyncio/queues.py::Queue.task_done"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/queues.py::Queue",
+            "asyncio/queues.py::Queue.get",
+            "asyncio/queues.py::Queue.put",
+            "asyncio/queues.py::Queue.shutdown",
+            "asyncio/queues.py::Queue.get_nowait",
+            "asyncio/queues.py::Queue.join",
+            "asyncio/queues.py::Queue.task_done",
+            "asyncio/queues.py::Queue.put_nowait",
+            "asyncio/queues.py::QueueShutDown",
+            "asyncio/base_events.py::Server.wait_closed"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q10",
+      "corpus": "stdlib",
+      "type": "location",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "http/server.py::SimpleHTTPRequestHandler.translate_path"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 26,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.038461538461538464,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 25,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.04,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "http/server.py::SimpleHTTPRequestHandler.do_HEAD",
+            "http/server.py::SimpleHTTPRequestHandler.do_GET",
+            "asyncio/unix_events.py::_UnixSelectorEventLoop._stop_serving",
+            "asyncio/base_events.py::Server.close",
+            "asyncio/windows_events.py::IocpProactor._stop_serving",
+            "asyncio/proactor_events.py::BaseProactorEventLoop._stop_serving",
+            "http/server.py::test",
+            "asyncio/base_events.py::Server.is_serving",
+            "asyncio/selector_events.py::BaseSelectorEventLoop._stop_serving",
+            "asyncio/base_events.py::Server.serve_forever"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "http/server.py::SimpleHTTPRequestHandler",
+            "http/server.py::SimpleHTTPRequestHandler.translate_path",
+            "http/server.py::SimpleHTTPRequestHandler.__init__",
+            "http/server.py::BaseHTTPRequestHandler.parse_request",
+            "http/server.py::CGIHTTPRequestHandler",
+            "http/server.py::BaseHTTPRequestHandler",
+            "http/server.py::SimpleHTTPRequestHandler.do_GET",
+            "http/server.py::<module>",
+            "http/server.py::SimpleHTTPRequestHandler.send_head",
+            "http/server.py::SimpleHTTPRequestHandler.list_directory"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 5,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.2,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "http/server.py::SimpleHTTPRequestHandler.do_GET",
+            "http/server.py::SimpleHTTPRequestHandler",
+            "http/server.py::SimpleHTTPRequestHandler.do_HEAD",
+            "http/server.py::SimpleHTTPRequestHandler.__init__",
+            "http/server.py::SimpleHTTPRequestHandler.translate_path",
+            "http/server.py::<module>",
+            "asyncio/selector_events.py::BaseSelectorEventLoop._stop_serving",
+            "http/server.py::test",
+            "asyncio/unix_events.py::_UnixSelectorEventLoop._stop_serving",
+            "http/server.py::CGIHTTPRequestHandler"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q11",
+      "corpus": "stdlib",
+      "type": "location",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "json/encoder.py::_make_iterencode._iterencode_list",
+        "json/encoder.py::_make_iterencode._iterencode_dict",
+        "json/encoder.py::_make_iterencode._iterencode"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "json/__init__.py::<module>",
+            "json/encoder.py::<module>",
+            "json/encoder.py::JSONEncoder",
+            "json/encoder.py::JSONEncoder.encode",
+            "email/_policybase.py::Compat32._sanitize_header",
+            "json/encoder.py::py_encode_basestring",
+            "json/__init__.py::dumps",
+            "json/encoder.py::JSONEncoder.__init__",
+            "json/encoder.py::JSONEncoder.iterencode",
+            "json/encoder.py::py_encode_basestring.replace"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 11,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.09090909090909091,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 10,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.1,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "json/encoder.py::JSONEncoder.__init__",
+            "json/encoder.py::JSONEncoder",
+            "json/__init__.py::dumps",
+            "json/encoder.py::JSONEncoder.iterencode",
+            "json/__init__.py::<module>",
+            "json/decoder.py::JSONDecoder",
+            "json/encoder.py::<module>",
+            "json/encoder.py::JSONEncoder.iterencode.floatstr",
+            "json/__init__.py::dump",
+            "json/encoder.py::_make_iterencode"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 24,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.041666666666666664,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 24,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.041666666666666664,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "json/encoder.py::JSONEncoder",
+            "json/__init__.py::<module>",
+            "json/encoder.py::JSONEncoder.__init__",
+            "json/encoder.py::<module>",
+            "json/__init__.py::dumps",
+            "json/encoder.py::JSONEncoder.iterencode",
+            "json/encoder.py::JSONEncoder.encode",
+            "json/__init__.py::dump",
+            "json/encoder.py::JSONEncoder.default",
+            "json/decoder.py::JSONDecoder"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q12",
+      "corpus": "stdlib",
+      "type": "location",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "http/client.py::HTTPConnection.set_tunnel",
+        "http/client.py::HTTPConnection._tunnel"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 3,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.3333333333333333,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 3,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.3333333333333333,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "http/client.py::HTTPConnection.get_proxy_response_headers",
+            "http/client.py::HTTPResponse._check_close",
+            "http/client.py::HTTPConnection.set_tunnel",
+            "http/client.py::HTTPConnection._tunnel",
+            "http/client.py::HTTPConnection.__init__",
+            "http/client.py::HTTPSConnection.__init__",
+            "http/client.py::HTTPSConnection",
+            "http/server.py::BaseHTTPRequestHandler.handle",
+            "http/client.py::_create_https_context",
+            "http/client.py::HTTPSConnection.connect"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 5,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.2,
+            "recall10": 0.5
+          },
+          "contain": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "http/client.py::HTTPSConnection.connect",
+            "http/client.py::HTTPConnection",
+            "http/client.py::<module>",
+            "http/client.py::HTTPSConnection",
+            "http/client.py::HTTPConnection.set_tunnel",
+            "http/server.py::BaseHTTPRequestHandler",
+            "http/client.py::HTTPResponse._check_close",
+            "http/client.py::HTTPConnection.putrequest",
+            "http/client.py::HTTPSConnection.__init__",
+            "http/client.py::HTTPConnection.connect"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "http/client.py::HTTPConnection.set_tunnel",
+            "http/client.py::HTTPResponse._check_close",
+            "http/client.py::HTTPSConnection.connect",
+            "http/client.py::HTTPSConnection",
+            "http/client.py::HTTPConnection.get_proxy_response_headers",
+            "http/client.py::HTTPConnection",
+            "http/client.py::HTTPSConnection.__init__",
+            "http/client.py::HTTPConnection._tunnel",
+            "http/client.py::HTTPConnection.__init__",
+            "http/client.py::<module>"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q13",
+      "corpus": "stdlib",
+      "type": "flow",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "asyncio/taskgroups.py::TaskGroup._on_task_done",
+        "asyncio/taskgroups.py::TaskGroup._abort",
+        "asyncio/taskgroups.py::TaskGroup.__aexit__",
+        "asyncio/taskgroups.py::TaskGroup._aexit"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.5
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/taskgroups.py::TaskGroup._on_task_done",
+            "asyncio/taskgroups.py::TaskGroup",
+            "asyncio/taskgroups.py::TaskGroup.__repr__",
+            "asyncio/taskgroups.py::TaskGroup.create_task",
+            "asyncio/taskgroups.py::TaskGroup.__aenter__",
+            "asyncio/staggered.py::staggered_race.run_one_coro",
+            "asyncio/taskgroups.py::TaskGroup._aexit",
+            "asyncio/staggered.py::staggered_race",
+            "asyncio/taskgroups.py::<module>",
+            "asyncio/tasks.py::_leave_task"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 0.75
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/taskgroups.py::TaskGroup",
+            "asyncio/taskgroups.py::TaskGroup._on_task_done",
+            "asyncio/taskgroups.py::TaskGroup._aexit",
+            "asyncio/taskgroups.py::TaskGroup.__init__",
+            "asyncio/taskgroups.py::TaskGroup._is_base_error",
+            "asyncio/taskgroups.py::TaskGroup.__aenter__",
+            "asyncio/tasks.py::Task",
+            "asyncio/runners.py::_cancel_all_tasks",
+            "asyncio/taskgroups.py::TaskGroup.create_task",
+            "asyncio/taskgroups.py::TaskGroup._abort"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 0.75
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/taskgroups.py::TaskGroup",
+            "asyncio/taskgroups.py::TaskGroup._on_task_done",
+            "asyncio/taskgroups.py::TaskGroup._aexit",
+            "asyncio/taskgroups.py::TaskGroup.__aenter__",
+            "asyncio/taskgroups.py::TaskGroup.create_task",
+            "asyncio/taskgroups.py::TaskGroup.__init__",
+            "asyncio/taskgroups.py::TaskGroup.__repr__",
+            "asyncio/staggered.py::staggered_race.run_one_coro",
+            "asyncio/staggered.py::staggered_race",
+            "asyncio/taskgroups.py::TaskGroup._abort"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q14",
+      "corpus": "stdlib",
+      "type": "flow",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "email/message.py::Message.as_bytes",
+        "email/generator.py::BytesGenerator",
+        "email/generator.py::Generator.flatten"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 4,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.25,
+            "recall10": 0.6666666666666666
+          },
+          "contain": {
+            "first_rank": 4,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.25,
+            "recall10": 0.6666666666666666
+          },
+          "test_slots5": 0,
+          "top10": [
+            "email/message.py::Message.__bytes__",
+            "email/__init__.py::message_from_bytes",
+            "email/policy.py::<module>",
+            "email/message.py::Message.as_bytes",
+            "email/__init__.py::message_from_binary_file",
+            "email/contentmanager.py::get_and_fixup_unknown_message_content",
+            "http/client.py::HTTPConnection._send_output",
+            "email/message.py::Message.get_content_charset",
+            "email/generator.py::BytesGenerator",
+            "email/base64mime.py::decode"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 4,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.25,
+            "recall10": 0.6666666666666666
+          },
+          "contain": {
+            "first_rank": 3,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.3333333333333333,
+            "recall10": 0.6666666666666666
+          },
+          "test_slots5": 0,
+          "top10": [
+            "email/message.py::Message.__bytes__",
+            "email/__init__.py::message_from_bytes",
+            "email/message.py::Message",
+            "email/message.py::Message.as_bytes",
+            "email/message.py::Message.get_payload",
+            "email/parser.py::BytesParser",
+            "email/generator.py::BytesGenerator",
+            "email/encoders.py::encode_base64",
+            "email/__init__.py::message_from_binary_file",
+            "email/generator.py::Generator._handle_text"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 3,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.3333333333333333,
+            "recall10": 0.6666666666666666
+          },
+          "contain": {
+            "first_rank": 3,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.3333333333333333,
+            "recall10": 0.6666666666666666
+          },
+          "test_slots5": 0,
+          "top10": [
+            "email/message.py::Message.__bytes__",
+            "email/__init__.py::message_from_bytes",
+            "email/message.py::Message.as_bytes",
+            "email/__init__.py::message_from_binary_file",
+            "email/generator.py::BytesGenerator",
+            "email/parser.py::BytesParser",
+            "email/base64mime.py::decode",
+            "email/contentmanager.py::get_and_fixup_unknown_message_content",
+            "email/message.py::Message.get_payload",
+            "email/parser.py::BytesParser.__init__"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q15",
+      "corpus": "stdlib",
+      "type": "negative",
+      "split": "tune",
+      "scored": false,
+      "relevant": [],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/windows_events.py::IocpProactor.connect_pipe",
+            "http/__init__.py::HTTPStatus",
+            "http/server.py::BaseHTTPRequestHandler.handle",
+            "http/server.py::<module>",
+            "asyncio/tasks.py::Task.uncancel",
+            "asyncio/selector_events.py::BaseSelectorEventLoop._sock_connect_cb",
+            "asyncio/tasks.py::Task.cancelling",
+            "http/server.py::BaseHTTPRequestHandler.handle_expect_100",
+            "asyncio/constants.py::<module>",
+            "http/client.py::<module>"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/constants.py::<module>",
+            "asyncio/events.py::AbstractEventLoop",
+            "asyncio/base_events.py::_SendfileFallbackProtocol",
+            "asyncio/base_events.py::Server.__init__",
+            "asyncio/base_subprocess.py::BaseSubprocessTransport._process_exited",
+            "asyncio/base_events.py::BaseEventLoop._sendfile_fallback",
+            "asyncio/timeouts.py::Timeout.__aexit__",
+            "asyncio/events.py::AbstractEventLoop.create_server",
+            "asyncio/base_events.py::BaseEventLoop._sock_sendfile_fallback",
+            "asyncio/base_subprocess.py::BaseSubprocessTransport"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "asyncio/constants.py::<module>",
+            "http/client.py::<module>",
+            "http/server.py::BaseHTTPRequestHandler.parse_request",
+            "asyncio/tasks.py::Task.cancelling",
+            "asyncio/staggered.py::staggered_race.run_one_coro",
+            "asyncio/timeouts.py::Timeout.__aexit__",
+            "asyncio/proactor_events.py::BaseProactorEventLoop._start_serving.loop",
+            "asyncio/tasks.py::Task.uncancel",
+            "asyncio/streams.py::StreamReaderProtocol.__del__",
+            "asyncio/transports.py::_FlowControlMixin._maybe_resume_protocol"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q16",
+      "corpus": "chatter",
+      "type": "location",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "src/chatter/extract.py::_extract_segmented",
+        "src/chatter/extract.py::_split_segments",
+        "src/chatter/extract.py::_recover_broken"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "test_slots5": 3,
+          "top10": [
+            "tests/test_extract.py::test_module_chunk_survives_syntax_errors",
+            "src/chatter/extract.py::decode_source",
+            "src/chatter/extract.py::extract_source",
+            "tests/test_index.py::<module>",
+            "tests/test_extract.py::test_module_import_guards",
+            "tests/test_index.py::test_iter_source_files_does_not_follow_symlinks",
+            "src/chatter/extract.py::_string_value",
+            "src/chatter/extract.py::_source",
+            "src/chatter/extract.py::<module>",
+            "tests/test_index.py::test_embedding_text_has_header_then_source"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 9,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.1111111111111111,
+            "recall10": 0.3333333333333333
+          },
+          "contain": {
+            "first_rank": 9,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.1111111111111111,
+            "recall10": 0.3333333333333333
+          },
+          "test_slots5": 3,
+          "top10": [
+            "tests/test_extract.py::test_module_chunk_survives_syntax_errors",
+            "tests/test_extract.py::assert_source_consistent",
+            "src/chatter/cli.py::<module>",
+            "src/chatter/cli.py::make_app",
+            "tests/test_extract.py::test_broken_method_does_not_swallow_rest_of_file",
+            "src/chatter/answer.py::<module>",
+            "tests/test_retrieve.py::test_split_module_chunk_cites_real_file_lines",
+            "tests/test_extract.py::test_garbage_does_not_crash",
+            "src/chatter/extract.py::_recover_broken",
+            "src/chatter/extract.py::_module_chunk"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 15,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.06666666666666667,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 15,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.06666666666666667,
+            "recall10": 0.0
+          },
+          "test_slots5": 3,
+          "top10": [
+            "tests/test_extract.py::test_module_chunk_survives_syntax_errors",
+            "src/chatter/extract.py::extract_source",
+            "tests/test_extract.py::assert_source_consistent",
+            "tests/test_retrieve.py::test_split_module_chunk_cites_real_file_lines",
+            "src/chatter/extract.py::<module>",
+            "tests/test_index.py::test_iter_source_files_skips_dirs_and_respects_gitignore",
+            "src/chatter/extract.py::_module_chunk",
+            "tests/test_extract.py::test_garbage_does_not_crash",
+            "src/chatter/extract.py::Chunk",
+            "src/chatter/extract.py::decode_source"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q17",
+      "corpus": "chatter",
+      "type": "location",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "src/chatter/extract.py::_start_row",
+        "src/chatter/extract.py::_end_row"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 7,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.14285714285714285,
+            "recall10": 0.5
+          },
+          "contain": {
+            "first_rank": 7,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.14285714285714285,
+            "recall10": 0.5
+          },
+          "test_slots5": 2,
+          "top10": [
+            "tests/test_extract.py::test_chunk_is_immutable",
+            "tests/test_index.py::record_ids",
+            "src/chatter/index.py::_load_gitignore",
+            "src/chatter/index.py::read_manifest",
+            "src/chatter/cli.py::_open_retriever",
+            "src/chatter/retrieve.py::Retriever.open",
+            "src/chatter/extract.py::_end_row",
+            "tests/test_extract.py::test_many_lines_and_wide_lines",
+            "tests/test_retrieve.py::test_positive_idf_bm25_scores_matches_above_zero_and_others_zero",
+            "tests/test_answer.py::test_chunks_are_dropped_rather_than_cut_below_minimum_share"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 25,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.04,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 25,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.04,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "src/chatter/index.py::IndexStats",
+            "src/chatter/cli.py::make_app.index",
+            "src/chatter/answer.py::ContextBlock.location",
+            "src/chatter/extract.py::Chunk",
+            "src/chatter/index.py::IndexConfig",
+            "src/chatter/index.py::IndexMismatchError",
+            "src/chatter/answer.py::_region",
+            "src/chatter/retrieve.py::_part_lines",
+            "src/chatter/answer.py::truncation_window",
+            "src/chatter/index.py::build_index"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 4,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.25,
+            "recall10": 0.5
+          },
+          "contain": {
+            "first_rank": 4,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.25,
+            "recall10": 0.5
+          },
+          "test_slots5": 1,
+          "top10": [
+            "src/chatter/cli.py::make_app.index",
+            "tests/test_index.py::record_ids",
+            "src/chatter/extract.py::Chunk",
+            "src/chatter/extract.py::_end_row",
+            "src/chatter/extract.py::_split_segments",
+            "src/chatter/retrieve.py::Retriever",
+            "src/chatter/answer.py::_region",
+            "tests/test_index.py::test_model_mismatch_requires_rebuild",
+            "src/chatter/answer.py::truncation_window",
+            "src/chatter/retrieve.py::BM25Index"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q18",
+      "corpus": "chatter",
+      "type": "behavior",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "src/chatter/answer.py::RepetitionGuard",
+        "src/chatter/answer.py::RepetitionGuard.feed",
+        "src/chatter/answer.py::RepetitionGuard._count_line",
+        "src/chatter/answer.py::RepetitionGuard._phrase_loop"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 44,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.022727272727272728,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 44,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.022727272727272728,
+            "recall10": 0.0
+          },
+          "test_slots5": 4,
+          "top10": [
+            "tests/test_answer.py::test_hf_generator_streams_and_stops_when_closed",
+            "tests/test_answer.py::test_answer_question_stops_word_loop",
+            "tests/test_answer.py::test_answer_question_stops_looping_generator.looping",
+            "tests/test_embed.py::make",
+            "src/chatter/embed.py::SentenceTransformerEmbedder.__init__",
+            "tests/test_answer.py::test_answer_question_stops_looping_generator",
+            "src/chatter/cli.py::_default_embedder",
+            "src/chatter/embed.py::SentenceTransformerEmbedder.name",
+            "src/chatter/embed.py::SentenceTransformerEmbedder",
+            "src/chatter/answer.py::AnswerStatus"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.5
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "src/chatter/answer.py::RepetitionGuard",
+            "src/chatter/answer.py::RepetitionGuard._phrase_loop",
+            "src/chatter/answer.py::<module>",
+            "src/chatter/cli.py::make_app",
+            "src/chatter/embed.py::<module>",
+            "src/chatter/answer.py::RepetitionGuard.__init__",
+            "src/chatter/embed.py::SentenceTransformerEmbedder",
+            "src/chatter/cli.py::make_app.ask",
+            "src/chatter/answer.py::RepetitionGuard.kept_text",
+            "src/chatter/embed.py::SentenceTransformerEmbedder.__init__"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 7,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.14285714285714285,
+            "recall10": 0.5
+          },
+          "contain": {
+            "first_rank": 7,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.14285714285714285,
+            "recall10": 1.0
+          },
+          "test_slots5": 1,
+          "top10": [
+            "src/chatter/embed.py::SentenceTransformerEmbedder.__init__",
+            "src/chatter/embed.py::SentenceTransformerEmbedder",
+            "tests/test_answer.py::test_answer_question_stops_word_loop",
+            "src/chatter/embed.py::<module>",
+            "src/chatter/cli.py::make_app.ask",
+            "src/chatter/embed.py::SentenceTransformerEmbedder.name",
+            "src/chatter/answer.py::RepetitionGuard",
+            "src/chatter/answer.py::RepetitionGuard.__init__",
+            "tests/test_answer.py::test_hf_generator_streams_and_stops_when_closed",
+            "src/chatter/answer.py::RepetitionGuard._phrase_loop"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q19",
+      "corpus": "chatter",
+      "type": "behavior",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "src/chatter/retrieve.py::PositiveIdfBM25",
+        "src/chatter/retrieve.py::PositiveIdfBM25._calc_idf"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 3,
+          "top10": [
+            "src/chatter/retrieve.py::PositiveIdfBM25",
+            "tests/test_extract.py::test_every_prefix_of_sample_is_safe",
+            "tests/test_answer.py::test_chunks_are_dropped_rather_than_cut_below_minimum_share",
+            "tests/test_retrieve.py::test_positive_idf_bm25_scores_matches_above_zero_and_others_zero",
+            "src/chatter/index.py::open_collection",
+            "src/chatter/retrieve.py::BM25Index.search",
+            "tests/test_retrieve.py::test_okapi_scores_real_matches_at_or_below_zero_on_tiny_corpora",
+            "src/chatter/extract.py::_recover_broken",
+            "src/chatter/retrieve.py::BM25Index",
+            "src/chatter/retrieve.py::PositiveIdfBM25._calc_idf"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 3,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.3333333333333333,
+            "recall10": 0.5
+          },
+          "contain": {
+            "first_rank": 3,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.3333333333333333,
+            "recall10": 1.0
+          },
+          "test_slots5": 3,
+          "top10": [
+            "src/chatter/answer.py::_line_score",
+            "tests/test_retrieve.py::test_positive_idf_bm25_scores_matches_above_zero_and_others_zero",
+            "src/chatter/retrieve.py::PositiveIdfBM25",
+            "tests/test_retrieve.py::test_okapi_scores_real_matches_at_or_below_zero_on_tiny_corpora",
+            "tests/test_answer.py::test_best_line_wins_by_distinct_query_terms_earliest_on_tie",
+            "tests/test_retrieve.py::test_empty_index_search",
+            "tests/test_retrieve.py::test_bm25_index_empty_corpora",
+            "tests/test_answer.py::test_prompt_states_rules_and_exact_abstention_sentence",
+            "tests/test_answer.py::test_prompt_stays_within_budget_and_drops_lowest_ranked",
+            "tests/test_extract.py::test_garbage_does_not_crash"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.5
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 1.0
+          },
+          "test_slots5": 3,
+          "top10": [
+            "src/chatter/retrieve.py::PositiveIdfBM25",
+            "tests/test_retrieve.py::test_positive_idf_bm25_scores_matches_above_zero_and_others_zero",
+            "tests/test_retrieve.py::test_okapi_scores_real_matches_at_or_below_zero_on_tiny_corpora",
+            "src/chatter/answer.py::_line_score",
+            "tests/test_answer.py::test_answer_question_stops_word_loop",
+            "src/chatter/retrieve.py::BM25Index.search",
+            "tests/test_extract.py::test_unterminated_string_inside_function",
+            "tests/test_answer.py::test_chunks_are_dropped_rather_than_cut_below_minimum_share",
+            "src/chatter/retrieve.py::BM25Index",
+            "tests/test_extract.py::test_every_prefix_of_sample_is_safe"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q20",
+      "corpus": "chatter",
+      "type": "behavior",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "src/chatter/index.py::build_index",
+        "src/chatter/index.py::content_hash",
+        "src/chatter/index.py::_stored_parts"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 24,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.041666666666666664,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": 24,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.041666666666666664,
+            "recall10": 0.0
+          },
+          "test_slots5": 2,
+          "top10": [
+            "src/chatter/index.py::_PartWriter.flush",
+            "tests/test_embed.py::test_real_model_smoke",
+            "tests/test_extract.py::test_nested_functions_and_classes",
+            "src/chatter/index.py::_PartWriter",
+            "src/chatter/embed.py::SentenceTransformerEmbedder._encode",
+            "src/chatter/embed.py::Embedder.fingerprint",
+            "src/chatter/cli.py::make_app.index",
+            "tests/test_index.py::test_reindex_embeds_only_changes_and_removes_deleted",
+            "src/chatter/embed.py::Embedder",
+            "tests/test_cli.py::test_ask_repetition_notice"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.3333333333333333
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.3333333333333333
+          },
+          "test_slots5": 3,
+          "top10": [
+            "src/chatter/index.py::build_index",
+            "tests/test_retrieve.py::test_open_requires_existing_index",
+            "src/chatter/cli.py::make_app.index",
+            "tests/test_index.py::test_duplicate_names_across_files",
+            "tests/test_index.py::test_reindex_embeds_only_changes_and_removes_deleted",
+            "src/chatter/index.py::default_index_dir",
+            "tests/test_cli.py::test_index_missing_directory",
+            "tests/test_cli.py::test_no_index_yet",
+            "tests/test_cli.py::test_index_reports_deletions",
+            "tests/test_index.py::test_custom_index_dir_and_batching"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 3,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.3333333333333333,
+            "recall10": 0.3333333333333333
+          },
+          "contain": {
+            "first_rank": 3,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.3333333333333333,
+            "recall10": 0.3333333333333333
+          },
+          "test_slots5": 1,
+          "top10": [
+            "src/chatter/cli.py::make_app.index",
+            "tests/test_index.py::test_reindex_embeds_only_changes_and_removes_deleted",
+            "src/chatter/index.py::build_index",
+            "src/chatter/retrieve.py::<module>",
+            "src/chatter/index.py::_PartWriter",
+            "src/chatter/index.py::_PartWriter.flush",
+            "src/chatter/index.py::default_index_dir",
+            "tests/test_retrieve.py::test_search_reflects_reindex",
+            "src/chatter/index.py::open_collection",
+            "tests/test_cli.py::test_ask_repetition_notice"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q21",
+      "corpus": "chatter",
+      "type": "flow",
+      "split": "tune",
+      "scored": true,
+      "relevant": [
+        "src/chatter/index.py::iter_source_files",
+        "src/chatter/extract.py::extract_file",
+        "src/chatter/index.py::embedding_text",
+        "src/chatter/embed.py::SentenceTransformerEmbedder.embed_documents",
+        "src/chatter/index.py::_PartWriter.flush",
+        "src/chatter/index.py::build_index",
+        "src/chatter/index.py::plan_parts"
+      ],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 0.42857142857142855
+          },
+          "contain": {
+            "first_rank": 2,
+            "hit1": false,
+            "hit5": true,
+            "rr": 0.5,
+            "recall10": 0.42857142857142855
+          },
+          "test_slots5": 1,
+          "top10": [
+            "tests/test_embed.py::test_real_model_smoke",
+            "src/chatter/index.py::_PartWriter.flush",
+            "src/chatter/embed.py::SentenceTransformerEmbedder._encode",
+            "src/chatter/embed.py::Embedder.fingerprint",
+            "src/chatter/index.py::build_index",
+            "src/chatter/extract.py::extract_file",
+            "src/chatter/index.py::_PartWriter",
+            "src/chatter/index.py::IndexMismatchError",
+            "src/chatter/embed.py::Embedder",
+            "src/chatter/extract.py::Chunk"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.2857142857142857
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.42857142857142855
+          },
+          "test_slots5": 0,
+          "top10": [
+            "src/chatter/extract.py::extract_file",
+            "src/chatter/index.py::_PartWriter",
+            "src/chatter/index.py::build_index",
+            "src/chatter/retrieve.py::<module>",
+            "src/chatter/extract.py::<module>",
+            "tests/conftest.py::HashEmbedder.embed_documents",
+            "tests/test_retrieve.py::test_split_module_chunk_cites_real_file_lines",
+            "src/chatter/extract.py::_file_context",
+            "src/chatter/extract.py::_module_chunk",
+            "src/chatter/extract.py::_FileContext"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.2857142857142857
+          },
+          "contain": {
+            "first_rank": 1,
+            "hit1": true,
+            "hit5": true,
+            "rr": 1.0,
+            "recall10": 0.42857142857142855
+          },
+          "test_slots5": 0,
+          "top10": [
+            "src/chatter/extract.py::extract_file",
+            "src/chatter/index.py::build_index",
+            "src/chatter/index.py::_PartWriter",
+            "src/chatter/retrieve.py::<module>",
+            "src/chatter/extract.py::Chunk",
+            "src/chatter/extract.py::<module>",
+            "src/chatter/embed.py::SentenceTransformerEmbedder._encode",
+            "src/chatter/extract.py::_module_chunk",
+            "tests/conftest.py::HashEmbedder.embed_documents",
+            "tests/conftest.py::HashEmbedder._vector"
+          ]
+        }
+      }
+    },
+    {
+      "id": "q22",
+      "corpus": "chatter",
+      "type": "negative",
+      "split": "tune",
+      "scored": false,
+      "relevant": [],
+      "modes": {
+        "bm25": {
+          "strict": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "test_slots5": 1,
+          "top10": [
+            "src/chatter/index.py::_client",
+            "src/chatter/answer.py::build_user_message",
+            "src/chatter/answer.py::<module>",
+            "tests/test_answer.py::_timed_answer",
+            "src/chatter/cli.py::make_app",
+            "src/chatter/answer.py::query_terms",
+            "src/chatter/cli.py::make_app.ask",
+            "src/chatter/index.py::<module>",
+            "src/chatter/answer.py::build_context",
+            "src/chatter/index.py::chunk_to_dict"
+          ]
+        },
+        "dense": {
+          "strict": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "test_slots5": 0,
+          "top10": [
+            "src/chatter/answer.py::HFGenerator",
+            "src/chatter/cli.py::make_app",
+            "src/chatter/cli.py::make_app.ask",
+            "src/chatter/answer.py::HFGenerator.generate",
+            "src/chatter/cli.py::<module>",
+            "tests/test_answer.py::test_real_model_ask_smoke",
+            "src/chatter/answer.py::<module>",
+            "src/chatter/cli.py::make_app.search",
+            "tests/conftest.py::FakeGenerator",
+            "src/chatter/answer.py::answer_question"
+          ]
+        },
+        "fused": {
+          "strict": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "contain": {
+            "first_rank": null,
+            "hit1": false,
+            "hit5": false,
+            "rr": 0.0,
+            "recall10": 0.0
+          },
+          "test_slots5": 1,
+          "top10": [
+            "src/chatter/cli.py::make_app",
+            "src/chatter/answer.py::<module>",
+            "src/chatter/cli.py::make_app.ask",
+            "tests/test_answer.py::test_real_model_ask_smoke",
+            "src/chatter/index.py::<module>",
+            "src/chatter/answer.py::build_user_message",
+            "src/chatter/answer.py::build_context",
+            "src/chatter/answer.py::answer_question",
+            "src/chatter/answer.py::query_terms",
+            "src/chatter/cli.py::<module>"
+          ]
+        }
+      }
+    }
+  ],
+  "configs": {
+    "reference": "dense-only",
+    "cells": [
+      {
+        "name": "dense-only",
+        "mode": "dense",
+        "rrf_k": 60,
+        "dense_weight": 1.0,
+        "graph_hops": 0,
+        "graph_weight": 1.0,
+        "counterpart": null,
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.4,
+            "hit@5": 0.7,
+            "mrr@50": 0.5236351981351981,
+            "recall@10": 0.5434523809523809
+          },
+          "contain": {
+            "hit@1": 0.5,
+            "hit@5": 0.8,
+            "mrr@50": 0.6318888888888889,
+            "recall@10": 0.763095238095238
+          },
+          "test_slots@5": 9,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.5,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.5807407407407407,
+              "recall@10": 0.3253968253968254
+            },
+            "contain": {
+              "hit@1": 0.5,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.5807407407407407,
+              "recall@10": 0.5158730158730159
+            },
+            "test_slots@5": 9,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.35714285714285715,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.49916139416139416,
+              "recall@10": 0.6369047619047619
+            },
+            "contain": {
+              "hit@1": 0.5,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6538095238095238,
+              "recall@10": 0.869047619047619
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 26,
+          "q04": 3,
+          "q05": 18,
+          "q06": 1,
+          "q07": 50,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 11,
+          "q12": 5,
+          "q13": 2,
+          "q14": 4,
+          "q16": 9,
+          "q17": 25,
+          "q18": 1,
+          "q19": 3,
+          "q20": 1,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 2,
+          "q04": 2,
+          "q05": 5,
+          "q06": 1,
+          "q07": 50,
+          "q08": 1,
+          "q09": 1,
+          "q10": 1,
+          "q11": 10,
+          "q12": 2,
+          "q13": 1,
+          "q14": 3,
+          "q16": 9,
+          "q17": 25,
+          "q18": 1,
+          "q19": 3,
+          "q20": 1,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 0,
+            "losses": 0,
+            "ties": 20
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 0,
+              "losses": 0,
+              "ties": 6
+            },
+            "stdlib": {
+              "wins": 0,
+              "losses": 0,
+              "ties": 14
+            }
+          }
+        }
+      },
+      {
+        "name": "default",
+        "mode": "fused",
+        "rrf_k": 60,
+        "dense_weight": 1.0,
+        "graph_hops": 0,
+        "graph_weight": 1.0,
+        "counterpart": null,
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.4,
+            "hit@5": 0.7,
+            "mrr@50": 0.5225535458085673,
+            "recall@10": 0.5601190476190476
+          },
+          "contain": {
+            "hit@1": 0.5,
+            "hit@5": 0.75,
+            "mrr@50": 0.6004383116883117,
+            "recall@10": 0.6547619047619048
+          },
+          "test_slots@5": 9,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.46547619047619043,
+              "recall@10": 0.3531746031746032
+            },
+            "contain": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.46547619047619043,
+              "recall@10": 0.5436507936507936
+            },
+            "test_slots@5": 9,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.42857142857142855,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5470152695224432,
+              "recall@10": 0.6488095238095238
+            },
+            "contain": {
+              "hit@1": 0.5714285714285714,
+              "hit@5": 0.7857142857142857,
+              "mrr@50": 0.6582792207792209,
+              "recall@10": 0.7023809523809524
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 41,
+          "q04": 1,
+          "q05": 17,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 2,
+          "q10": 5,
+          "q11": 24,
+          "q12": 1,
+          "q13": 2,
+          "q14": 3,
+          "q16": 15,
+          "q17": 4,
+          "q18": 7,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 4,
+          "q04": 1,
+          "q05": 11,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 24,
+          "q12": 1,
+          "q13": 1,
+          "q14": 3,
+          "q16": 15,
+          "q17": 4,
+          "q18": 7,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 6,
+            "losses": 8,
+            "ties": 6
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 2,
+              "losses": 3,
+              "ties": 1
+            },
+            "stdlib": {
+              "wins": 4,
+              "losses": 5,
+              "ties": 5
+            }
+          }
+        }
+      },
+      {
+        "name": "k10-w3",
+        "mode": "fused",
+        "rrf_k": 10,
+        "dense_weight": 3.0,
+        "graph_hops": 0,
+        "graph_weight": 1.0,
+        "counterpart": null,
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.45,
+            "hit@5": 0.7,
+            "mrr@50": 0.5735514923672819,
+            "recall@10": 0.5392857142857144
+          },
+          "contain": {
+            "hit@1": 0.55,
+            "hit@5": 0.75,
+            "mrr@50": 0.6523809523809524,
+            "recall@10": 0.6964285714285714
+          },
+          "test_slots@5": 9,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.6924603174603176,
+              "recall@10": 0.2698412698412698
+            },
+            "contain": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.6924603174603176,
+              "recall@10": 0.4603174603174603
+            },
+            "test_slots@5": 9,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.35714285714285715,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5225905673274094,
+              "recall@10": 0.6547619047619048
+            },
+            "contain": {
+              "hit@1": 0.5,
+              "hit@5": 0.7857142857142857,
+              "mrr@50": 0.6352040816326531,
+              "recall@10": 0.7976190476190476
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 33,
+          "q04": 2,
+          "q05": 19,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 15,
+          "q12": 3,
+          "q13": 2,
+          "q14": 3,
+          "q16": 12,
+          "q17": 14,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 3,
+          "q04": 2,
+          "q05": 7,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 1,
+          "q11": 12,
+          "q12": 2,
+          "q13": 1,
+          "q14": 3,
+          "q16": 12,
+          "q17": 14,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 5,
+            "losses": 5,
+            "ties": 10
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 2,
+              "losses": 1,
+              "ties": 3
+            },
+            "stdlib": {
+              "wins": 3,
+              "losses": 4,
+              "ties": 7
+            }
+          }
+        }
+      },
+      {
+        "name": "default+g1-w0.5",
+        "mode": "fused",
+        "rrf_k": 60,
+        "dense_weight": 1.0,
+        "graph_hops": 1,
+        "graph_weight": 0.5,
+        "counterpart": "default",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.4,
+            "hit@5": 0.65,
+            "mrr@50": 0.5184139924085576,
+            "recall@10": 0.5869047619047618
+          },
+          "contain": {
+            "hit@1": 0.5,
+            "hit@5": 0.75,
+            "mrr@50": 0.6031150793650794,
+            "recall@10": 0.7285714285714285
+          },
+          "test_slots@5": 7,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.5,
+              "mrr@50": 0.44788359788359783,
+              "recall@10": 0.498015873015873
+            },
+            "contain": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.5,
+              "mrr@50": 0.44788359788359783,
+              "recall@10": 0.623015873015873
+            },
+            "test_slots@5": 7,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.42857142857142855,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5486413043478261,
+              "recall@10": 0.625
+            },
+            "contain": {
+              "hit@1": 0.5714285714285714,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6696428571428571,
+              "recall@10": 0.7738095238095238
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 23,
+          "q04": 1,
+          "q05": 16,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 2,
+          "q10": 5,
+          "q11": 24,
+          "q12": 1,
+          "q13": 2,
+          "q14": 3,
+          "q16": 9,
+          "q17": 7,
+          "q18": 10,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 4,
+          "q04": 1,
+          "q05": 4,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 24,
+          "q12": 1,
+          "q13": 1,
+          "q14": 3,
+          "q16": 9,
+          "q17": 7,
+          "q18": 10,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 7,
+            "losses": 6,
+            "ties": 7
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 2,
+              "losses": 2,
+              "ties": 2
+            },
+            "stdlib": {
+              "wins": 5,
+              "losses": 4,
+              "ties": 5
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 3,
+            "losses": 2,
+            "ties": 15
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 1,
+              "losses": 2,
+              "ties": 3
+            },
+            "stdlib": {
+              "wins": 2,
+              "losses": 0,
+              "ties": 12
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      },
+      {
+        "name": "default+g1-w1",
+        "mode": "fused",
+        "rrf_k": 60,
+        "dense_weight": 1.0,
+        "graph_hops": 1,
+        "graph_weight": 1.0,
+        "counterpart": "default",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.4,
+            "hit@5": 0.65,
+            "mrr@50": 0.5213095238095238,
+            "recall@10": 0.5910714285714286
+          },
+          "contain": {
+            "hit@1": 0.5,
+            "hit@5": 0.75,
+            "mrr@50": 0.6038095238095238,
+            "recall@10": 0.7452380952380953
+          },
+          "test_slots@5": 7,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.5,
+              "mrr@50": 0.4501984126984127,
+              "recall@10": 0.498015873015873
+            },
+            "contain": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.5,
+              "mrr@50": 0.4501984126984127,
+              "recall@10": 0.623015873015873
+            },
+            "test_slots@5": 7,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.42857142857142855,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5517857142857142,
+              "recall@10": 0.630952380952381
+            },
+            "contain": {
+              "hit@1": 0.5714285714285714,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6696428571428571,
+              "recall@10": 0.7976190476190476
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 12,
+          "q04": 1,
+          "q05": 15,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 2,
+          "q10": 5,
+          "q11": 24,
+          "q12": 1,
+          "q13": 2,
+          "q14": 3,
+          "q16": 8,
+          "q17": 7,
+          "q18": 10,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 4,
+          "q04": 1,
+          "q05": 4,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 24,
+          "q12": 1,
+          "q13": 1,
+          "q14": 3,
+          "q16": 8,
+          "q17": 7,
+          "q18": 10,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 8,
+            "losses": 6,
+            "ties": 6
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 3,
+              "losses": 2,
+              "ties": 1
+            },
+            "stdlib": {
+              "wins": 5,
+              "losses": 4,
+              "ties": 5
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 3,
+            "losses": 2,
+            "ties": 15
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 1,
+              "losses": 2,
+              "ties": 3
+            },
+            "stdlib": {
+              "wins": 2,
+              "losses": 0,
+              "ties": 12
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      },
+      {
+        "name": "default+g1-w2",
+        "mode": "fused",
+        "rrf_k": 60,
+        "dense_weight": 1.0,
+        "graph_hops": 1,
+        "graph_weight": 2.0,
+        "counterpart": "default",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.4,
+            "hit@5": 0.65,
+            "mrr@50": 0.5221428571428571,
+            "recall@10": 0.5839285714285715
+          },
+          "contain": {
+            "hit@1": 0.5,
+            "hit@5": 0.75,
+            "mrr@50": 0.6038095238095238,
+            "recall@10": 0.7452380952380953
+          },
+          "test_slots@5": 7,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.5,
+              "mrr@50": 0.4501984126984127,
+              "recall@10": 0.47420634920634924
+            },
+            "contain": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.5,
+              "mrr@50": 0.4501984126984127,
+              "recall@10": 0.623015873015873
+            },
+            "test_slots@5": 7,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.42857142857142855,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5529761904761904,
+              "recall@10": 0.630952380952381
+            },
+            "contain": {
+              "hit@1": 0.5714285714285714,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6696428571428571,
+              "recall@10": 0.7976190476190476
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 12,
+          "q04": 1,
+          "q05": 12,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 2,
+          "q10": 5,
+          "q11": 24,
+          "q12": 1,
+          "q13": 2,
+          "q14": 3,
+          "q16": 8,
+          "q17": 7,
+          "q18": 10,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 4,
+          "q04": 1,
+          "q05": 4,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 24,
+          "q12": 1,
+          "q13": 1,
+          "q14": 3,
+          "q16": 8,
+          "q17": 7,
+          "q18": 10,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 8,
+            "losses": 6,
+            "ties": 6
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 3,
+              "losses": 2,
+              "ties": 1
+            },
+            "stdlib": {
+              "wins": 5,
+              "losses": 4,
+              "ties": 5
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 3,
+            "losses": 2,
+            "ties": 15
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 1,
+              "losses": 2,
+              "ties": 3
+            },
+            "stdlib": {
+              "wins": 2,
+              "losses": 0,
+              "ties": 12
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      },
+      {
+        "name": "default+g2-w0.5",
+        "mode": "fused",
+        "rrf_k": 60,
+        "dense_weight": 1.0,
+        "graph_hops": 2,
+        "graph_weight": 0.5,
+        "counterpart": "default",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.4,
+            "hit@5": 0.7,
+            "mrr@50": 0.5245132645132645,
+            "recall@10": 0.5869047619047618
+          },
+          "contain": {
+            "hit@1": 0.5,
+            "hit@5": 0.75,
+            "mrr@50": 0.6076984126984126,
+            "recall@10": 0.7119047619047618
+          },
+          "test_slots@5": 7,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.4728835978835979,
+              "recall@10": 0.498015873015873
+            },
+            "contain": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.4728835978835979,
+              "recall@10": 0.623015873015873
+            },
+            "test_slots@5": 7,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.42857142857142855,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5466402644974073,
+              "recall@10": 0.625
+            },
+            "contain": {
+              "hit@1": 0.5714285714285714,
+              "hit@5": 0.7857142857142857,
+              "mrr@50": 0.6654761904761904,
+              "recall@10": 0.75
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 28,
+          "q04": 1,
+          "q05": 22,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 2,
+          "q10": 5,
+          "q11": 26,
+          "q12": 1,
+          "q13": 2,
+          "q14": 3,
+          "q16": 9,
+          "q17": 4,
+          "q18": 7,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 4,
+          "q04": 1,
+          "q05": 6,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 15,
+          "q12": 1,
+          "q13": 1,
+          "q14": 3,
+          "q16": 9,
+          "q17": 4,
+          "q18": 7,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 5,
+            "losses": 8,
+            "ties": 7
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 2,
+              "losses": 2,
+              "ties": 2
+            },
+            "stdlib": {
+              "wins": 3,
+              "losses": 6,
+              "ties": 5
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 2,
+            "losses": 2,
+            "ties": 16
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 1,
+              "losses": 0,
+              "ties": 5
+            },
+            "stdlib": {
+              "wins": 1,
+              "losses": 2,
+              "ties": 11
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      },
+      {
+        "name": "default+g2-w1",
+        "mode": "fused",
+        "rrf_k": 60,
+        "dense_weight": 1.0,
+        "graph_hops": 2,
+        "graph_weight": 1.0,
+        "counterpart": "default",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.4,
+            "hit@5": 0.7,
+            "mrr@50": 0.5263079975579975,
+            "recall@10": 0.5869047619047618
+          },
+          "contain": {
+            "hit@1": 0.5,
+            "hit@5": 0.8,
+            "mrr@50": 0.6112716450216451,
+            "recall@10": 0.7119047619047618
+          },
+          "test_slots@5": 7,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.47519841269841273,
+              "recall@10": 0.498015873015873
+            },
+            "contain": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.47519841269841273,
+              "recall@10": 0.623015873015873
+            },
+            "test_slots@5": 7,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.42857142857142855,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5482121053549626,
+              "recall@10": 0.625
+            },
+            "contain": {
+              "hit@1": 0.5714285714285714,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6695887445887446,
+              "recall@10": 0.75
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 18,
+          "q04": 1,
+          "q05": 21,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 2,
+          "q10": 5,
+          "q11": 26,
+          "q12": 1,
+          "q13": 2,
+          "q14": 3,
+          "q16": 8,
+          "q17": 4,
+          "q18": 7,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 4,
+          "q04": 1,
+          "q05": 5,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 11,
+          "q12": 1,
+          "q13": 1,
+          "q14": 3,
+          "q16": 8,
+          "q17": 4,
+          "q18": 7,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 7,
+            "losses": 7,
+            "ties": 6
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 3,
+              "losses": 2,
+              "ties": 1
+            },
+            "stdlib": {
+              "wins": 4,
+              "losses": 5,
+              "ties": 5
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 2,
+            "losses": 2,
+            "ties": 16
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 1,
+              "losses": 0,
+              "ties": 5
+            },
+            "stdlib": {
+              "wins": 1,
+              "losses": 2,
+              "ties": 11
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      },
+      {
+        "name": "default+g2-w2",
+        "mode": "fused",
+        "rrf_k": 60,
+        "dense_weight": 1.0,
+        "graph_hops": 2,
+        "graph_weight": 2.0,
+        "counterpart": "default",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.4,
+            "hit@5": 0.7,
+            "mrr@50": 0.5280540293040292,
+            "recall@10": 0.5619047619047619
+          },
+          "contain": {
+            "hit@1": 0.5,
+            "hit@5": 0.8,
+            "mrr@50": 0.6112716450216451,
+            "recall@10": 0.7119047619047618
+          },
+          "test_slots@5": 7,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.47519841269841273,
+              "recall@10": 0.498015873015873
+            },
+            "contain": {
+              "hit@1": 0.3333333333333333,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.47519841269841273,
+              "recall@10": 0.623015873015873
+            },
+            "test_slots@5": 7,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.42857142857142855,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5507064364207221,
+              "recall@10": 0.5892857142857143
+            },
+            "contain": {
+              "hit@1": 0.5714285714285714,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6695887445887446,
+              "recall@10": 0.75
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 15,
+          "q04": 1,
+          "q05": 14,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 2,
+          "q10": 5,
+          "q11": 26,
+          "q12": 1,
+          "q13": 2,
+          "q14": 3,
+          "q16": 7,
+          "q17": 4,
+          "q18": 8,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 4,
+          "q04": 1,
+          "q05": 5,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 11,
+          "q12": 1,
+          "q13": 1,
+          "q14": 3,
+          "q16": 7,
+          "q17": 4,
+          "q18": 8,
+          "q19": 1,
+          "q20": 3,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 8,
+            "losses": 6,
+            "ties": 6
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 3,
+              "losses": 2,
+              "ties": 1
+            },
+            "stdlib": {
+              "wins": 5,
+              "losses": 4,
+              "ties": 5
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 3,
+            "losses": 2,
+            "ties": 15
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 1,
+              "losses": 1,
+              "ties": 4
+            },
+            "stdlib": {
+              "wins": 2,
+              "losses": 1,
+              "ties": 11
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      },
+      {
+        "name": "k10-w3+g1-w0.5",
+        "mode": "fused",
+        "rrf_k": 10,
+        "dense_weight": 3.0,
+        "graph_hops": 1,
+        "graph_weight": 0.5,
+        "counterpart": "k10-w3",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.45,
+            "hit@5": 0.7,
+            "mrr@50": 0.5745238095238095,
+            "recall@10": 0.5267857142857143
+          },
+          "contain": {
+            "hit@1": 0.55,
+            "hit@5": 0.8,
+            "mrr@50": 0.6577380952380952,
+            "recall@10": 0.6964285714285714
+          },
+          "test_slots@5": 8,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.6924603174603176,
+              "recall@10": 0.2698412698412698
+            },
+            "contain": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.6924603174603176,
+              "recall@10": 0.4603174603174603
+            },
+            "test_slots@5": 8,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.35714285714285715,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5239795918367347,
+              "recall@10": 0.6369047619047619
+            },
+            "contain": {
+              "hit@1": 0.5,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6428571428571429,
+              "recall@10": 0.7976190476190476
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 28,
+          "q04": 2,
+          "q05": 15,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 15,
+          "q12": 3,
+          "q13": 2,
+          "q14": 3,
+          "q16": 12,
+          "q17": 14,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 3,
+          "q04": 2,
+          "q05": 4,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 1,
+          "q11": 12,
+          "q12": 2,
+          "q13": 1,
+          "q14": 3,
+          "q16": 12,
+          "q17": 14,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 6,
+            "losses": 4,
+            "ties": 10
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 2,
+              "losses": 1,
+              "ties": 3
+            },
+            "stdlib": {
+              "wins": 4,
+              "losses": 3,
+              "ties": 7
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 2,
+            "losses": 0,
+            "ties": 18
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 0,
+              "losses": 0,
+              "ties": 6
+            },
+            "stdlib": {
+              "wins": 2,
+              "losses": 0,
+              "ties": 12
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      },
+      {
+        "name": "k10-w3+g1-w1",
+        "mode": "fused",
+        "rrf_k": 10,
+        "dense_weight": 3.0,
+        "graph_hops": 1,
+        "graph_weight": 1.0,
+        "counterpart": "k10-w3",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.45,
+            "hit@5": 0.7,
+            "mrr@50": 0.5755871212121212,
+            "recall@10": 0.5392857142857144
+          },
+          "contain": {
+            "hit@1": 0.55,
+            "hit@5": 0.8,
+            "mrr@50": 0.6576704545454546,
+            "recall@10": 0.6964285714285714
+          },
+          "test_slots@5": 8,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.6909722222222222,
+              "recall@10": 0.3115079365079365
+            },
+            "contain": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.6909722222222222,
+              "recall@10": 0.4603174603174603
+            },
+            "test_slots@5": 8,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.35714285714285715,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5261363636363636,
+              "recall@10": 0.6369047619047619
+            },
+            "contain": {
+              "hit@1": 0.5,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6433982683982684,
+              "recall@10": 0.7976190476190476
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 24,
+          "q04": 2,
+          "q05": 11,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 15,
+          "q12": 3,
+          "q13": 2,
+          "q14": 3,
+          "q16": 12,
+          "q17": 16,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 3,
+          "q04": 2,
+          "q05": 4,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 1,
+          "q11": 11,
+          "q12": 2,
+          "q13": 1,
+          "q14": 3,
+          "q16": 12,
+          "q17": 16,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 7,
+            "losses": 3,
+            "ties": 10
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 2,
+              "losses": 1,
+              "ties": 3
+            },
+            "stdlib": {
+              "wins": 5,
+              "losses": 2,
+              "ties": 7
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 2,
+            "losses": 1,
+            "ties": 17
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 0,
+              "losses": 1,
+              "ties": 5
+            },
+            "stdlib": {
+              "wins": 2,
+              "losses": 0,
+              "ties": 12
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      },
+      {
+        "name": "k10-w3+g1-w2",
+        "mode": "fused",
+        "rrf_k": 10,
+        "dense_weight": 3.0,
+        "graph_hops": 1,
+        "graph_weight": 2.0,
+        "counterpart": "k10-w3",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.45,
+            "hit@5": 0.7,
+            "mrr@50": 0.5765894974590627,
+            "recall@10": 0.5839285714285715
+          },
+          "contain": {
+            "hit@1": 0.55,
+            "hit@5": 0.8,
+            "mrr@50": 0.656439393939394,
+            "recall@10": 0.7369047619047618
+          },
+          "test_slots@5": 5,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.6853535353535354,
+              "recall@10": 0.41865079365079366
+            },
+            "contain": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.6853535353535354,
+              "recall@10": 0.48412698412698413
+            },
+            "test_slots@5": 5,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.35714285714285715,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5299763383614315,
+              "recall@10": 0.6547619047619048
+            },
+            "contain": {
+              "hit@1": 0.5,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6440476190476191,
+              "recall@10": 0.8452380952380952
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 23,
+          "q04": 2,
+          "q05": 7,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 15,
+          "q12": 3,
+          "q13": 2,
+          "q14": 3,
+          "q16": 15,
+          "q17": 22,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 3,
+          "q04": 2,
+          "q05": 4,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 1,
+          "q11": 10,
+          "q12": 2,
+          "q13": 1,
+          "q14": 3,
+          "q16": 15,
+          "q17": 22,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 7,
+            "losses": 3,
+            "ties": 10
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 2,
+              "losses": 1,
+              "ties": 3
+            },
+            "stdlib": {
+              "wins": 5,
+              "losses": 2,
+              "ties": 7
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 2,
+            "losses": 2,
+            "ties": 16
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 0,
+              "losses": 2,
+              "ties": 4
+            },
+            "stdlib": {
+              "wins": 2,
+              "losses": 0,
+              "ties": 12
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      },
+      {
+        "name": "k10-w3+g2-w0.5",
+        "mode": "fused",
+        "rrf_k": 10,
+        "dense_weight": 3.0,
+        "graph_hops": 2,
+        "graph_weight": 0.5,
+        "counterpart": "k10-w3",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.45,
+            "hit@5": 0.7,
+            "mrr@50": 0.5740970695970696,
+            "recall@10": 0.5642857142857143
+          },
+          "contain": {
+            "hit@1": 0.55,
+            "hit@5": 0.8,
+            "mrr@50": 0.6548717948717948,
+            "recall@10": 0.6964285714285714
+          },
+          "test_slots@5": 8,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.6923076923076924,
+              "recall@10": 0.3115079365079365
+            },
+            "contain": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.6923076923076924,
+              "recall@10": 0.4603174603174603
+            },
+            "test_slots@5": 8,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.35714285714285715,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5234353741496599,
+              "recall@10": 0.6726190476190476
+            },
+            "contain": {
+              "hit@1": 0.5,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6388278388278389,
+              "recall@10": 0.7976190476190476
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 25,
+          "q04": 2,
+          "q05": 20,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 14,
+          "q12": 3,
+          "q13": 2,
+          "q14": 3,
+          "q16": 13,
+          "q17": 13,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 3,
+          "q04": 2,
+          "q05": 5,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 1,
+          "q11": 13,
+          "q12": 2,
+          "q13": 1,
+          "q14": 3,
+          "q16": 13,
+          "q17": 13,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 6,
+            "losses": 4,
+            "ties": 10
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 2,
+              "losses": 1,
+              "ties": 3
+            },
+            "stdlib": {
+              "wins": 4,
+              "losses": 3,
+              "ties": 7
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 3,
+            "losses": 2,
+            "ties": 15
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 1,
+              "losses": 1,
+              "ties": 4
+            },
+            "stdlib": {
+              "wins": 2,
+              "losses": 1,
+              "ties": 11
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      },
+      {
+        "name": "k10-w3+g2-w1",
+        "mode": "fused",
+        "rrf_k": 10,
+        "dense_weight": 3.0,
+        "graph_hops": 2,
+        "graph_weight": 1.0,
+        "counterpart": "k10-w3",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.45,
+            "hit@5": 0.7,
+            "mrr@50": 0.5768124236874237,
+            "recall@10": 0.5642857142857143
+          },
+          "contain": {
+            "hit@1": 0.55,
+            "hit@5": 0.8,
+            "mrr@50": 0.6569017094017094,
+            "recall@10": 0.7214285714285714
+          },
+          "test_slots@5": 8,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.698005698005698,
+              "recall@10": 0.3948412698412698
+            },
+            "contain": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.698005698005698,
+              "recall@10": 0.5436507936507936
+            },
+            "test_slots@5": 8,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.35714285714285715,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5248724489795918,
+              "recall@10": 0.6369047619047619
+            },
+            "contain": {
+              "hit@1": 0.5,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6392857142857142,
+              "recall@10": 0.7976190476190476
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 21,
+          "q04": 2,
+          "q05": 16,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 14,
+          "q12": 3,
+          "q13": 2,
+          "q14": 3,
+          "q16": 13,
+          "q17": 9,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 3,
+          "q04": 2,
+          "q05": 5,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 1,
+          "q11": 12,
+          "q12": 2,
+          "q13": 1,
+          "q14": 3,
+          "q16": 13,
+          "q17": 9,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 7,
+            "losses": 3,
+            "ties": 10
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 2,
+              "losses": 1,
+              "ties": 3
+            },
+            "stdlib": {
+              "wins": 5,
+              "losses": 2,
+              "ties": 7
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 4,
+            "losses": 1,
+            "ties": 15
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 1,
+              "losses": 1,
+              "ties": 4
+            },
+            "stdlib": {
+              "wins": 3,
+              "losses": 0,
+              "ties": 11
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      },
+      {
+        "name": "k10-w3+g2-w2",
+        "mode": "fused",
+        "rrf_k": 10,
+        "dense_weight": 3.0,
+        "graph_hops": 2,
+        "graph_weight": 2.0,
+        "counterpart": "k10-w3",
+        "overall": {
+          "n": 20,
+          "strict": {
+            "hit@1": 0.45,
+            "hit@5": 0.7,
+            "mrr@50": 0.5792346746390864,
+            "recall@10": 0.6339285714285714
+          },
+          "contain": {
+            "hit@1": 0.55,
+            "hit@5": 0.8,
+            "mrr@50": 0.6579628214922333,
+            "recall@10": 0.7285714285714285
+          },
+          "test_slots@5": 5,
+          "slots@5": 100
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 6,
+            "strict": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.700280112044818,
+              "recall@10": 0.5436507936507936
+            },
+            "contain": {
+              "hit@1": 0.6666666666666666,
+              "hit@5": 0.6666666666666666,
+              "mrr@50": 0.700280112044818,
+              "recall@10": 0.5674603174603174
+            },
+            "test_slots@5": 5,
+            "slots@5": 30
+          },
+          "stdlib": {
+            "n": 14,
+            "strict": {
+              "hit@1": 0.35714285714285715,
+              "hit@5": 0.7142857142857143,
+              "mrr@50": 0.5273580586080586,
+              "recall@10": 0.6726190476190476
+            },
+            "contain": {
+              "hit@1": 0.5,
+              "hit@5": 0.8571428571428571,
+              "mrr@50": 0.6398268398268397,
+              "recall@10": 0.7976190476190476
+            },
+            "test_slots@5": 0,
+            "slots@5": 70
+          }
+        },
+        "first_ranks": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 16,
+          "q04": 2,
+          "q05": 13,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 2,
+          "q11": 13,
+          "q12": 3,
+          "q13": 2,
+          "q14": 3,
+          "q16": 17,
+          "q17": 7,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "first_ranks_contain": {
+          "q01": 1,
+          "q02": 1,
+          "q03": 3,
+          "q04": 2,
+          "q05": 5,
+          "q06": 1,
+          "q07": null,
+          "q08": 1,
+          "q09": 1,
+          "q10": 1,
+          "q11": 11,
+          "q12": 2,
+          "q13": 1,
+          "q14": 3,
+          "q16": 17,
+          "q17": 7,
+          "q18": 1,
+          "q19": 1,
+          "q20": 1,
+          "q21": 1
+        },
+        "vs_dense": {
+          "overall": {
+            "wins": 7,
+            "losses": 3,
+            "ties": 10
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 2,
+              "losses": 1,
+              "ties": 3
+            },
+            "stdlib": {
+              "wins": 5,
+              "losses": 2,
+              "ties": 7
+            }
+          }
+        },
+        "vs_counterpart": {
+          "overall": {
+            "wins": 4,
+            "losses": 1,
+            "ties": 15
+          },
+          "by_corpus": {
+            "chatter": {
+              "wins": 1,
+              "losses": 1,
+              "ties": 4
+            },
+            "stdlib": {
+              "wins": 3,
+              "losses": 0,
+              "ties": 11
+            }
+          }
+        },
+        "top3_losses": [],
+        "top3_losses_contain": []
+      }
+    ]
+  }
+}

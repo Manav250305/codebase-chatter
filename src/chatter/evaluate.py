@@ -485,7 +485,7 @@ def graph_coverage(index_dir: Path) -> dict[str, Any] | None:
     }
 
 
-def format_graph_coverage(corpora: Mapping[str, Any], top: int = 12) -> str:
+def format_graph_coverage(corpora: Mapping[str, Any]) -> str:
     lines = ["call graph coverage (call sites resolved to repo code; dropped by reason)"]
     for name, info in corpora.items():
         graph = info.get("graph")
@@ -496,7 +496,7 @@ def format_graph_coverage(corpora: Mapping[str, Any], top: int = 12) -> str:
         share = resolved / calls if calls else 0.0
         edges = ", ".join(f"{k} {v}" for k, v in graph["edges_by_type"].items())
         lines.append(f"  {name}: {resolved}/{calls} call sites resolved ({share:.0%}); edges: {edges}")
-        dropped = list(graph["dropped_by_reason"].items())[:top]
+        dropped = sorted(graph["dropped_by_reason"].items(), key=lambda kv: (-kv[1], kv[0]))
         lines.append("    dropped: " + ", ".join(f"{reason} {count}" for reason, count in dropped))
     return "\n".join(lines)
 

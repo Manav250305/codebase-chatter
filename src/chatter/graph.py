@@ -50,7 +50,7 @@ from tree_sitter import Language, Node, Parser
 
 from chatter.extract import Chunk, normalize_newlines
 
-GRAPH_VERSION = 1  # resolver version, recorded in graph.json
+GRAPH_VERSION = 2  # resolver version; 2: finer drop reasons (literal/subscript/external base)
 
 # Edge type codes (stable: stored in graph_types.npy).
 CALLS = 1
@@ -126,6 +126,7 @@ class Ref:
     expr: Expr | None  # None: not a resolvable shape (subscript, call result, ...)
     line: int
     text: str  # for examples in stats
+    shape: str = ""  # why expr is None: subscript | call_result | literal_receiver | dynamic
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,7 +200,9 @@ def collect_file_refs(
             source = owner(line)
             function = node.child_by_field_name("function")
             if source is not None and function is not None:
-                result.refs.append(Ref("call", source, _expr(function), line, _text(function)))
+                expr = _expr(function)
+                shape = "" if expr is not None else _shape(function)
+                result.refs.append(Ref("call", source, expr, line, _text(function), shape))
                 arguments = node.child_by_field_name("arguments")
                 if arguments is not None:
                     for arg in arguments.named_children:
@@ -323,6 +326,29 @@ def _expr(node: Node) -> Expr | None:
     return tuple(reversed(names))
 
 
+_LITERALS = frozenset(
+    {"string", "concatenated_string", "integer", "float", "list", "dictionary", "tuple", "set",
+     "list_comprehension", "dictionary_comprehension", "set_comprehension", "generator_expression",
+     "true", "false", "none"}
+)
+
+
+def _shape(node: Node) -> str:
+    """Why a callee is not a name chain: what its innermost receiver is."""
+    while node.type == "attribute":
+        obj = node.child_by_field_name("object")
+        if obj is None:
+            break
+        node = obj
+    if node.type == "subscript":
+        return "subscript"
+    if node.type == "call":
+        return "call_result"
+    if node.type in _LITERALS:
+        return "literal_receiver"
+    return "dynamic"
+
+
 def _with_items(node: Node) -> Iterator[Node]:
     for child in node.children:
         if child.type == "with_clause":
@@ -428,6 +454,7 @@ class _Resolver:
             for scope, names in f.local_names.items():
                 self.local_names[(f.module, scope)] = names
         self.bases: dict[int, list[int]] = defaultdict(list)
+        self.external_bases: set[int] = set()  # classes with a base outside the repo
         self._mro_cache: dict[int, list[int]] = {}
 
     # --- values ---------------------------------------------------------
@@ -554,6 +581,8 @@ class _Resolver:
                 return Value("chunk", index=cls), "self_mro"
             member = self.class_attr(cls, rest[0], skip_self=head == "super()")
             if member is None:
+                if any(klass in self.external_bases for klass in self.mro(cls)):
+                    return Value("stop", "inherited_from_external_base"), ""
                 return Value("stop", "instance_attribute"), ""
             value, rule = Value("chunk", index=member), "super_mro" if head == "super()" else "self_mro"
             rest = rest[1:]
@@ -601,6 +630,8 @@ def build_graph(chunks: Sequence[Chunk], ids: Sequence[str], files: Sequence[Fil
             value, _ = resolver.resolve(ref.expr, ref.source)
             if value.kind == "chunk" and chunks[value.index].kind == "class":
                 resolver.bases[ref.source].append(value.index)
+            else:
+                resolver.external_bases.add(ref.source)
     resolver._mro_cache.clear()
 
     for ref in all_refs:
@@ -667,7 +698,9 @@ def build_graph(chunks: Sequence[Chunk], ids: Sequence[str], files: Sequence[Fil
 
 
 def _drop(stats: dict[str, Any], ref: Ref, value: Value, chunks: Sequence[Chunk]) -> None:
-    if value.kind == "external":
+    if ref.expr is None and ref.shape:
+        reason = ref.shape
+    elif value.kind == "external":
         reason = "external"
     elif value.kind == "chunk":
         reason = f"not_callable_{chunks[value.index].kind}"

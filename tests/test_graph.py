@@ -359,8 +359,34 @@ def test_dynamic_calls_are_dropped_not_guessed() -> None:
     )
     assert not any(src == "dyn.py::dispatch" and kind == "calls" for src, dst, kind in edges if dst == "dyn.py::a")
     dropped = stats["dropped_by_reason"]
-    assert dropped["call:dynamic"] >= 2  # subscript call, call-result call
+    assert dropped["call:subscript"] == 1  # HANDLERS[name]()
+    assert dropped["call:call_result"] == 2  # getattr(...)() and make()()
+    assert dropped["call:builtin"] == 1  # getattr itself
     assert stats["references"]["call"] >= 4
+
+
+def test_drop_reasons_separate_literals_and_external_bases() -> None:
+    _, stats, _, _ = graph_for(
+        {
+            "a.py": """
+                import socketserver
+
+                class Handler(socketserver.BaseRequestHandler):
+                    def handle(self):
+                        self.finish()
+                        super().setup()
+                        return ", ".join(["a", "b"])
+
+                class Local:
+                    def run(self):
+                        return self.attribute.method()
+            """
+        }
+    )
+    dropped = stats["dropped_by_reason"]
+    assert dropped["call:inherited_from_external_base"] == 2  # self.finish, super().setup
+    assert dropped["call:literal_receiver"] == 1
+    assert dropped["call:instance_attribute"] == 1  # a repo class: Phase B territory
 
 
 def test_syntax_errors_do_not_break_resolution() -> None:
