@@ -1,0 +1,27 @@
+# Graph-expanded retrieval candidates (roadmap step 5). Frozen copies of the
+# non-graph candidates from candidates.yaml, plus graph variants that will be
+# added after the Phase A tune sweep is reviewed and before any held-out run.
+# Do not edit decision_rule or frozen entries after the first held-out run.
+
+decision_rule:
+  text: >
+    Adopt a graph variant only if it beats its non-graph counterpart on paired
+    W/L (strict first relevant rank) over tune+heldout combined, and no
+    question loses a top-3 rank relative to that counterpart.
+  paired_metric: strict first relevant rank
+  splits: [tune, heldout]
+  constants: {seeds: 5, per_seed: 8, budget: 3, protected_ranks: 3, window: 10}
+
+configs:
+  - name: dense-only
+    mode: dense
+
+  - name: default
+    mode: fused
+    rrf_k: 60
+    dense_weight: 1.0
+
+  - name: k10-w3
+    mode: fused
+    rrf_k: 10
+    dense_weight: 3.0

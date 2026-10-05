@@ -38,11 +38,12 @@ import pathspec
 import snowballstemmer
 
 from chatter.embed import Embedder, SentenceTransformerEmbedder
-from chatter.extract import DEFAULT_MAX_BYTES, Chunk, extract_file
+from chatter.extract import DEFAULT_MAX_BYTES, Chunk, extract_source, read_source
+from chatter.graph import GRAPH_FILES, GRAPH_VERSION, build_graph, collect_file_refs, write_graph
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 3  # 2: Snowball stems in BM25 tokens; 3: exact numpy vectors, no Chroma
+SCHEMA_VERSION = 4  # 2: Snowball stems; 3: exact numpy vectors, no Chroma; 4: call graph
 INDEX_DIRNAME = ".chatter"
 MANIFEST_FILE = "manifest.json"
 CHUNKS_FILE = "chunks.jsonl"
@@ -435,14 +436,23 @@ def build_index(
     seen: set[str] = set()
     files = reused = 0
     unchanged = False
+    skeletons: list[Chunk] = []  # chunk metadata without source, for graph resolution
+    record_ids: list[str] = []
+    file_refs = []
     try:
         writer = _VectorWriter(gen_dir / "vectors.f32", embedder, config.batch_size)
         with (gen_dir / CHUNKS_FILE).open("w", encoding="utf-8") as records:
             for path in iter_source_files(repo_path):
                 files += 1
                 rel = path.relative_to(repo_path).as_posix()
-                chunks = extract_file(path, display_path=rel, max_bytes=config.max_file_bytes)
+                text = read_source(path, label=rel, max_bytes=config.max_file_bytes)
+                chunks = extract_source(text, rel) if text is not None else []
                 ids = assign_chunk_ids(chunks)
+                if text is not None and chunks:
+                    indices = list(range(len(record_ids), len(record_ids) + len(chunks)))
+                    file_refs.append(collect_file_refs(text, rel, chunks, indices))
+                record_ids += ids
+                skeletons += [dataclasses.replace(c, source="", docstring=None, imports=()) for c in chunks]
                 digests = [content_hash(embedder.fingerprint, embedding_text(c)) for c in chunks]
                 stale = [
                     i
@@ -473,6 +483,8 @@ def build_index(
                 if files % 500 == 0:
                     logger.info("indexed %d files (%d chunks)", files, len(seen))
         rows, dim = writer.finish(gen_dir / VECTORS_FILE)
+        graph = build_graph(skeletons, record_ids, file_refs)
+        write_graph(gen_dir, graph, len(record_ids))
         new_manifest = {
             "schema": SCHEMA_VERSION,
             "repo": str(repo_path),
@@ -482,6 +494,7 @@ def build_index(
             "data": generation,
             "rows": rows,
             "dim": dim,
+            "graph_version": GRAPH_VERSION,
         }
         unchanged = data is not None and _same_build(manifest, new_manifest, data, gen_dir)
         if not unchanged:
@@ -537,8 +550,11 @@ def _same_build(
         k: v for k, v in new_manifest.items() if k != "data"
     }:
         return False
-    return filecmp.cmp(old.chunks_path, gen_dir / CHUNKS_FILE, shallow=False) and filecmp.cmp(
-        old.vectors_path, gen_dir / VECTORS_FILE, shallow=False
+    names = (CHUNKS_FILE, VECTORS_FILE, *GRAPH_FILES)
+    return all(
+        (old.directory / name).exists()
+        and filecmp.cmp(old.directory / name, gen_dir / name, shallow=False)
+        for name in names
     )
 
 

@@ -20,6 +20,7 @@ from rank_bm25 import BM25Okapi
 
 from chatter.embed import Embedder, EmbedderConfig, SentenceTransformerEmbedder
 from chatter.extract import Chunk, format_line_ranges
+from chatter.graph import GraphIndex
 from chatter.index import (
     check_manifest,
     chunk_from_dict,
@@ -36,6 +37,15 @@ RRF_K = 60
 BM25 = "bm25"
 DENSE = "dense"
 FUSED = "fused"
+GRAPH = "graph"
+
+# Graph expansion constants (fixed; only hops and weight are tuned).
+GRAPH_SEEDS = 5  # top fused chunks whose neighbours are considered
+GRAPH_PER_SEED = 8  # neighbours kept per seed, by weight x relevance
+GRAPH_BUDGET = 3  # chunks from outside the base top window allowed into it
+GRAPH_PROTECTED = 3  # base ranks 1..3 are never changed by expansion
+GRAPH_WINDOW = 10  # the "top k" the budget protects
+GRAPH_HOP_DECAY = 0.5  # contribution carried to the next hop
 Mode = Literal["fused", "bm25", "dense"]
 MODES: tuple[Mode, ...] = ("bm25", "dense", "fused")
 
@@ -195,20 +205,44 @@ class DenseIndex:
 
     def search(self, query: Sequence[float], n: int) -> list[tuple[str, float, int]]:
         """Top ``n`` (chunk id, cosine similarity, best part index), best first."""
-        if n <= 0 or not self._ids or self._vectors.shape[0] == 0:
-            return []
+        return self.search_with_scores(query, n)[0]
+
+    def search_with_scores(
+        self, query: Sequence[float], n: int
+    ) -> tuple[list[tuple[str, float, int]], np.ndarray]:
+        """``search`` plus every chunk's cosine similarity (index order)."""
+        if not self._ids or self._vectors.shape[0] == 0:
+            return [], np.zeros(len(self._ids), dtype=np.float32)
         q = np.asarray(query, dtype=np.float32)
         norm = float(np.linalg.norm(q))
         if norm > 0:
             q = q / norm
         part_scores = np.asarray(self._vectors @ q, dtype=np.float32)
         chunk_scores = np.maximum.reduceat(part_scores, self._starts)
+        if n <= 0:
+            return [], chunk_scores
         hits = []
         for i in top_k(chunk_scores, n, self._ranks):
             start, count = self._starts[i], self._counts[i]
             best_part = int(np.argmax(part_scores[start : start + count]))
             hits.append((self._ids[i], float(chunk_scores[i]), best_part))
-        return hits
+        return hits, chunk_scores
+
+
+@dataclass(frozen=True, slots=True)
+class GraphExpansion:
+    """Graph-expanded retrieval: neighbours of the top fused chunks, re-fused.
+
+    The graph list scores a neighbour by the sum over seeds that reach it of
+    ``edge weight / log(2 + in-degree) x relevance x 1/(rrf_k + seed rank)``,
+    where relevance is the neighbour's dense cosine over the query's best.
+    It is fused with BM25 and dense using ``weight``. Ranks 1-3 stay those of
+    the base fusion, and at most ``GRAPH_BUDGET`` chunks from outside the base
+    top ``GRAPH_WINDOW`` may enter it.
+    """
+
+    hops: int = 1
+    weight: float = 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -280,9 +314,14 @@ class Retriever:
         bm25: BM25Index,
         dense: DenseIndex,
         embedder: Embedder,
+        graph: GraphIndex | None = None,
     ) -> None:
         self._chunks = dict(chunks)
         self._parts = dict(parts)
+        self._ids = list(self._chunks)  # index order, as in the dense and graph arrays
+        self._index_of = {chunk_id: i for i, chunk_id in enumerate(self._ids)}
+        self._id_ranks = id_ranks(self._ids)
+        self._graph = graph
         self._symbol_names = frozenset(
             c.name.lower() for c in self._chunks.values() if c.kind != "module"
         )
@@ -329,7 +368,12 @@ class Retriever:
             BM25Index(ids, token_lists),
             DenseIndex(ids, vectors, starts, counts),
             embedder,
+            GraphIndex.load(data.directory),
         )
+
+    @property
+    def has_graph(self) -> bool:
+        return self._graph is not None
 
     def __len__(self) -> int:
         return len(self._chunks)
@@ -350,6 +394,7 @@ class Retriever:
         mode: Mode = "fused",
         rrf_k: int = RRF_K,
         weights: Mapping[str, float] | None = None,
+        expansion: GraphExpansion | None = None,
     ) -> list[Hit]:
         """Top ``k`` chunks for ``query`` with fused scores and provenance.
 
@@ -367,12 +412,20 @@ class Retriever:
             if mode != DENSE
             else []
         )
-        dense_hits = self._dense_search(query, n) if mode != BM25 else []
-        fused = reciprocal_rank_fusion(
-            {BM25: [cid for cid, _ in bm25_hits], DENSE: [cid for cid, _, _ in dense_hits]},
-            k=rrf_k,
-            weights=weights,
-        )
+        dense_hits, chunk_scores = self._dense_search(query, n) if mode != BM25 else ([], None)
+        rankings = {BM25: [cid for cid, _ in bm25_hits], DENSE: [cid for cid, _, _ in dense_hits]}
+        fused = reciprocal_rank_fusion(rankings, k=rrf_k, weights=weights)
+        if expansion is not None and mode == FUSED and self._graph is not None and fused:
+            if expansion.hops < 1 or expansion.weight < 0:
+                raise ValueError(f"invalid graph expansion {expansion}")
+            assert chunk_scores is not None
+            base = [cid for cid, _, _ in fused]
+            rankings[GRAPH] = self._graph_ranking(base, chunk_scores, expansion, rrf_k)
+            expanded = reciprocal_rank_fusion(
+                rankings, k=rrf_k, weights={**(weights or {}), GRAPH: expansion.weight}
+            )
+            by_id = {cid: (score, ranks) for cid, score, ranks in expanded}
+            fused = [(cid, *by_id[cid]) for cid in _apply_budget(base, [cid for cid, _, _ in expanded])]
 
         bm25_scores = dict(bm25_hits)
         dense_info = {cid: (similarity, lines) for cid, similarity, lines in dense_hits}
@@ -390,7 +443,7 @@ class Retriever:
                     chunk_id=chunk_id,
                     chunk=chunk,
                     score=score,
-                    sources=tuple(s for s in (BM25, DENSE) if s in ranks),
+                    sources=tuple(s for s in (BM25, DENSE, GRAPH) if s in ranks),
                     ranks=ranks,
                     raw_scores=raw,
                     lines=lines,
@@ -398,14 +451,89 @@ class Retriever:
             )
         return hits
 
-    def _dense_search(self, query: str, n: int) -> list[tuple[str, float, tuple[int, int]]]:
-        """Best part per chunk: (chunk id, cosine similarity, part line range)."""
-        if len(self._dense) == 0 or n <= 0:
-            return []
+    def _dense_search(
+        self, query: str, n: int
+    ) -> tuple[list[tuple[str, float, tuple[int, int]]], np.ndarray]:
+        """Best part per chunk (chunk id, cosine, part lines), and every chunk's cosine."""
+        if len(self._dense) == 0:
+            return [], np.zeros(len(self._ids), dtype=np.float32)
+        hits, scores = self._dense.search_with_scores(self._embedder.embed_query(query), max(n, 0))
         return [
             (chunk_id, similarity, _part_lines(self._chunks[chunk_id], self._parts[chunk_id], part))
-            for chunk_id, similarity, part in self._dense.search(self._embedder.embed_query(query), n)
-        ]
+            for chunk_id, similarity, part in hits
+        ], scores
+
+    def _graph_ranking(
+        self, base: Sequence[str], cosine: np.ndarray, expansion: GraphExpansion, rrf_k: int
+    ) -> list[str]:
+        """Neighbours of the top base chunks, best first (see ``GraphExpansion``)."""
+        assert self._graph is not None
+        best = float(cosine.max()) if len(cosine) else 0.0
+        relevance = np.clip(cosine / best, 0.0, 1.0) if best > 0 else np.zeros_like(cosine)
+        seeds = [self._index_of[cid] for cid in base[:GRAPH_SEEDS]]
+        order = graph_ranking(
+            self._graph, seeds, relevance, self._id_ranks, hops=expansion.hops, rrf_k=rrf_k
+        )
+        return [self._ids[i] for i in order]
+
+
+def graph_ranking(
+    graph: GraphIndex,
+    seeds: Sequence[int],
+    relevance: np.ndarray,
+    tiebreak: np.ndarray,
+    *,
+    hops: int,
+    rrf_k: int,
+) -> list[int]:
+    """Chunk indices reached from ``seeds`` (best seed first), best first.
+
+    A seed at rank r contributes 1/(rrf_k + r). Each neighbour of a frontier
+    node scores ``edge weight / log(2 + in-degree) x relevance``; each node
+    keeps its GRAPH_PER_SEED best neighbours, which add ``contribution x score``
+    and carry ``GRAPH_HOP_DECAY`` of it to the next hop. Ties: ``tiebreak``.
+    """
+    in_degree = graph.in_degree
+    frontier = [(node, 1.0 / (rrf_k + rank)) for rank, node in enumerate(seeds, start=1)]
+    scores: dict[int, float] = defaultdict(float)
+    for _ in range(hops):
+        reached: dict[int, float] = {}
+        for node, contribution in frontier:
+            candidates = [
+                (neighbor, weight / math.log(2 + int(in_degree[neighbor])) * float(relevance[neighbor]))
+                for neighbor, weight in graph.neighbors(node).items()
+            ]
+            candidates = sorted(
+                (c for c in candidates if c[1] > 0), key=lambda c: (-c[1], int(tiebreak[c[0]]))
+            )[:GRAPH_PER_SEED]
+            for neighbor, strength in candidates:
+                value = contribution * strength
+                scores[neighbor] += value
+                reached[neighbor] = max(reached.get(neighbor, 0.0), value * GRAPH_HOP_DECAY)
+        frontier = sorted(reached.items())
+    return sorted(scores, key=lambda i: (-scores[i], int(tiebreak[i])))
+
+
+def _apply_budget(base: Sequence[str], expanded: Sequence[str]) -> list[str]:
+    """Expanded order, except: base ranks 1..GRAPH_PROTECTED are kept as they are,
+    and at most GRAPH_BUDGET chunks from outside the base top GRAPH_WINDOW enter it."""
+    result = list(base[:GRAPH_PROTECTED])
+    taken = set(result)
+    window = set(base[:GRAPH_WINDOW])
+    promoted = 0
+    for chunk_id in expanded:
+        if len(result) >= GRAPH_WINDOW:
+            break
+        if chunk_id in taken:
+            continue
+        if chunk_id not in window:
+            if promoted >= GRAPH_BUDGET:
+                continue  # over budget: it may still appear below the window
+            promoted += 1
+        result.append(chunk_id)
+        taken.add(chunk_id)
+    result += [chunk_id for chunk_id in expanded if chunk_id not in taken]
+    return result
 
 
 def _part_lines(chunk: Chunk, parts: Sequence[Sequence[int]], part: int) -> tuple[int, int]:

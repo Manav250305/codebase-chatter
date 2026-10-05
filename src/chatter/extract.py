@@ -136,19 +136,27 @@ def extract_file(
     """
     file_path = Path(path)
     label = display_path if display_path is not None else file_path.as_posix()
+    text = read_source(file_path, label=label, max_bytes=max_bytes)
+    return [] if text is None else extract_source(text, label)
+
+
+def read_source(path: Path | str, *, label: str | None = None, max_bytes: int = DEFAULT_MAX_BYTES) -> str | None:
+    """Decoded source text, or None for unreadable, binary, or oversized files."""
+    file_path = Path(path)
+    label = label if label is not None else file_path.as_posix()
     try:
         size = file_path.stat().st_size
         if size > max_bytes:
             logger.info("skipping %s: %d bytes exceeds limit of %d", label, size, max_bytes)
-            return []
+            return None
         raw = file_path.read_bytes()
     except OSError as exc:
         logger.warning("skipping %s: %s", label, exc)
-        return []
+        return None
     if b"\x00" in raw:
         logger.info("skipping %s: looks binary", label)
-        return []
-    return extract_source(raw, label)
+        return None
+    return decode_source(raw)
 
 
 def extract_source(source: str | bytes, path: str) -> list[Chunk]:

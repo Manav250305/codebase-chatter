@@ -40,11 +40,13 @@ from chatter.evaluate import (
     SWEEP_RRF_K,
     EvalError,
     format_configs,
+    format_graph_coverage,
     format_report,
-    load_configs,
+    load_config_file,
     run_eval,
     save_results,
     sweep_configs,
+    sweep_graph_configs,
 )
 from chatter.index import (
     IndexConfig,
@@ -316,6 +318,17 @@ def make_app(
             Path | None,
             typer.Option(help="Also score the frozen retrieval configs in this YAML file."),
         ] = None,
+        sweep_graph: Annotated[
+            bool,
+            typer.Option(help="Also score graph-expanded variants of the default and k10-w3 "
+                         "(reference rows: dense-only, default, k10-w3)."),
+        ] = False,
+        graph_weight: Annotated[
+            list[float] | None, typer.Option(help="Graph RRF weights for --sweep-graph (repeatable).")
+        ] = None,
+        graph_hops: Annotated[
+            list[int] | None, typer.Option(help="Hops for --sweep-graph (repeatable).")
+        ] = None,
         answers: Annotated[
             bool,
             typer.Option(help="Instead of retrieval metrics, answer every question with the local "
@@ -339,9 +352,9 @@ def make_app(
         corpora_path = corpora or questions.parent / "corpora.yaml"
         if not corpora_path.is_file():
             _fail(f"No corpus manifest at {corpora_path}; pass --corpora.")
-        if sweep_fusion and candidates:
-            _fail("Use either --sweep-fusion or --candidates, not both.")
-        if answers and (sweep_fusion or candidates):
+        if sum(map(bool, (sweep_fusion, candidates, sweep_graph))) > 1:
+            _fail("Use only one of --sweep-fusion, --candidates, --sweep-graph.")
+        if answers and (sweep_fusion or candidates or sweep_graph):
             _fail("--answers is a separate run; drop --sweep-fusion/--candidates.")
         if answers:
             answer_config = GeneratorConfig(
@@ -372,14 +385,16 @@ def make_app(
                 )
                 typer.echo(f"\nSaved {json_path}\nReview {review_path}")
             return
+        decision_rule = None
         try:
-            configs = (
-                sweep_configs(rrf_k or list(SWEEP_RRF_K), dense_weight or list(SWEEP_DENSE_WEIGHT))
-                if sweep_fusion
-                else load_configs(candidates)
-                if candidates
-                else None
-            )
+            if sweep_fusion:
+                configs = sweep_configs(rrf_k or list(SWEEP_RRF_K), dense_weight or list(SWEEP_DENSE_WEIGHT))
+            elif sweep_graph:
+                configs = sweep_graph_configs(graph_weight or [0.5, 1.0, 2.0], graph_hops or [1, 2])
+            elif candidates:
+                configs, decision_rule = load_config_file(candidates)
+            else:
+                configs = None
         except (EvalError, OSError) as exc:
             _fail(f"Eval aborted: {exc}")
         try:
@@ -398,7 +413,8 @@ def make_app(
             _fail(f"Eval aborted: {exc}")
         typer.echo(format_report(results))
         if "configs" in results:
-            typer.echo("\n" + format_configs(results["configs"]))
+            typer.echo("\n" + format_configs(results["configs"], decision_rule))
+        typer.echo("\n" + format_graph_coverage(results["corpora"]))
         if save:
             path = save_results(results, results_dir or questions.parent / "results")
             typer.echo(f"\nSaved {path}")

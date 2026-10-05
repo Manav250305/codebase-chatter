@@ -604,7 +604,7 @@ def test_config_table_default_matches_fused_and_dense_ties_itself(tmp_path: Path
     assert cells["dense-only"]["vs_dense"]["overall"] == {"wins": 0, "losses": 0, "ties": 2}
     assert set(cells["k5-w2"]["first_ranks"]) == {"e1", "e2"}  # negatives excluded
     table = format_configs(results["configs"])
-    assert "W/L/T vs dense" in table and "dense-only" in table and "0/0/2" in table
+    assert "vs dense" in table and "dense-only" in table and "0/0/2" in table
 
 
 def test_load_configs_validates(tmp_path: Path) -> None:
@@ -646,4 +646,96 @@ def test_cli_sweep_and_candidates(tmp_path: Path) -> None:
     assert "tuned" in result.output and "k10-w1.5" not in result.output
 
     both = runner.invoke(app, ["eval", str(qpath), "--sweep-fusion", "--candidates", str(frozen)])
-    assert both.exit_code == 1 and "either --sweep-fusion or --candidates" in both.output
+    assert both.exit_code == 1 and "only one of --sweep-fusion, --candidates, --sweep-graph" in both.output
+
+
+# ---------------------------------------------------------------------------
+# Graph configs, decision rule, coverage
+# ---------------------------------------------------------------------------
+
+from chatter.evaluate import (  # noqa: E402
+    format_graph_coverage,
+    load_config_file,
+    sweep_graph_configs,
+    top3_losses,
+)
+
+
+def test_sweep_graph_configs() -> None:
+    configs = sweep_graph_configs([0.5, 2.0], [1, 2])
+    assert [c.name for c in configs[:3]] == ["dense-only", "default", "k10-w3"]
+    variants = configs[3:]
+    assert len(variants) == 8
+    assert variants[0] == RetrievalConfig("default+g1-w0.5", "fused", 60, 1.0, 1, 0.5, "default")
+    assert variants[-1] == RetrievalConfig("k10-w3+g2-w2", "fused", 10, 3.0, 2, 2.0, "k10-w3")
+    assert configs[0].expansion is None and variants[0].expansion is not None
+
+
+def test_top3_losses() -> None:
+    counterpart = {"a": 1, "b": 3, "c": 4, "d": 2, "e": None}
+    variant = {"a": 1, "b": 5, "c": 9, "d": None, "e": 1}
+    assert top3_losses(variant, counterpart) == ["b", "d"]  # c was not in the top 3
+
+
+def test_config_file_with_decision_rule(tmp_path: Path) -> None:
+    path = tmp_path / "c.yaml"
+    path.write_text(yaml.safe_dump({
+        "decision_rule": {"text": "adopt only if it wins"},
+        "configs": [
+            {"name": "k10-w3", "mode": "fused", "rrf_k": 10, "dense_weight": 3},
+            {"name": "k10-w3+g1", "mode": "fused", "rrf_k": 10, "dense_weight": 3,
+             "graph_hops": 1, "graph_weight": 1.5, "counterpart": "k10-w3"},
+        ],
+    }))
+    configs, rule = load_config_file(path)
+    assert rule == {"text": "adopt only if it wins"}
+    assert configs[1].expansion is not None and configs[1].counterpart == "k10-w3"
+    assert load_configs(path) == configs
+
+    path.write_text(yaml.safe_dump({"configs": [
+        {"name": "x", "mode": "dense", "graph_hops": 1},
+        {"name": "y", "mode": "fused", "graph_hops": 1, "counterpart": "missing"},
+        {"name": "z", "mode": "fused", "graph_hops": -1, "graph_weight": 0},
+    ]}))
+    with pytest.raises(EvalError) as err:
+        load_config_file(path)
+    for expected in ("x: graph expansion needs mode fused", "y: counterpart 'missing'",
+                     "z: graph_hops", "z: graph_weight"):
+        assert expected in str(err.value)
+
+
+def test_run_eval_scores_graph_configs_against_counterparts(tmp_path: Path) -> None:
+    repo, qpath, corpora = write_eval(tmp_path)
+    results = run_eval(
+        qpath, corpora, lambda n: HashEmbedder(name=n), model_name="m", repo_root=repo,
+        configs=sweep_graph_configs([1.0], [1, 2]),
+    )
+    cells = {c["name"]: c for c in results["configs"]["cells"]}
+    variant = cells["default+g1-w1"]
+    assert variant["counterpart"] == "default" and "vs_counterpart" in variant
+    assert isinstance(variant["top3_losses"], list) and isinstance(variant["top3_losses_contain"], list)
+    for name in ("default+g1-w1", "default+g2-w1", "k10-w3+g1-w1"):
+        assert cells[name]["top3_losses"] == []  # ranks 1-3 are protected
+    table = format_configs(results["configs"], {"text": "adopt if it wins"})
+    assert "decision rule: adopt if it wins" in table and "default+g1-w1:" in table
+    coverage = format_graph_coverage(results["corpora"])
+    assert "call graph coverage" in coverage and "mini:" in coverage and "call sites resolved" in coverage
+    graph = results["corpora"]["mini"]["graph"]
+    assert graph["call_sites"] >= 1 and "dropped_by_reason" in graph
+
+
+def test_cli_sweep_graph(tmp_path: Path) -> None:
+    _, qpath, _ = write_eval(tmp_path)
+    app = make_app(embedder_factory=lambda name: HashEmbedder(name=name))
+    result = CliRunner().invoke(
+        app, ["eval", str(qpath), "--no-save", "--sweep-graph", "--graph-weight", "1.5", "--graph-hops", "1"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "default+g1-w1.5" in result.output and "k10-w3+g1-w1.5" in result.output
+    assert "call graph coverage" in result.output
+
+
+def test_repository_graph_candidates_file_has_decision_rule() -> None:
+    configs, rule = load_config_file(EVAL_DIR / "candidates-graph.yaml")
+    assert rule and "tune+heldout" in rule["text"] and "top-3" in rule["text"]
+    assert {"dense-only", "default", "k10-w3"} <= {c.name for c in configs}

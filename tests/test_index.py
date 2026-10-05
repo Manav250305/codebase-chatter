@@ -8,6 +8,7 @@ import pytest
 from chatter.extract import Chunk, extract_source
 from chatter.index import (
     MANIFEST_FILE,
+    SCHEMA_VERSION,
     IndexConfig,
     IndexMismatchError,
     assign_chunk_ids,
@@ -418,7 +419,7 @@ def test_vectors_are_normalized_float32_and_memory_mapped(
     assert vectors.shape == (3, 64)
     assert np.allclose(np.linalg.norm(vectors, axis=1), 1.0, atol=1e-5)
     manifest = json.loads((root / ".chatter" / MANIFEST_FILE).read_text())
-    assert (manifest["rows"], manifest["dim"], manifest["schema"]) == (3, 64, 3)
+    assert (manifest["rows"], manifest["dim"], manifest["schema"]) == (3, 64, SCHEMA_VERSION)
     rows = [r["rows"] for r in iter_records(data.chunks_path)]
     assert [start for start, _ in rows] == [0, 1, 2]  # contiguous, in record order
 
@@ -507,3 +508,37 @@ def test_unrelated_files_in_a_fresh_index_dir_are_kept(
     (shared / "chunks.jsonl").write_text("user data\n")
     build_index(root, embedder, index_dir=shared)
     assert (shared / "chroma").is_dir() and (shared / "chunks.jsonl").read_text() == "user data\n"
+
+
+# ---------------------------------------------------------------------------
+# Call graph in the index
+# ---------------------------------------------------------------------------
+
+
+def test_index_writes_call_graph_across_files(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
+    from chatter.graph import GRAPH_FILES, GraphIndex, read_graph_stats
+
+    root = write_repo(
+        {
+            "pkg/__init__.py": "",
+            "pkg/util.py": "def tool():\n    return 1\n",
+            "app.py": "from pkg.util import tool\n\ndef main():\n    return tool()\n",
+        }
+    )
+    build_index(root, embedder)
+    data = index_data(root / ".chatter")
+    assert all((data.directory / name).exists() for name in GRAPH_FILES)
+    ids = record_ids(root / ".chatter")
+    graph = GraphIndex.load(data.directory)
+    main = ids.index("app.py::main")
+    assert (ids.index("pkg/util.py::tool"), "calls") in graph.edges_from(main)
+    stats = read_graph_stats(data.directory)
+    assert stats["resolved_by_rule"]["import"] == 1 and stats["references"]["call"] == 1
+
+
+def test_graph_counts_in_noop_rebuild(write_repo: WriteRepo, embedder: HashEmbedder) -> None:
+    root = write_repo({"a.py": "def f():\n    return g()\n\ndef g():\n    return 1\n"})
+    build_index(root, embedder)
+    first = index_data(root / ".chatter")
+    build_index(root, embedder)
+    assert index_data(root / ".chatter") == first  # graph identical too: no new generation

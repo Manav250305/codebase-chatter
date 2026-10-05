@@ -49,11 +49,13 @@ import yaml
 
 from chatter.embed import Embedder
 from chatter.extract import Chunk
+from chatter.graph import is_test_path, read_graph_stats
 from chatter.index import (
     SCHEMA_VERSION,
     build_index,
     chunk_ids_in_index,
     default_index_dir,
+    index_data,
     read_manifest,
 )
 from chatter.retrieve import (
@@ -62,6 +64,7 @@ from chatter.retrieve import (
     FUSED,
     MODES,
     RRF_K,
+    GraphExpansion,
     Retriever,
     reciprocal_rank_fusion,
 )
@@ -290,13 +293,7 @@ def _git(cwd: Path, *args: str) -> str:
 
 
 def is_test_chunk(chunk_id: str) -> bool:
-    path = PurePosixPath(chunk_id.split("::", 1)[0])
-    return (
-        any(part in ("tests", "test") for part in path.parts[:-1])
-        or path.name.startswith("test_")
-        or path.name.endswith("_test.py")
-        or path.name == "conftest.py"
-    )
+    return is_test_path(chunk_id.split("::", 1)[0])
 
 
 def exact_match(retrieved: str, relevant: str) -> bool:
@@ -459,10 +456,49 @@ def open_corpora(
         log(f"corpus {name}: {stats.files} files, {stats.chunks} chunks, {stats.embedded_parts} embedded")
         retrievers[name] = Retriever.open(index_dir, embedder)
         corpus_ids[name] = chunk_ids_in_index(index_dir)
-        info[name] = {**provenance, "files": stats.files, "chunks": stats.chunks}
+        info[name] = {
+            **provenance,
+            "files": stats.files,
+            "chunks": stats.chunks,
+            "graph": graph_coverage(index_dir),
+        }
     validate_relevant(questions, corpus_ids)
     matchers = {name: containment(retriever.chunk) for name, retriever in retrievers.items()}
     return CorpusSetup(retrievers, matchers, info)
+
+
+def graph_coverage(index_dir: Path) -> dict[str, Any] | None:
+    """Call-graph resolution stats of the committed build (None if it has no graph)."""
+    data = index_data(index_dir)
+    stats = read_graph_stats(data.directory) if data is not None else None
+    if stats is None:
+        return None
+    calls = stats.get("references", {}).get("call", 0)
+    dropped_calls = sum(v for k, v in stats.get("dropped_by_reason", {}).items() if k.startswith("call:"))
+    return {
+        "call_sites": calls,
+        "calls_resolved": calls - dropped_calls,
+        "resolved_by_rule": stats.get("resolved_by_rule", {}),
+        "dropped_by_reason": stats.get("dropped_by_reason", {}),
+        "dropped_examples": stats.get("dropped_examples", {}),
+        "edges_by_type": stats.get("edges_by_type", {}),
+    }
+
+
+def format_graph_coverage(corpora: Mapping[str, Any], top: int = 12) -> str:
+    lines = ["call graph coverage (call sites resolved to repo code; dropped by reason)"]
+    for name, info in corpora.items():
+        graph = info.get("graph")
+        if not graph:
+            lines.append(f"  {name}: no graph")
+            continue
+        calls, resolved = graph["call_sites"], graph["calls_resolved"]
+        share = resolved / calls if calls else 0.0
+        edges = ", ".join(f"{k} {v}" for k, v in graph["edges_by_type"].items())
+        lines.append(f"  {name}: {resolved}/{calls} call sites resolved ({share:.0%}); edges: {edges}")
+        dropped = list(graph["dropped_by_reason"].items())[:top]
+        lines.append("    dropped: " + ", ".join(f"{reason} {count}" for reason, count in dropped))
+    return "\n".join(lines)
 
 
 def run_metadata(
@@ -554,12 +590,25 @@ def run_eval(
 
 @dataclass(frozen=True, slots=True)
 class RetrievalConfig:
-    """One retrieval setup to score: a single retriever, or weighted RRF."""
+    """One retrieval setup to score: a single retriever, or weighted RRF.
+
+    ``graph_hops`` > 0 adds graph expansion (fused mode only) with RRF weight
+    ``graph_weight``; ``counterpart`` names the config it is compared to.
+    """
 
     name: str
     mode: str  # "bm25" | "dense" | "fused"
     rrf_k: int = RRF_K
     dense_weight: float = 1.0  # BM25 weight is always 1
+    graph_hops: int = 0
+    graph_weight: float = 1.0
+    counterpart: str | None = None
+
+    @property
+    def expansion(self) -> GraphExpansion | None:
+        if self.graph_hops <= 0:
+            return None
+        return GraphExpansion(hops=self.graph_hops, weight=self.graph_weight)
 
 
 BM25_ONLY = RetrievalConfig("bm25-only", BM25)
@@ -578,29 +627,83 @@ def sweep_configs(rrf_ks: Sequence[int], dense_weights: Sequence[float]) -> list
     return [BM25_ONLY, DENSE_ONLY, DEFAULT_FUSED, *grid]
 
 
+def sweep_graph_configs(
+    graph_weights: Sequence[float], graph_hops: Sequence[int]
+) -> list[RetrievalConfig]:
+    """Reference rows plus graph variants of the current default and k10-w3."""
+    tuned = RetrievalConfig("k10-w3", FUSED, 10, 3.0)
+    variants = [
+        RetrievalConfig(
+            f"{base.name}+g{hops}-w{weight:g}",
+            FUSED,
+            base.rrf_k,
+            base.dense_weight,
+            graph_hops=hops,
+            graph_weight=weight,
+            counterpart=base.name,
+        )
+        for base in (DEFAULT_FUSED, tuned)
+        for hops in graph_hops
+        for weight in graph_weights
+    ]
+    return [DENSE_ONLY, DEFAULT_FUSED, tuned, *variants]
+
+
 def load_configs(path: Path) -> list[RetrievalConfig]:
-    """Read frozen candidate configs (a YAML list of name/mode/rrf_k/dense_weight)."""
+    """Read frozen candidate configs.
+
+    The file is a YAML list of configs, or a mapping with ``configs`` (that
+    list) and an optional ``decision_rule`` section that the report shows.
+    """
+    return load_config_file(path)[0]
+
+
+def load_config_file(path: Path) -> tuple[list[RetrievalConfig], dict[str, Any] | None]:
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    rule = None
+    if isinstance(data, dict):
+        rule = data.get("decision_rule")
+        data = data.get("configs")
     if not isinstance(data, list) or not data:
-        raise EvalError(f"{path}: expected a non-empty YAML list of configs")
+        raise EvalError(f"{path}: expected a non-empty list of configs")
     problems: list[str] = []
     configs: list[RetrievalConfig] = []
     for n, item in enumerate(data, 1):
         if not isinstance(item, dict) or not item.get("name") or item.get("mode") not in MODES:
             problems.append(f"item {n}: needs a name and a mode in {', '.join(MODES)}")
             continue
+        name = str(item["name"])
         rrf_k = item.get("rrf_k", RRF_K)
         weight = item.get("dense_weight", 1.0)
+        hops = item.get("graph_hops", 0)
+        graph_weight = item.get("graph_weight", 1.0)
         if not isinstance(rrf_k, int) or rrf_k < 1:
-            problems.append(f"{item['name']}: rrf_k must be a positive integer")
+            problems.append(f"{name}: rrf_k must be a positive integer")
         if not isinstance(weight, int | float) or weight <= 0:
-            problems.append(f"{item['name']}: dense_weight must be positive")
-        configs.append(RetrievalConfig(str(item["name"]), str(item["mode"]), int(rrf_k), float(weight)))
+            problems.append(f"{name}: dense_weight must be positive")
+        if not isinstance(hops, int) or hops < 0:
+            problems.append(f"{name}: graph_hops must be a non-negative integer")
+        elif hops > 0 and item["mode"] != FUSED:
+            problems.append(f"{name}: graph expansion needs mode fused")
+        if not isinstance(graph_weight, int | float) or graph_weight <= 0:
+            problems.append(f"{name}: graph_weight must be positive")
+        configs.append(
+            RetrievalConfig(
+                name, str(item["mode"]), int(rrf_k), float(weight),
+                graph_hops=int(hops), graph_weight=float(graph_weight),
+                counterpart=item.get("counterpart"),
+            )
+        )
     names = [c.name for c in configs]
     problems += [f"duplicate config name {n!r}" for n in sorted({n for n in names if names.count(n) > 1})]
+    problems += [
+        f"{c.name}: counterpart {c.counterpart!r} is not a config in this file"
+        for c in configs
+        if c.counterpart is not None and c.counterpart not in names
+    ]
     if problems:
         raise EvalError(f"invalid configs in {path}:\n  " + "\n  ".join(problems))
-    return configs
+    return configs, rule
 
 
 def evaluate_configs(
@@ -628,20 +731,62 @@ def evaluate_configs(
     cells = []
     for config in configs:
         rows = [
-            (q, score_ranking(_config_ranking(config, lists), q.relevant, matchers[q.corpus]))
+            (q, score_ranking(_config_ranking_for(config, q, lists, retrievers), q.relevant, matchers[q.corpus]))
             for q, lists in rankings
         ]
         first = {q.id: s.strict.first_rank for q, s in rows if q.scored}
+        first_contain = {q.id: s.contain.first_rank for q, s in rows if q.scored}
         cells.append(
             {
                 **dataclasses.asdict(config),
                 "overall": aggregate(rows),
                 "by_corpus": {c: aggregate([r for r in rows if r[0].corpus == c]) for c in corpora},
                 "first_ranks": first,
+                "first_ranks_contain": first_contain,
                 "vs_dense": paired_comparison(first, reference, corpus_of),
             }
         )
+    by_name = {cell["name"]: cell for cell in cells}
+    for cell in cells:
+        other = by_name.get(cell.get("counterpart") or "")
+        if other is not None:
+            cell["vs_counterpart"] = paired_comparison(cell["first_ranks"], other["first_ranks"], corpus_of)
+            cell["top3_losses"] = top3_losses(cell["first_ranks"], other["first_ranks"])
+            cell["top3_losses_contain"] = top3_losses(
+                cell["first_ranks_contain"], other["first_ranks_contain"]
+            )
     return {"reference": DENSE_ONLY.name, "cells": cells}
+
+
+def top3_losses(ranks: Mapping[str, int | None], counterpart: Mapping[str, int | None]) -> list[str]:
+    """Questions where the counterpart had a relevant chunk in its top 3 and this ranks it lower."""
+    lost = []
+    for qid, theirs in sorted(counterpart.items()):
+        mine = ranks.get(qid)
+        if theirs is not None and theirs <= 3 and (mine is None or mine > theirs):
+            lost.append(qid)
+    return lost
+
+
+def _config_ranking_for(
+    config: RetrievalConfig,
+    question: Question,
+    lists: Mapping[str, Sequence[str]],
+    retrievers: Mapping[str, Retriever],
+) -> list[str]:
+    """Graph configs search live (expansion needs the graph); others re-fuse ``lists``."""
+    if config.expansion is None:
+        return _config_ranking(config, lists)
+    hits = retrievers[question.corpus].search(
+        question.question,
+        k=DEPTH,
+        candidates=CANDIDATES,
+        mode=FUSED,
+        rrf_k=config.rrf_k,
+        weights={BM25: 1.0, DENSE: config.dense_weight},
+        expansion=config.expansion,
+    )
+    return [h.chunk_id for h in hits]
 
 
 def paired_comparison(
@@ -686,36 +831,57 @@ def _config_ranking(config: RetrievalConfig, lists: Mapping[str, Sequence[str]])
     return [chunk_id for chunk_id, _, _ in fused[:DEPTH]]
 
 
-def format_configs(table: Mapping[str, Any]) -> str:
-    """Strict MRR@50 per corpus and overall, hit/recall, and W/L/T vs dense-only."""
+def format_configs(table: Mapping[str, Any], decision_rule: Mapping[str, Any] | None = None) -> str:
+    """Strict MRR@50 per corpus and overall, hit/recall, W/L/T vs dense-only and,
+    for graph variants, vs their counterpart with any lost top-3 ranks."""
     cells = [c for c in table["cells"] if c["overall"].get("n")]
     if not cells:
         return "(no scored questions)"
     corpora = sorted(cells[0]["by_corpus"])
     wlt = lambda t: f"{t['wins']}/{t['losses']}/{t['ties']}"  # noqa: E731
+    width = max(13, *(len(c["name"]) for c in cells))
     header = (
-        f"{'config':<13} {'k':>3} {'w':>4}  "
+        f"{'config':<{width}} {'k':>3} {'w':>4} {'hop':>3} {'gw':>4}  "
         + " ".join(f"{'MRR ' + c:>12}" for c in corpora)
-        + f" {'MRR all':>8} {'hit@1':>6} {'hit@5':>6} {'R@10':>6} {'cMRR':>6}  {'W/L/T vs dense':>14}"
-        + "".join(f" {c:>10}" for c in corpora)
+        + f" {'MRR all':>8} {'hit@1':>6} {'hit@5':>6} {'R@10':>6} {'cMRR':>6}  {'vs dense':>9}"
+        + f"  {'vs counterpart':>14} {'top3 lost':>9}"
     )
     lines = [
         "configs (strict metrics; cMRR = containment MRR@50; W/L/T = paired first-rank "
-        "wins/losses/ties vs dense-only)",
+        "wins/losses/ties; top3 lost = questions whose counterpart top-3 rank got worse)",
         header,
     ]
     for cell in cells:
         strict = cell["overall"]["strict"]
         fused = cell["mode"] == FUSED
+        graph = cell.get("graph_hops", 0) > 0
+        counterpart = (
+            f"{wlt(cell['vs_counterpart']['overall'])} {cell['counterpart'][:8]}"
+            if "vs_counterpart" in cell
+            else "-"
+        )
+        lost = ",".join(cell["top3_losses"]) or "none" if "top3_losses" in cell else "-"
         lines.append(
-            f"{cell['name']:<13} {cell['rrf_k'] if fused else '-':>3} "
-            f"{format(cell['dense_weight'], 'g') if fused else '-':>4}  "
+            f"{cell['name']:<{width}} {cell['rrf_k'] if fused else '-':>3} "
+            f"{format(cell['dense_weight'], 'g') if fused else '-':>4} "
+            f"{cell['graph_hops'] if graph else '-':>3} {format(cell['graph_weight'], 'g') if graph else '-':>4}  "
             + " ".join(f"{cell['by_corpus'][c]['strict']['mrr@50']:>12.3f}" for c in corpora)
             + f" {strict['mrr@50']:>8.3f} {strict['hit@1']:>6.3f} {strict['hit@5']:>6.3f} "
             f"{strict['recall@10']:>6.3f} {cell['overall']['contain']['mrr@50']:>6.3f}  "
-            f"{wlt(cell['vs_dense']['overall']):>14}"
-            + "".join(f" {wlt(cell['vs_dense']['by_corpus'][c]):>10}" for c in corpora)
+            f"{wlt(cell['vs_dense']['overall']):>9}  {counterpart:>14} {lost:>9}"
         )
+    if decision_rule:
+        lines += ["", "decision rule: " + " ".join(str(decision_rule.get("text", "")).split())]
+        for cell in cells:
+            if "vs_counterpart" in cell:
+                vs = cell["vs_counterpart"]["overall"]
+                passed = vs["wins"] > vs["losses"] and not cell["top3_losses"]
+                lines.append(
+                    f"  {cell['name']}: {'PASSES' if passed else 'fails'} on these questions "
+                    f"(W/L {vs['wins']}/{vs['losses']} vs {cell['counterpart']}; "
+                    f"top-3 losses: {', '.join(cell['top3_losses']) or 'none'}; "
+                    f"containment top-3 losses: {', '.join(cell['top3_losses_contain']) or 'none'})"
+                )
     return "\n".join(lines)
 
 
