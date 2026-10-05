@@ -639,10 +639,18 @@ def sweep_configs(rrf_ks: Sequence[int], dense_weights: Sequence[float]) -> list
     return [BM25_ONLY, DENSE_ONLY, DEFAULT_FUSED, *grid]
 
 
+# The closed graph grid: k10-w3 weighs dense x3, so its graph weight goes higher.
+GRAPH_SWEEP_WEIGHTS = {"default": (0.5, 1.0, 2.0), "k10-w3": (0.5, 1.0, 2.0, 3.0, 4.0)}
+GRAPH_SWEEP_HOPS = (1, 2)
+
+
 def sweep_graph_configs(
-    graph_weights: Sequence[float], graph_hops: Sequence[int]
+    graph_weights: Sequence[float] | None = None, graph_hops: Sequence[int] = GRAPH_SWEEP_HOPS
 ) -> list[RetrievalConfig]:
-    """Reference rows plus graph variants of the current default and k10-w3."""
+    """Reference rows plus graph variants of the current default and k10-w3.
+
+    ``graph_weights`` overrides the per-counterpart grid (GRAPH_SWEEP_WEIGHTS).
+    """
     tuned = RetrievalConfig("k10-w3", FUSED, 10, 3.0)
     variants = [
         RetrievalConfig(
@@ -656,7 +664,7 @@ def sweep_graph_configs(
         )
         for base in (DEFAULT_FUSED, tuned)
         for hops in graph_hops
-        for weight in graph_weights
+        for weight in (graph_weights or GRAPH_SWEEP_WEIGHTS[base.name])
     ]
     return [DENSE_ONLY, DEFAULT_FUSED, tuned, *variants]
 

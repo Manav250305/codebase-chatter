@@ -755,3 +755,9 @@ def test_unfinished_split_only_blocks_itself(tmp_path: Path) -> None:
             run_eval(qpath, corpora, factory, model_name="m", repo_root=repo, split=split)
     with pytest.raises(EvalError, match="e2: no relevant ids"):
         load_questions(qpath)  # strict by default
+
+
+def test_default_graph_grid_is_closed() -> None:
+    names = [c.name for c in sweep_graph_configs()[3:]]
+    assert len(names) == 2 * (3 + 5)
+    assert "k10-w3+g2-w4" in names and "default+g1-w3" not in names

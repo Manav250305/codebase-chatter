@@ -36,6 +36,7 @@ from chatter.answer_eval import (
 )
 from chatter.embed import DEFAULT_MODEL, Embedder, EmbedderConfig, SentenceTransformerEmbedder
 from chatter.evaluate import (
+    GRAPH_SWEEP_HOPS,
     SWEEP_DENSE_WEIGHT,
     SWEEP_RRF_K,
     EvalError,
@@ -390,7 +391,7 @@ def make_app(
             if sweep_fusion:
                 configs = sweep_configs(rrf_k or list(SWEEP_RRF_K), dense_weight or list(SWEEP_DENSE_WEIGHT))
             elif sweep_graph:
-                configs = sweep_graph_configs(graph_weight or [0.5, 1.0, 2.0], graph_hops or [1, 2])
+                configs = sweep_graph_configs(graph_weight or None, graph_hops or GRAPH_SWEEP_HOPS)
             elif candidates:
                 configs, decision_rule = load_config_file(candidates)
             else:
