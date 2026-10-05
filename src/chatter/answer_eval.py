@@ -140,6 +140,10 @@ class TimedGenerator:
     def name(self) -> str:
         return self._inner.name
 
+    @property
+    def backend(self) -> str | None:
+        return getattr(self._inner, "backend", None)
+
     def memory_stats(self) -> dict[str, Any]:
         return generator_memory(self._inner)
 
@@ -377,6 +381,7 @@ def run_answer_eval(
     except (OSError, ValueError, RuntimeError, ImportError, MemoryError) as exc:
         raise EvalError(f"could not load the answer model: {exc}") from exc
     load = {"seconds": time.perf_counter() - load_started, **load_memory.stats()}
+    backend = generator.backend or backend  # what actually ran, if the generator says
     log(f"loaded {generator.name} ({backend}) in {load['seconds']:.1f}s")
 
     records = []

@@ -18,7 +18,6 @@ import typer
 
 from chatter.answer import (
     BACKENDS,
-    DEFAULT_BACKEND,
     DEFAULT_MODELS,
     DEFAULT_MAX_CONTEXT_TOKENS,
     DEFAULT_MAX_NEW_TOKENS,
@@ -60,6 +59,10 @@ from chatter.retrieve import Hit, Retriever
 Backend = enum.StrEnum("Backend", {name.upper(): name for name in BACKENDS})
 _MODEL_HELP = "Hugging Face answer model. Default: " + ", ".join(
     f"{model} ({backend})" for backend, model in DEFAULT_MODELS.items()
+)
+_BACKEND_HELP = (
+    "Answer generation backend. Default: mlx on Apple Silicon when mlx-lm is "
+    "installed, otherwise transformers."
 )
 
 
@@ -177,9 +180,7 @@ def make_app(
         k: Annotated[int, typer.Option("-k", "--top-k", min=1, help="Chunks to retrieve.")] = 8,
         path: Annotated[Path, typer.Option(help="Repository root containing .chatter.")] = Path("."),
         model: Annotated[str | None, typer.Option(help=_MODEL_HELP)] = None,
-        backend: Annotated[
-            Backend, typer.Option(help="Answer generation backend (mlx: Apple Silicon only).")
-        ] = Backend(DEFAULT_BACKEND),
+        backend: Annotated[Backend | None, typer.Option(help=_BACKEND_HELP)] = None,
         max_context_tokens: Annotated[
             int, typer.Option(min=256, help="Token budget for the whole prompt.")
         ] = DEFAULT_MAX_CONTEXT_TOKENS,
@@ -194,10 +195,10 @@ def make_app(
             typer.echo("No indexed code matched the question; nothing to answer from.")
             return
 
-        config = GeneratorConfig(model_name=model, backend=backend.value)
+        config = GeneratorConfig(model_name=model, backend=backend.value if backend else None)
         generator = _load(
             lambda: generator_factory(config),
-            f"answer model {config.resolved_model!r} ({config.backend})",
+            f"answer model {config.resolved_model!r} ({config.resolved_backend})",
             hint="`chatter search` still works without it.",
         )
         try:
@@ -284,9 +285,7 @@ def make_app(
                          "model (default retrieval) and write a markdown review file."),
         ] = False,
         answer_model: Annotated[str | None, typer.Option(help=_MODEL_HELP)] = None,
-        backend: Annotated[
-            Backend, typer.Option(help="Answer backend for --answers (mlx: Apple Silicon only).")
-        ] = Backend(DEFAULT_BACKEND),
+        backend: Annotated[Backend | None, typer.Option(help=_BACKEND_HELP)] = None,
         answer_top_k: Annotated[
             int, typer.Option(min=1, help="Chunks retrieved per question for --answers.")
         ] = DEFAULT_ANSWER_TOP_K,
@@ -308,17 +307,18 @@ def make_app(
         if answers and (sweep_fusion or candidates):
             _fail("--answers is a separate run; drop --sweep-fusion/--candidates.")
         if answers:
+            answer_config = GeneratorConfig(
+                model_name=answer_model, backend=backend.value if backend else None
+            )
             try:
                 answer_results = run_answer_eval(
                     questions,
                     corpora_path,
                     lambda name: _load(lambda: embedder_factory(name), f"embedding model {name!r}"),
-                    lambda: generator_factory(
-                        GeneratorConfig(model_name=answer_model, backend=backend.value)
-                    ),
+                    lambda: generator_factory(answer_config),
                     model_name=model,
                     repo_root=_repo_root(questions.parent),
-                    backend=backend.value,
+                    backend=answer_config.resolved_backend,
                     index_root=index_root,
                     split=None if split is SplitChoice.ALL else split.value,
                     top_k=answer_top_k,

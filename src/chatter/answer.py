@@ -47,7 +47,10 @@ Repetition guard
 from __future__ import annotations
 
 import enum
+import importlib.util
+import platform
 import re
+import sys
 import threading
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
@@ -61,7 +64,6 @@ ABSTENTION = "The retrieved code does not contain the answer."
 DEFAULT_ANSWER_MODEL = "Qwen/Qwen3-4B-Instruct-2507"  # transformers backend
 DEFAULT_MLX_MODEL = "mlx-community/Qwen3-4B-Instruct-2507-4bit"  # same model, 4-bit for MLX
 BACKENDS = ("transformers", "mlx")
-DEFAULT_BACKEND = "transformers"
 DEFAULT_MODELS = {"transformers": DEFAULT_ANSWER_MODEL, "mlx": DEFAULT_MLX_MODEL}
 DEFAULT_MAX_CONTEXT_TOKENS = 12_000
 DEFAULT_MAX_NEW_TOKENS = 1024
@@ -543,22 +545,35 @@ class GeneratorConfig:
     model_name: str | None = None  # None: the backend's default model
     device: str | None = None  # transformers only; None: cuda, then mps, then cpu
     trust_remote_code: bool = False
-    backend: str = DEFAULT_BACKEND
+    backend: str | None = None  # None: default_backend()
+
+    @property
+    def resolved_backend(self) -> str:
+        return self.backend or default_backend()
 
     @property
     def resolved_model(self) -> str:
-        return self.model_name or DEFAULT_MODELS[self.backend]
+        return self.model_name or DEFAULT_MODELS[self.resolved_backend]
+
+
+def default_backend() -> str:
+    """mlx on Apple Silicon when mlx-lm is installed, otherwise transformers."""
+    apple_silicon = sys.platform == "darwin" and platform.machine() == "arm64"
+    if apple_silicon and importlib.util.find_spec("mlx_lm") is not None:
+        return "mlx"
+    return "transformers"
 
 
 def load_generator(config: GeneratorConfig) -> Generator:
-    """Construct the generator for ``config.backend``."""
-    if config.backend == "transformers":
+    """Construct the generator for ``config.resolved_backend``."""
+    backend = config.resolved_backend
+    if backend == "transformers":
         return HFGenerator(config)
-    if config.backend == "mlx":
+    if backend == "mlx":
         from chatter.mlx_generator import MLXGenerator
 
         return MLXGenerator(config)
-    raise ValueError(f"unknown backend {config.backend!r}; expected one of {', '.join(BACKENDS)}")
+    raise ValueError(f"unknown backend {backend!r}; expected one of {', '.join(BACKENDS)}")
 
 
 @dataclass(slots=True)
@@ -597,6 +612,10 @@ class HFGenerator:
     @property
     def name(self) -> str:
         return self._config.resolved_model
+
+    @property
+    def backend(self) -> str:
+        return "transformers"
 
     def memory_stats(self) -> dict[str, Any]:
         import torch

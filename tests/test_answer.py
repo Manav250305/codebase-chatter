@@ -609,3 +609,60 @@ def test_backends_tokenize_identical_prompts() -> None:
     hf_ids = hf.apply_chat_template(messages, add_generation_prompt=True, tokenize=True, return_dict=True)["input_ids"]
     mlx_ids = list(mlx_tok.apply_chat_template(messages, add_generation_prompt=True, tokenize=True))
     assert hf_ids == mlx_ids
+
+
+from chatter.answer import default_backend as real_default_backend  # noqa: E402  (before the autouse patch)
+
+
+@pytest.mark.parametrize(
+    ("system", "machine", "mlx_installed", "expected"),
+    [
+        ("darwin", "arm64", True, "mlx"),
+        ("darwin", "arm64", False, "transformers"),  # Apple Silicon without mlx-lm
+        ("darwin", "x86_64", True, "transformers"),  # Intel Mac
+        ("linux", "aarch64", True, "transformers"),
+        ("win32", "AMD64", False, "transformers"),
+    ],
+)
+def test_default_backend_by_platform(
+    monkeypatch: pytest.MonkeyPatch, system: str, machine: str, mlx_installed: bool, expected: str
+) -> None:
+    import importlib.util
+    import platform
+    import sys
+
+    monkeypatch.setattr(sys, "platform", system)
+    monkeypatch.setattr(platform, "machine", lambda: machine)
+    real_find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name, *a: (object() if mlx_installed else None) if name == "mlx_lm" else real_find_spec(name, *a),
+    )
+    assert real_default_backend() == expected
+
+
+def test_auto_backend_resolves_through_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    import chatter.answer as answer_module
+
+    monkeypatch.setattr(answer_module, "default_backend", lambda: "mlx")
+    config = GeneratorConfig()
+    assert (config.backend, config.resolved_backend, config.resolved_model) == (None, "mlx", DEFAULT_MLX_MODEL)
+    explicit = GeneratorConfig(backend="transformers")
+    assert (explicit.resolved_backend, explicit.resolved_model) == ("transformers", DEFAULT_ANSWER_MODEL)
+
+
+def test_answer_eval_records_the_backend_that_ran(tmp_path: Any) -> None:
+    from chatter.answer_eval import run_answer_eval
+    from conftest import HashEmbedder
+    from test_evaluate import write_eval
+
+    class ReportsBackend(FakeGenerator):
+        backend = "mlx"
+
+    repo, questions, corpora = write_eval(tmp_path)
+    results = run_answer_eval(
+        questions, corpora, lambda n: HashEmbedder(name=n), lambda: ReportsBackend("x [C1]."),
+        model_name="m", repo_root=repo, backend="transformers",  # the generator wins
+    )
+    assert results["backend"] == "mlx"

@@ -20,6 +20,8 @@ dependencies = [
     "snowballstemmer>=2.2",
     "transformers>=4.56",
     "typer>=0.12",
+    # Default answer backend on Apple Silicon (`--backend transformers` elsewhere).
+    "mlx-lm>=0.30; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 
 [project.scripts]
@@ -27,8 +29,6 @@ chatter = "chatter.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
-# Faster local answers on Apple Silicon: `chatter ask --backend mlx`.
-mlx = ["mlx-lm>=0.30; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

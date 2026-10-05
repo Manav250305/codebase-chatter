@@ -207,7 +207,7 @@ def test_ask_prints_answer_and_citations(indexed: Callable[..., Harness], repo: 
     assert "It splits on the blank line [C1]" in result.output
     citations = result.output.split("Citations:")[1]
     assert "[C1] net/http.py::parse_http_response  net/http.py:4-7" in citations
-    assert h.generator_configs == [GeneratorConfig(model_name=None, backend="transformers")]
+    assert h.generator_configs == [GeneratorConfig(model_name=None, backend=None)]  # auto
     assert h.generator_configs[0].resolved_model == DEFAULT_ANSWER_MODEL
     system, user = h.generator.prompts[0]
     assert "<chunk tag=\"C1\" id=\"net/http.py::parse_http_response\"" in user

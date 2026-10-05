@@ -132,3 +132,14 @@ class FakeGenerator:
 def _no_index_dir_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Tests must not pick up a CHATTER_INDEX_DIR from the developer's shell."""
     monkeypatch.delenv("CHATTER_INDEX_DIR", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _host_independent_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests see transformers as the default backend whatever the host is.
+
+    test_answer.py checks the real default_backend() separately.
+    """
+    import chatter.answer
+
+    monkeypatch.setattr(chatter.answer, "default_backend", lambda: "transformers")

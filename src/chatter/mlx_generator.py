@@ -30,7 +30,8 @@ class MLXGenerator:
             from mlx_lm.sample_utils import make_sampler
         except ImportError as exc:  # not Apple Silicon, or the mlx extra is missing
             raise ImportError(
-                "the mlx backend needs mlx-lm on Apple Silicon (pip install 'codebase-chatter[mlx]')"
+                "the mlx backend needs mlx-lm, which is only available on Apple Silicon "
+                "(pip install mlx-lm); use --backend transformers elsewhere"
             ) from exc
         self._config = config
         self._mx = mx
@@ -48,6 +49,10 @@ class MLXGenerator:
 
     @property
     def device(self) -> str:
+        return "mlx"
+
+    @property
+    def backend(self) -> str:
         return "mlx"
 
     def count_tokens(self, texts: Sequence[str]) -> list[int]:
