@@ -7,8 +7,8 @@ questions about functions/modules, with `file:line-range` citations.
 - Python 3.11+, tree-sitter (py-tree-sitter + tree-sitter-python)
 - Embeddings: sentence-transformers (local); store: exact cosine search over
   memory-mapped float32 .npy vectors; keyword: rank-bm25
-- Answers: local Hugging Face model via transformers (default
-  Qwen/Qwen3-4B-Instruct-2507)
+- Answers: local Qwen3-4B-Instruct-2507; mlx-lm (4-bit) by default on Apple
+  Silicon, transformers elsewhere (`--backend` selects either)
 - CLI: typer; tests: pytest
 
 ## Conventions
@@ -31,7 +31,7 @@ questions about functions/modules, with `file:line-range` citations.
 6. Summary-enriched chunks, re-measure
 7. Agentic tool loop, git history, incremental indexing, MCP server
 8. Abstention: retrieval currently cannot say "not found"
-- Optional: MLX generator for Apple Silicon
+- Optional: MLX generator for Apple Silicon (done; default there)
 
 ## Known issues (fix after the eval baseline)
 - Orphan comments are not in any chunk: a comment block above a def/class
