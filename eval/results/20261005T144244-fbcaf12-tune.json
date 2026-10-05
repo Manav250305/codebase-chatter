@@ -1,8 +1,8 @@
 {
   "schema": 4,
-  "created": "2026-10-05T14:40:05+00:00",
+  "created": "2026-10-05T14:42:44+00:00",
   "git": {
-    "commit": "47904e93255d6010be0aed0567470528fd68bfbb",
+    "commit": "fbcaf12168c37d38edd08936734fc353e021006b",
     "dirty": false
   },
   "questions_file": "eval/questions.yaml",
@@ -32,13 +32,16 @@
           "base:builtin": 3,
           "base:external": 5,
           "call:builtin": 309,
-          "call:dynamic": 134,
+          "call:call_result": 59,
+          "call:dynamic": 32,
           "call:external": 192,
           "call:instance_attribute": 26,
+          "call:literal_receiver": 35,
           "call:local_variable": 41,
           "call:module_attr_unknown": 1,
           "call:module_variable": 1,
           "call:module_variable_receiver": 15,
+          "call:subscript": 8,
           "call:unknown_name": 2,
           "call:untyped_receiver": 295,
           "with:dynamic": 1,
@@ -68,15 +71,25 @@
             "src/chatter/answer.py:184 zip",
             "src/chatter/answer.py:189 zip"
           ],
-          "call:dynamic": [
-            "src/chatter/answer.py:79 \"a an and are as at be by can do does for from how i in is it of on or should \"\n    \"that the this to use used uses what when where which who why with work works\".split",
-            "src/chatter/answer.py:159 \"\\n\\n\".join",
+          "call:call_result": [
             "src/chatter/answer.py:315 \"\\n\".join(lines).replace",
-            "src/chatter/answer.py:315 \"\\n\".join",
             "src/chatter/answer.py:326 value.replace(\"&\", \"&amp;\").replace('\"', \"&quot;\").replace",
             "src/chatter/answer.py:326 value.replace(\"&\", \"&amp;\").replace",
-            "src/chatter/answer.py:341 \",\".join",
-            "src/chatter/answer.py:362 \" \".join(text.split()).strip"
+            "src/chatter/answer.py:362 \" \".join(text.split()).strip",
+            "src/chatter/answer.py:485 guard.kept_text().strip",
+            "src/chatter/answer.py:536 AutoModelForCausalLM.from_pretrained(\n                config.model_name,\n                dtype=torch.bfloat16,  # float32 would need ~16 GB for a 4B model\n                trust_remote_code=config.trust_remote_code,\n            ).to",
+            "src/chatter/answer.py:567 self._tokenizer.apply_chat_template(\n            _messages(system, user),\n            add_generation_prompt=True,\n            tokenize=True,\n            return_dict=True,\n            return_tensors=\"pt\",\n        ).to",
+            "src/chatter/cli.py:109 _open_retriever(path, embedder_factory).search"
+          ],
+          "call:dynamic": [
+            "src/chatter/extract.py:202 (node.text or b\"\").decode",
+            "src/chatter/index.py:282 (Path(index_dir) / MANIFEST_FILE).read_text",
+            "src/chatter/retrieve.py:139 (index_path / CHUNKS_FILE).open",
+            "tests/test_answer.py:57 (special or {}).items",
+            "tests/test_answer.py:452 (repo / \"sample.py\").write_text",
+            "tests/test_cli.py:97 (repo / \"cfg.py\").unlink",
+            "tests/test_embed.py:113 (repo / \"sample.py\").write_text",
+            "tests/test_embed.py:113 (fixtures / \"sample.py\").read_text"
           ],
           "call:external": [
             "src/chatter/answer.py:82 re.compile",
@@ -97,6 +110,16 @@
             "src/chatter/answer.py:567 self._tokenizer.apply_chat_template",
             "src/chatter/answer.py:584 self._model.generate",
             "src/chatter/embed.py:98 self._model.tokenizer"
+          ],
+          "call:literal_receiver": [
+            "src/chatter/answer.py:79 \"a an and are as at be by can do does for from how i in is it of on or should \"\n    \"that the this to use used uses what when where which who why with work works\".split",
+            "src/chatter/answer.py:159 \"\\n\\n\".join",
+            "src/chatter/answer.py:315 \"\\n\".join",
+            "src/chatter/answer.py:341 \",\".join",
+            "src/chatter/answer.py:362 \" \".join",
+            "src/chatter/cli.py:118 '+'.join",
+            "src/chatter/cli.py:185 ', '.join",
+            "src/chatter/extract.py:206 \" \".join"
           ],
           "call:local_variable": [
             "src/chatter/answer.py:479 on_text",
@@ -123,6 +146,16 @@
             "src/chatter/extract.py:268 _IMPORT_NOISE_RE.sub",
             "src/chatter/extract.py:607 _HEADER_RE.match",
             "src/chatter/extract.py:636 _HEADER_RE.match"
+          ],
+          "call:subscript": [
+            "src/chatter/answer.py:449 self._text[: self.trip_at].rstrip",
+            "src/chatter/extract.py:613 line[0].isspace",
+            "src/chatter/extract.py:650 dedented[row - base].startswith",
+            "src/chatter/extract.py:689 lines[row].strip",
+            "src/chatter/index.py:142 doc[:HEADER_DOCSTRING_CHARS].rstrip",
+            "src/chatter/retrieve.py:104 entry[2].values",
+            "tests/test_answer.py:378 criteria[0]",
+            "tests/test_cli.py:154 rows[0].split"
           ],
           "call:unknown_name": [
             "tests/test_answer.py:359 kwargs.get",
@@ -201,16 +234,20 @@
           "base:external": 15,
           "base:module_attr_unknown": 1,
           "call:builtin": 1325,
+          "call:call_result": 102,
           "call:class_attr_unknown": 3,
-          "call:dynamic": 371,
+          "call:dynamic": 5,
           "call:external": 518,
           "call:function_attribute": 2,
-          "call:instance_attribute": 850,
+          "call:inherited_from_external_base": 126,
+          "call:instance_attribute": 724,
+          "call:literal_receiver": 214,
           "call:local_variable": 151,
           "call:module_attr_unknown": 99,
           "call:module_variable": 35,
           "call:module_variable_receiver": 133,
           "call:self_outside_method": 7,
+          "call:subscript": 50,
           "call:untyped_receiver": 1737,
           "with:builtin": 1,
           "with:external": 6,
@@ -254,20 +291,27 @@
             "asyncio/base_events.py:65 hasattr",
             "asyncio/base_events.py:73 isinstance"
           ],
+          "call:call_result": [
+            "asyncio/base_events.py:188 futures._get_loop(fut).stop",
+            "asyncio/base_events.py:1035 str(exc).lower",
+            "asyncio/base_events.py:1614 str(err).lower",
+            "asyncio/events.py:827 get_event_loop_policy().get_event_loop",
+            "asyncio/events.py:832 get_event_loop_policy().set_event_loop",
+            "asyncio/events.py:837 get_event_loop_policy().new_event_loop",
+            "asyncio/events.py:842 get_event_loop_policy().get_child_watcher",
+            "asyncio/events.py:848 get_event_loop_policy().set_child_watcher"
+          ],
           "call:class_attr_unknown": [
             "http/client.py:108 http.HTTPStatus.__members__.values",
             "http/client.py:1541 HTTPException.__init__",
             "http/server.py:642 HTTPStatus.__members__.values"
           ],
           "call:dynamic": [
-            "asyncio/base_events.py:167 addrinfos_by_family[family].append",
-            "asyncio/base_events.py:188 futures._get_loop(fut).stop",
-            "asyncio/base_events.py:918 ', '.join",
-            "asyncio/base_events.py:1002 \"count must be a positive integer (got {!r})\".format",
-            "asyncio/base_events.py:1005 \"count must be a positive integer (got {!r})\".format",
-            "asyncio/base_events.py:1008 \"offset must be a non-negative integer (got {!r})\".format",
-            "asyncio/base_events.py:1012 \"offset must be a non-negative integer (got {!r})\".format",
-            "asyncio/base_events.py:1035 str(exc).lower"
+            "email/headerregistry.py:392 (\"value of single address header {} is not \"\n                \"a single address\").format",
+            "http/cookiejar.py:1055 (\".\"+erhn).endswith",
+            "http/cookiejar.py:1183 (\".\"+erhn).endswith",
+            "http/server.py:516 (\"%s %d %s\\r\\n\" %\n                    (self.protocol_version, code, message)).encode",
+            "http/server.py:526 (\"%s: %s\\r\\n\" % (keyword, value)).encode"
           ],
           "call:external": [
             "asyncio/__main__.py:26 contextvars.copy_context",
@@ -283,15 +327,35 @@
             "email/_header_value_parser.py:510 super().value.split",
             "email/_header_value_parser.py:657 super().value.split"
           ],
-          "call:instance_attribute": [
+          "call:inherited_from_external_base": [
             "asyncio/__main__.py:22 super().__init__",
             "asyncio/__main__.py:45 self.loop.stop",
             "asyncio/__main__.py:60 self.loop.create_task",
             "asyncio/__main__.py:71 self.loop.stop",
             "asyncio/__main__.py:75 self.write",
             "asyncio/__main__.py:77 self.showtraceback",
+            "asyncio/exceptions.py:38 super().__init__",
+            "asyncio/exceptions.py:54 super().__init__"
+          ],
+          "call:instance_attribute": [
             "asyncio/base_events.py:218 self._transport._loop.create_future",
-            "asyncio/base_events.py:223 self._transport.is_closing"
+            "asyncio/base_events.py:223 self._transport.is_closing",
+            "asyncio/base_events.py:239 self._write_ready_fut.set_exception",
+            "asyncio/base_events.py:242 self._write_ready_fut.set_exception",
+            "asyncio/base_events.py:243 self._proto.connection_lost",
+            "asyncio/base_events.py:248 self._transport._loop.create_future",
+            "asyncio/base_events.py:253 self._write_ready_fut.set_result",
+            "asyncio/base_events.py:263 self._transport.set_protocol"
+          ],
+          "call:literal_receiver": [
+            "asyncio/base_events.py:918 ', '.join",
+            "asyncio/base_events.py:1002 \"count must be a positive integer (got {!r})\".format",
+            "asyncio/base_events.py:1005 \"count must be a positive integer (got {!r})\".format",
+            "asyncio/base_events.py:1008 \"offset must be a non-negative integer (got {!r})\".format",
+            "asyncio/base_events.py:1012 \"offset must be a non-negative integer (got {!r})\".format",
+            "asyncio/base_events.py:1174 'Multiple exceptions: {}'.format",
+            "asyncio/base_events.py:1175 ', '.join",
+            "asyncio/base_events.py:1375 ', '.join"
           ],
           "call:local_variable": [
             "asyncio/__main__.py:42 func",
@@ -341,6 +405,16 @@
             "json/__init__.py:173 cls",
             "json/__init__.py:234 cls",
             "json/__init__.py:359 cls"
+          ],
+          "call:subscript": [
+            "asyncio/base_events.py:167 addrinfos_by_family[family].append",
+            "email/_encoded_words.py:178 _cte_decoders[cte]",
+            "email/_encoded_words.py:226 _cte_encode_length['q']",
+            "email/_encoded_words.py:227 _cte_encode_length['b']",
+            "email/_encoded_words.py:230 _cte_encoders[encoding]",
+            "email/_header_value_parser.py:151 self[0].startswith_fws",
+            "email/_header_value_parser.py:546 self[0].value.rstrip",
+            "email/_header_value_parser.py:546 self[2].value.lstrip"
           ],
           "call:untyped_receiver": [
             "asyncio/__main__.py:49 future.set_exception",
