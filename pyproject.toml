@@ -20,6 +20,7 @@ dependencies = [
     "snowballstemmer>=2.2",
     "transformers>=4.56",
     "typer>=0.12",
+    "mcp>=2.3",  # official MCP Python SDK (MCPServer API)
     # Default answer backend on Apple Silicon (`--backend transformers` elsewhere).
     "mlx-lm>=0.30; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]

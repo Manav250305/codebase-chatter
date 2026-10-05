@@ -27,7 +27,6 @@ from chatter.answer import (
     GeneratorConfig,
     load_generator,
     answer_question,
-    format_line_ranges,
 )
 from chatter.answer_eval import (
     DEFAULT_ANSWER_TOP_K,
@@ -54,7 +53,7 @@ from chatter.index import (
     default_index_dir,
     read_manifest,
 )
-from chatter.retrieve import Hit, Retriever
+from chatter.retrieve import Retriever, hit_location, hit_to_dict
 
 Backend = enum.StrEnum("Backend", {name.upper(): name for name in BACKENDS})
 _MODEL_HELP = "Hugging Face answer model. Default: " + ", ".join(
@@ -163,7 +162,7 @@ def make_app(
         """Retrieve the most relevant chunks (no answer generation)."""
         hits = _open_retriever(path, index_dir, embedder_factory).search(query, k=k)
         if as_json:
-            typer.echo(json.dumps([_hit_json(rank, hit) for rank, hit in enumerate(hits, 1)], indent=2))
+            typer.echo(json.dumps([hit_to_dict(rank, hit) for rank, hit in enumerate(hits, 1)], indent=2))
             return
         if not hits:
             typer.echo("No results.")
@@ -171,7 +170,7 @@ def make_app(
         for rank, hit in enumerate(hits, 1):
             typer.echo(
                 f"{rank:>3}  {hit.score:.4f}  {'+'.join(hit.sources):<10}  "
-                f"{_hit_location(hit)}  {hit.chunk_id}"
+                f"{hit_location(hit)}  {hit.chunk_id}"
             )
 
     @app.command()
@@ -243,6 +242,44 @@ def make_app(
                 f"Warning: the answer cites unknown tag(s): {', '.join(result.unknown_tags)}",
                 err=True,
             )
+
+    @app.command("mcp")
+    def mcp(
+        path: Annotated[
+            Path | None,
+            typer.Option(envvar="CHATTER_REPO", show_envvar=True, help="Repository root. Default: current directory."),
+        ] = None,
+        index_dir: IndexDirOption = None,
+        enable_ask: Annotated[
+            bool,
+            typer.Option(
+                envvar="CHATTER_MCP_ENABLE_ASK",
+                show_envvar=True,
+                help="Expose the ask tool (loads the local answer model on first use).",
+            ),
+        ] = False,
+        backend: Annotated[
+            Backend | None, typer.Option(envvar="CHATTER_BACKEND", show_envvar=True, help=_BACKEND_HELP)
+        ] = None,
+        answer_model: Annotated[
+            str | None, typer.Option(envvar="CHATTER_ANSWER_MODEL", show_envvar=True, help=_MODEL_HELP)
+        ] = None,
+    ) -> None:
+        """Serve the index read-only to MCP clients (Claude Desktop, Claude Code) over stdio."""
+        from chatter.mcp_server import ChatterService, check_index, config_from_env, run_stdio
+
+        config = config_from_env(
+            repo=path,
+            index_dir=index_dir,
+            enable_ask=enable_ask,
+            backend=backend.value if backend else None,
+            answer_model=answer_model,
+            environ={},  # typer has already applied the environment variables
+        )
+        problem = check_index(config)
+        if problem:
+            _fail(problem)
+        run_stdio(ChatterService(config, embedder_factory, generator_factory))
 
     @app.command("eval")
     def evaluate(
@@ -402,30 +439,6 @@ def _load(factory: Callable[[], Any], what: str, *, hint: str = "") -> Any:
     except (OSError, ValueError, RuntimeError, ImportError, MemoryError) as exc:
         message = f"Could not load {what}: {exc}"
         _fail(f"{message}\n{hint}" if hint else message)
-
-
-def _hit_location(hit: Hit) -> str:
-    chunk = hit.chunk
-    if chunk.spans and hit.lines == (chunk.start_line, chunk.end_line):
-        return f"{chunk.path}:{format_line_ranges(chunk.line_numbers())}"
-    return f"{chunk.path}:{hit.lines[0]}-{hit.lines[1]}"
-
-
-def _hit_json(rank: int, hit: Hit) -> dict[str, Any]:
-    chunk = hit.chunk
-    return {
-        "rank": rank,
-        "chunk_id": hit.chunk_id,
-        "path": chunk.path,
-        "qualname": chunk.qualname,
-        "kind": chunk.kind,
-        "lines": list(hit.lines),
-        "spans": [list(span) for span in (chunk.spans or ((chunk.start_line, chunk.end_line),))],
-        "score": hit.score,
-        "sources": list(hit.sources),
-        "ranks": hit.ranks,
-        "raw_scores": hit.raw_scores,
-    }
 
 
 def _fail(message: str) -> NoReturn:

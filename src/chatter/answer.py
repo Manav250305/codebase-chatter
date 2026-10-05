@@ -56,7 +56,7 @@ from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from chatter.extract import Chunk
+from chatter.extract import Chunk, format_line_ranges  # re-exported
 from chatter.index import tokenize_code
 from chatter.retrieve import DENSE, Hit
 
@@ -354,21 +354,6 @@ def _render_block(
 
 def _attr(value: str) -> str:
     return value.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
-
-
-def format_line_ranges(numbers: Sequence[int]) -> str:
-    """[1, 2, 3, 7, 8] -> '1-3,7-8'."""
-    if not numbers:
-        return ""
-    ranges: list[str] = []
-    start = prev = numbers[0]
-    for n in numbers[1:]:
-        if n != prev + 1:
-            ranges.append(f"{start}-{prev}")
-            start = n
-        prev = n
-    ranges.append(f"{start}-{prev}")
-    return ",".join(ranges)
 
 
 # ---------------------------------------------------------------------------

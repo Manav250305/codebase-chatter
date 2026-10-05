@@ -29,7 +29,8 @@ questions about functions/modules, with `file:line-range` citations.
 4. Eval set in eval/ with baseline retrieval hit-rate (before adding features)
 5. Call graph + graph-expanded retrieval, re-measure
 6. Summary-enriched chunks, re-measure
-7. Agentic tool loop, git history, incremental indexing, MCP server
+7. Agentic tool loop, git history, incremental indexing, MCP server (MCP done:
+   `chatter mcp`, read-only)
 8. Abstention: retrieval currently cannot say "not found"
 - Optional: MLX generator for Apple Silicon (done; default there)
 

@@ -10,16 +10,16 @@ from __future__ import annotations
 import math
 import re
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 from rank_bm25 import BM25Okapi
 
 from chatter.embed import Embedder, EmbedderConfig, SentenceTransformerEmbedder
-from chatter.extract import Chunk
+from chatter.extract import Chunk, format_line_ranges
 from chatter.index import (
     check_manifest,
     chunk_from_dict,
@@ -241,6 +241,32 @@ def reciprocal_rank_fusion(
     )
 
 
+def hit_location(hit: Hit) -> str:
+    """``path:a-b`` for a hit (all line ranges for an unsplit module chunk)."""
+    chunk = hit.chunk
+    if chunk.spans and hit.lines == (chunk.start_line, chunk.end_line):
+        return f"{chunk.path}:{format_line_ranges(chunk.line_numbers())}"
+    return f"{chunk.path}:{hit.lines[0]}-{hit.lines[1]}"
+
+
+def hit_to_dict(rank: int, hit: Hit) -> dict[str, Any]:
+    """JSON-ready hit, shared by ``chatter search --json`` and the MCP server."""
+    chunk = hit.chunk
+    return {
+        "rank": rank,
+        "chunk_id": hit.chunk_id,
+        "path": chunk.path,
+        "qualname": chunk.qualname,
+        "kind": chunk.kind,
+        "lines": list(hit.lines),
+        "spans": [list(span) for span in (chunk.spans or ((chunk.start_line, chunk.end_line),))],
+        "score": hit.score,
+        "sources": list(hit.sources),
+        "ranks": hit.ranks,
+        "raw_scores": hit.raw_scores,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Retriever
 # ---------------------------------------------------------------------------
@@ -310,6 +336,10 @@ class Retriever:
 
     def chunk(self, chunk_id: str) -> Chunk | None:
         return self._chunks.get(chunk_id)
+
+    def chunks(self) -> Iterator[tuple[str, Chunk]]:
+        """(chunk id, chunk) for every indexed chunk, in index order."""
+        return iter(self._chunks.items())
 
     def search(
         self,

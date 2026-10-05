@@ -22,6 +22,7 @@ import io
 import logging
 import re
 import tokenize
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -81,6 +82,21 @@ class Chunk:
         """File line number of each line in ``source``."""
         spans = self.spans or ((self.start_line, self.end_line),)
         return [line for start, end in spans for line in range(start, end + 1)]
+
+
+def format_line_ranges(numbers: Sequence[int]) -> str:
+    """[1, 2, 3, 7, 8] -> '1-3,7-8'."""
+    if not numbers:
+        return ""
+    ranges: list[str] = []
+    start = prev = numbers[0]
+    for n in numbers[1:]:
+        if n != prev + 1:
+            ranges.append(f"{start}-{prev}")
+            start = n
+        prev = n
+    ranges.append(f"{start}-{prev}")
+    return ",".join(ranges)
 
 
 @dataclass(frozen=True, slots=True)
