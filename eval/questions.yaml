@@ -14,8 +14,9 @@
 #           chatter -> the codebase-chatter repo itself
 # type:     exact_name | behavior | location | flow | negative
 # relevant: chunk IDs that count as a correct retrieval (any one = hit).
-#           stdlib IDs are UNVERIFIED and must be checked against chunks.jsonl.
-#           chatter IDs are empty; relevant_hint describes what should go there.
+#           stdlib IDs are verified against the stdlib index's chunks.jsonl.
+#           chatter IDs are filled from relevant_hint and verified against the
+#           frozen eval-corpus-v1 snapshot.
 # expect_abstain: true when the corpus does not contain the answer.
 
 # ---------- stdlib: exact names ----------
