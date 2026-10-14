@@ -376,7 +376,8 @@
   corpus: chatter
   type: behavior
   question: "If I search for 'http response', would it find a function named parseHTTPResponse? What makes that work?"
-  relevant: []
+  relevant:
+    - "src/chatter/index.py::tokenize_code"
   relevant_hint: "The BM25 tokenizer that splits identifiers on snake_case/camelCase/acronyms."
   expect_abstain: false
   notes: ""
@@ -386,7 +387,10 @@
   corpus: chatter
   type: behavior
   question: "What happens if I build the index with one embedding model and later try to search it using a different one?"
-  relevant: []
+  relevant:
+    - "src/chatter/index.py::check_manifest"
+    - "src/chatter/retrieve.py::Retriever.open"
+    - "src/chatter/cli.py::_open_retriever"
   relevant_hint: "The model-mismatch check when an index is opened (manifest model/fingerprint comparison and the error raised)."
   expect_abstain: false
   notes: ""
@@ -396,7 +400,10 @@
   corpus: chatter
   type: location
   question: "Where do the [C1]-style labels in an answer get turned back into real file names and line numbers?"
-  relevant: []
+  relevant:
+    - "src/chatter/answer.py::parse_citations"
+    - "src/chatter/answer.py::ContextBlock.location"
+    - "src/chatter/cli.py::make_app.ask"
   relevant_hint: "Citation-tag parsing and mapping back to chunk IDs/spans in answer.py (and unknown-tag warnings)."
   expect_abstain: false
   notes: ""
@@ -406,7 +413,11 @@
   corpus: chatter
   type: behavior
   question: "A function is too long to fit in the prompt. Which lines of it does the model actually get to see?"
-  relevant: []
+  relevant:
+    - "src/chatter/answer.py::truncation_window"
+    - "src/chatter/answer.py::_truncated_block"
+    - "src/chatter/answer.py::_region"
+    - "src/chatter/answer.py::_line_score"
   relevant_hint: "The truncation window logic in answer.py (question-word line matching, signature/docstring fallback)."
   expect_abstain: false
   notes: ""
@@ -416,7 +427,8 @@
   corpus: chatter
   type: location
   question: "where does it skip those ._ files that macOS creates"
-  relevant: []
+  relevant:
+    - "src/chatter/index.py::iter_source_files"
   relevant_hint: "The AppleDouble skip in the file walker in index.py."
   expect_abstain: false
   notes: "Terse, lowercase."
@@ -426,7 +438,16 @@
   corpus: chatter
   type: flow
   question: "Walk me through everything that happens between typing chatter ask and seeing the answer printed with its sources."
-  relevant: []
+  relevant:
+    - "src/chatter/cli.py::make_app.ask"
+    - "src/chatter/retrieve.py::Retriever.search"
+    - "src/chatter/answer.py::answer_question"
+    - "src/chatter/answer.py::build_context"
+    - "src/chatter/answer.py::build_user_message"
+    - "src/chatter/answer.py::HFGenerator.generate"
+    - "src/chatter/answer.py::RepetitionGuard.feed"
+    - "src/chatter/answer.py::classify_answer"
+    - "src/chatter/answer.py::parse_citations"
   relevant_hint: "The ask command in cli.py, Retriever.search, prompt building, generator streaming with the repetition guard, abstention classification, and citation mapping."
   expect_abstain: false
   notes: "Multi-hop flow; a step 5 test case."
