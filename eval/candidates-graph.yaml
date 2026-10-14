@@ -6,9 +6,9 @@
 # Graph variants were chosen on the tune split only, with call graph Phase B
 # (GRAPH_VERSION 3, commit 0fb721e), from the closed grids in
 # eval/results/20261005T145739-0fb721e-tune.json (fused) and
-# the dense-family sweep recorded in the next commit (dense, hops {1,2} x weights {0.5,1,2,3,4}; its fused rows are
-# identical): per counterpart, the highest tune strict MRR@50 with zero top-3
-# losses, ties to fewer hops.
+# eval/results/20261014T170246-3b6063a-tune.json (dense, hops {1,2} x weights
+# {0.5,1,2,3,4}; its fused rows are identical): per counterpart, the highest
+# tune strict MRR@50 with zero top-3 losses, ties to fewer hops.
 #   dense-only+g2-w2  0.531 (dense-only 0.524)  W/L/T 3/3/14 vs dense-only, R@10 0.621 (0.543)
 #   default+g2-w1     0.526 (default 0.523)     W/L/T 2/2/16 vs default
 #   k10-w3+g2-w3      0.583 (k10-w3 0.574)      W/L/T 4/1/15 vs k10-w3, R@10 0.646 (0.539)
