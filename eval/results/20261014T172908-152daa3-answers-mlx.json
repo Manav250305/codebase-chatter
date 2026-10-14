@@ -1,0 +1,4689 @@
+{
+  "schema": 2,
+  "kind": "answers",
+  "created": "2026-10-14T17:29:08+00:00",
+  "git": {
+    "commit": "152daa32c07e1e227af81c8325061800de5098cd",
+    "dirty": false
+  },
+  "questions_file": "eval/questions.yaml",
+  "questions_sha256": "70dafc518dcf145c8f8118debe2268abc9c6729511177a55c31e93519d1976f7",
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "embedding_fingerprint": "BAAI/bge-small-en-v1.5|max_tokens=510|document_prefix=\"\"",
+  "corpora": {
+    "chatter": {
+      "kind": "git_archive",
+      "ref": "eval-corpus-v1",
+      "commit": "710c604f1abbd64e7097a15d9f48ec910bc1a4d7",
+      "files": 17,
+      "chunks": 427,
+      "graph": {
+        "call_sites": 1474,
+        "calls_resolved": 512,
+        "resolved_by_rule": {
+          "callback_reference": 12,
+          "class_attr": 6,
+          "constructor_receiver": 5,
+          "import": 105,
+          "inferred_local": 46,
+          "instantiation": 85,
+          "local_import": 2,
+          "module_def": 252,
+          "self_attribute_type": 3,
+          "self_mro": 8
+        },
+        "dropped_by_reason": {
+          "base:builtin": 3,
+          "base:external": 5,
+          "call:builtin": 309,
+          "call:call_result": 30,
+          "call:dynamic": 32,
+          "call:external": 199,
+          "call:inherited_from_external_base": 1,
+          "call:instance_attribute": 32,
+          "call:literal_receiver": 35,
+          "call:local_variable": 41,
+          "call:module_attr_unknown": 2,
+          "call:module_variable": 1,
+          "call:module_variable_receiver": 15,
+          "call:subscript": 8,
+          "call:unknown_name": 1,
+          "call:untyped_receiver": 256,
+          "with:dynamic": 1,
+          "with:external": 7,
+          "with:untyped_receiver": 2
+        },
+        "dropped_examples": {
+          "base:builtin": [
+            "src/chatter/answer.py:145 ValueError",
+            "src/chatter/index.py:58 RuntimeError",
+            "tests/test_answer.py:352 dict"
+          ],
+          "base:external": [
+            "src/chatter/answer.py:86 enum.Enum",
+            "src/chatter/answer.py:92 Protocol",
+            "src/chatter/answer.py:578 StoppingCriteria",
+            "src/chatter/embed.py:18 Protocol",
+            "src/chatter/retrieve.py:53 BM25Okapi"
+          ],
+          "call:builtin": [
+            "src/chatter/answer.py:78 frozenset",
+            "src/chatter/answer.py:155 frozenset",
+            "src/chatter/answer.py:155 len",
+            "src/chatter/answer.py:177 list",
+            "src/chatter/answer.py:179 enumerate",
+            "src/chatter/answer.py:184 any",
+            "src/chatter/answer.py:184 zip",
+            "src/chatter/answer.py:189 zip"
+          ],
+          "call:call_result": [
+            "src/chatter/answer.py:315 \"\\n\".join(lines).replace",
+            "src/chatter/answer.py:362 \" \".join(text.split()).strip",
+            "src/chatter/answer.py:485 guard.kept_text().strip",
+            "src/chatter/cli.py:109 _open_retriever(path, embedder_factory).search",
+            "src/chatter/cli.py:136 _open_retriever(path, embedder_factory).search",
+            "src/chatter/extract.py:269 _collapse_ws(text).rstrip(\",\").replace",
+            "src/chatter/extract.py:269 _collapse_ws(text).rstrip",
+            "tests/conftest.py:119 str(self._reply).split"
+          ],
+          "call:dynamic": [
+            "src/chatter/extract.py:202 (node.text or b\"\").decode",
+            "src/chatter/index.py:282 (Path(index_dir) / MANIFEST_FILE).read_text",
+            "src/chatter/retrieve.py:139 (index_path / CHUNKS_FILE).open",
+            "tests/test_answer.py:57 (special or {}).items",
+            "tests/test_answer.py:452 (repo / \"sample.py\").write_text",
+            "tests/test_cli.py:97 (repo / \"cfg.py\").unlink",
+            "tests/test_embed.py:113 (repo / \"sample.py\").write_text",
+            "tests/test_embed.py:113 (fixtures / \"sample.py\").read_text"
+          ],
+          "call:external": [
+            "src/chatter/answer.py:82 re.compile",
+            "src/chatter/answer.py:83 re.compile",
+            "src/chatter/answer.py:109 dataclass",
+            "src/chatter/answer.py:127 dataclass",
+            "src/chatter/answer.py:133 dataclass",
+            "src/chatter/answer.py:361 re.sub",
+            "src/chatter/answer.py:504 dataclass",
+            "src/chatter/answer.py:511 dataclass"
+          ],
+          "call:inherited_from_external_base": [
+            "tests/test_retrieve.py:45 PositiveIdfBM25(corpus).get_scores"
+          ],
+          "call:instance_attribute": [
+            "src/chatter/answer.py:224 hit.chunk.source.split",
+            "src/chatter/answer.py:225 hit.chunk.line_numbers",
+            "src/chatter/answer.py:268 hit.chunk.line_numbers",
+            "src/chatter/answer.py:274 hit.chunk.source.split",
+            "src/chatter/answer.py:415 self._text.rfind",
+            "src/chatter/answer.py:416 self._text.find",
+            "src/chatter/answer.py:426 self._line_counts.get",
+            "src/chatter/answer.py:555 self._tokenizer"
+          ],
+          "call:literal_receiver": [
+            "src/chatter/answer.py:79 \"a an and are as at be by can do does for from how i in is it of on or should \"\n    \"that the this to use used uses what when where which who why with work works\".split",
+            "src/chatter/answer.py:159 \"\\n\\n\".join",
+            "src/chatter/answer.py:315 \"\\n\".join",
+            "src/chatter/answer.py:341 \",\".join",
+            "src/chatter/answer.py:362 \" \".join",
+            "src/chatter/cli.py:118 '+'.join",
+            "src/chatter/cli.py:185 ', '.join",
+            "src/chatter/extract.py:206 \" \".join"
+          ],
+          "call:local_variable": [
+            "src/chatter/answer.py:479 on_text",
+            "src/chatter/answer.py:483 close",
+            "src/chatter/cli.py:85 embedder_factory",
+            "src/chatter/cli.py:142 generator_factory",
+            "src/chatter/cli.py:198 embedder_factory",
+            "src/chatter/cli.py:209 factory",
+            "tests/test_cli.py:63 write_repo",
+            "tests/test_cli.py:150 indexed"
+          ],
+          "call:module_attr_unknown": [
+            "tests/test_answer.py:258 ABSTENTION.lower().rstrip",
+            "tests/test_answer.py:258 ABSTENTION.lower"
+          ],
+          "call:module_variable": [
+            "src/chatter/cli.py:248 app"
+          ],
+          "call:module_variable_receiver": [
+            "src/chatter/answer.py:373 _TAG_GROUP_RE.finditer",
+            "src/chatter/answer.py:374 _TAG_RE.findall",
+            "src/chatter/extract.py:126 logger.info",
+            "src/chatter/extract.py:130 logger.warning",
+            "src/chatter/extract.py:133 logger.info",
+            "src/chatter/extract.py:268 _IMPORT_NOISE_RE.sub",
+            "src/chatter/extract.py:607 _HEADER_RE.match",
+            "src/chatter/extract.py:636 _HEADER_RE.match"
+          ],
+          "call:subscript": [
+            "src/chatter/answer.py:449 self._text[: self.trip_at].rstrip",
+            "src/chatter/extract.py:613 line[0].isspace",
+            "src/chatter/extract.py:650 dedented[row - base].startswith",
+            "src/chatter/extract.py:689 lines[row].strip",
+            "src/chatter/index.py:142 doc[:HEADER_DOCSTRING_CHARS].rstrip",
+            "src/chatter/retrieve.py:104 entry[2].values",
+            "tests/test_answer.py:378 criteria[0]",
+            "tests/test_cli.py:154 rows[0].split"
+          ],
+          "call:unknown_name": [
+            "tests/fixtures/sample.py:23 other.decorator"
+          ],
+          "call:untyped_receiver": [
+            "src/chatter/answer.py:185 candidates.pop",
+            "src/chatter/answer.py:195 candidates.pop",
+            "src/chatter/answer.py:209 pending.pop",
+            "src/chatter/answer.py:229 scores.index",
+            "src/chatter/answer.py:264 terms.intersection",
+            "src/chatter/answer.py:282 chunk.source.split",
+            "src/chatter/answer.py:283 chunk.line_numbers",
+            "src/chatter/answer.py:326 value.replace(\"&\", \"&amp;\").replace('\"', \"&quot;\").replace"
+          ],
+          "with:dynamic": [
+            "src/chatter/retrieve.py:139 (index_path / CHUNKS_FILE).open"
+          ],
+          "with:external": [
+            "tests/test_answer.py:202 pytest.raises",
+            "tests/test_answer.py:398 pytest.raises",
+            "tests/test_extract.py:546 pytest.raises",
+            "tests/test_index.py:350 pytest.raises",
+            "tests/test_index.py:368 pytest.raises",
+            "tests/test_retrieve.py:185 pytest.raises",
+            "tests/test_retrieve.py:194 pytest.raises"
+          ],
+          "with:untyped_receiver": [
+            "src/chatter/index.py:364 chunks_tmp.open",
+            "tests/test_answer.py:464 capsys.disabled"
+          ]
+        },
+        "edges_by_type": {
+          "calls": 150,
+          "calls_inferred": 15,
+          "contains": 52,
+          "implements": 10,
+          "instantiates": 38,
+          "references": 3,
+          "tested_by": 342
+        }
+      }
+    },
+    "stdlib": {
+      "kind": "python_stdlib",
+      "python_version": "3.13",
+      "python_full_version": "3.13.5",
+      "packages": [
+        "asyncio",
+        "email",
+        "http",
+        "json"
+      ],
+      "stdlib_dir": "/Users/manav/miniconda3/lib/python3.13",
+      "files": 72,
+      "chunks": 2178,
+      "graph": {
+        "call_sites": 7304,
+        "calls_resolved": 2191,
+        "resolved_by_rule": {
+          "base:import": 8,
+          "base:module_attr": 49,
+          "base:module_def": 153,
+          "callback_reference": 228,
+          "class_attr": 17,
+          "constructor_receiver": 5,
+          "context_manager": 1,
+          "import": 10,
+          "inferred_local": 36,
+          "instantiation": 481,
+          "local_def": 32,
+          "module_alias": 6,
+          "module_attr": 153,
+          "module_def": 422,
+          "self_attribute_type": 49,
+          "self_mro": 905,
+          "super_mro": 75
+        },
+        "dropped_by_reason": {
+          "async_with:not_callable_function": 2,
+          "base:builtin": 28,
+          "base:external": 15,
+          "call:ambiguous_local_type": 29,
+          "call:builtin": 1325,
+          "call:call_result": 59,
+          "call:class_attr_unknown": 10,
+          "call:dynamic": 5,
+          "call:external": 523,
+          "call:function_attribute": 8,
+          "call:inherited_from_external_base": 322,
+          "call:instance_attribute": 689,
+          "call:literal_receiver": 214,
+          "call:local_variable": 151,
+          "call:module_attr_unknown": 95,
+          "call:module_variable": 22,
+          "call:module_variable_receiver": 135,
+          "call:self_outside_method": 10,
+          "call:subscript": 50,
+          "call:untyped_receiver": 1466,
+          "with:builtin": 1,
+          "with:external": 6,
+          "with:local_variable": 1
+        },
+        "dropped_examples": {
+          "async_with:not_callable_function": [
+            "asyncio/base_events.py:615 timeouts.timeout",
+            "asyncio/tasks.py:506 timeouts.timeout"
+          ],
+          "base:builtin": [
+            "asyncio/exceptions.py:10 BaseException",
+            "asyncio/exceptions.py:17 Exception",
+            "asyncio/exceptions.py:21 RuntimeError",
+            "asyncio/exceptions.py:29 EOFError",
+            "asyncio/exceptions.py:47 Exception",
+            "asyncio/exceptions.py:61 RuntimeError",
+            "asyncio/queues.py:18 Exception",
+            "asyncio/queues.py:23 Exception"
+          ],
+          "base:external": [
+            "asyncio/__main__.py:19 InteractiveColoredConsole",
+            "asyncio/__main__.py:80 threading.Thread",
+            "asyncio/constants.py:38 enum.Enum",
+            "asyncio/events.py:681 threading.local",
+            "asyncio/events.py:748 threading.local",
+            "asyncio/locks.py:469 enum.Enum",
+            "asyncio/runners.py:14 enum.Enum",
+            "asyncio/sslproto.py:23 enum.Enum"
+          ],
+          "call:ambiguous_local_type": [
+            "asyncio/base_events.py:472 task.set_name",
+            "asyncio/tasks.py:817 outer.set_result",
+            "asyncio/tasks.py:824 outer.done",
+            "asyncio/tasks.py:836 outer.set_exception",
+            "asyncio/tasks.py:841 outer.set_exception",
+            "asyncio/tasks.py:871 outer.set_exception",
+            "asyncio/tasks.py:873 outer.set_result",
+            "asyncio/windows_events.py:700 f._poll"
+          ],
+          "call:builtin": [
+            "asyncio/__main__.py:22 super",
+            "asyncio/__main__.py:100 compile",
+            "asyncio/__main__.py:101 exec",
+            "asyncio/__main__.py:103 getattr",
+            "asyncio/__main__.py:158 locals",
+            "asyncio/__main__.py:170 getattr",
+            "asyncio/base_events.py:65 hasattr",
+            "asyncio/base_events.py:73 isinstance"
+          ],
+          "call:call_result": [
+            "asyncio/base_events.py:188 futures._get_loop(fut).stop",
+            "asyncio/base_events.py:1035 str(exc).lower",
+            "asyncio/base_events.py:1614 str(err).lower",
+            "asyncio/events.py:827 get_event_loop_policy().get_event_loop",
+            "asyncio/events.py:832 get_event_loop_policy().set_event_loop",
+            "asyncio/events.py:837 get_event_loop_policy().new_event_loop",
+            "asyncio/events.py:842 get_event_loop_policy().get_child_watcher",
+            "asyncio/events.py:848 get_event_loop_policy().set_child_watcher"
+          ],
+          "call:class_attr_unknown": [
+            "email/headerregistry.py:192 cls.parse",
+            "email/headerregistry.py:267 cls.value_parser",
+            "email/headerregistry.py:311 cls.value_parser",
+            "email/headerregistry.py:410 cls.value_parser",
+            "email/headerregistry.py:448 cls.value_parser",
+            "email/headerregistry.py:512 cls.value_parser",
+            "email/headerregistry.py:532 cls.value_parser",
+            "http/client.py:108 http.HTTPStatus.__members__.values"
+          ],
+          "call:dynamic": [
+            "email/headerregistry.py:392 (\"value of single address header {} is not \"\n                \"a single address\").format",
+            "http/cookiejar.py:1055 (\".\"+erhn).endswith",
+            "http/cookiejar.py:1183 (\".\"+erhn).endswith",
+            "http/server.py:516 (\"%s %d %s\\r\\n\" %\n                    (self.protocol_version, code, message)).encode",
+            "http/server.py:526 (\"%s: %s\\r\\n\" % (keyword, value)).encode"
+          ],
+          "call:external": [
+            "asyncio/__main__.py:26 contextvars.copy_context",
+            "asyncio/__main__.py:30 concurrent.futures.Future",
+            "asyncio/__main__.py:40 types.FunctionType",
+            "asyncio/__main__.py:55 inspect.iscoroutine",
+            "asyncio/__main__.py:95 os.getenv",
+            "asyncio/__main__.py:96 sys.audit",
+            "asyncio/__main__.py:99 tokenize.open",
+            "asyncio/__main__.py:104 can_colorize"
+          ],
+          "call:function_attribute": [
+            "asyncio/streams.py:236 reader.set_transport",
+            "asyncio/streams.py:264 reader.feed_eof",
+            "asyncio/streams.py:266 reader.set_exception",
+            "asyncio/streams.py:281 reader.feed_data",
+            "asyncio/streams.py:286 reader.feed_eof",
+            "email/_header_value_parser.py:510 super().value.split",
+            "email/_header_value_parser.py:657 super().value.split",
+            "email/_header_value_parser.py:1497 local_part.value.encode"
+          ],
+          "call:inherited_from_external_base": [
+            "asyncio/__main__.py:22 super().__init__",
+            "asyncio/__main__.py:45 self.loop.stop",
+            "asyncio/__main__.py:60 self.loop.create_task",
+            "asyncio/__main__.py:71 self.loop.stop",
+            "asyncio/__main__.py:75 self.write",
+            "asyncio/__main__.py:77 self.showtraceback",
+            "asyncio/exceptions.py:38 super().__init__",
+            "asyncio/exceptions.py:54 super().__init__"
+          ],
+          "call:instance_attribute": [
+            "asyncio/base_events.py:218 self._transport._loop.create_future",
+            "asyncio/base_events.py:223 self._transport.is_closing",
+            "asyncio/base_events.py:239 self._write_ready_fut.set_exception",
+            "asyncio/base_events.py:242 self._write_ready_fut.set_exception",
+            "asyncio/base_events.py:243 self._proto.connection_lost",
+            "asyncio/base_events.py:248 self._transport._loop.create_future",
+            "asyncio/base_events.py:253 self._write_ready_fut.set_result",
+            "asyncio/base_events.py:263 self._transport.set_protocol"
+          ],
+          "call:literal_receiver": [
+            "asyncio/base_events.py:918 ', '.join",
+            "asyncio/base_events.py:1002 \"count must be a positive integer (got {!r})\".format",
+            "asyncio/base_events.py:1005 \"count must be a positive integer (got {!r})\".format",
+            "asyncio/base_events.py:1008 \"offset must be a non-negative integer (got {!r})\".format",
+            "asyncio/base_events.py:1012 \"offset must be a non-negative integer (got {!r})\".format",
+            "asyncio/base_events.py:1174 'Multiple exceptions: {}'.format",
+            "asyncio/base_events.py:1175 ', '.join",
+            "asyncio/base_events.py:1375 ', '.join"
+          ],
+          "call:local_variable": [
+            "asyncio/__main__.py:42 func",
+            "asyncio/base_events.py:764 _warn",
+            "asyncio/base_events.py:1213 protocol_factory",
+            "asyncio/base_events.py:1469 protocol_factory",
+            "asyncio/base_events.py:1687 protocol_factory",
+            "asyncio/base_events.py:1703 protocol_factory",
+            "asyncio/base_events.py:1754 protocol_factory",
+            "asyncio/base_events.py:1787 protocol_factory"
+          ],
+          "call:module_attr_unknown": [
+            "asyncio/base_events.py:748 logger.debug",
+            "asyncio/base_events.py:919 logger.debug",
+            "asyncio/base_events.py:927 logger.info",
+            "asyncio/base_events.py:929 logger.debug",
+            "asyncio/base_events.py:1201 logger.debug",
+            "asyncio/base_events.py:1399 logger.error",
+            "asyncio/base_events.py:1475 logger.info",
+            "asyncio/base_events.py:1479 logger.debug"
+          ],
+          "call:module_variable": [
+            "asyncio/__main__.py:174 interactive_hook",
+            "asyncio/tasks.py:111 _task_name_counter",
+            "email/_encoded_words.py:69 _q_byte_subber",
+            "email/_header_value_parser.py:1007 _non_printable_finder",
+            "email/_header_value_parser.py:1025 _wsp_splitter",
+            "email/_header_value_parser.py:1096 _wsp_splitter",
+            "email/_header_value_parser.py:1159 _wsp_splitter",
+            "email/_header_value_parser.py:1212 _non_atom_end_matcher"
+          ],
+          "call:module_variable_receiver": [
+            "asyncio/__main__.py:65 loop.call_soon_threadsafe",
+            "asyncio/__main__.py:93 console.write",
+            "asyncio/__main__.py:106 console.write",
+            "asyncio/__main__.py:119 console.showtraceback",
+            "asyncio/__main__.py:120 console.write",
+            "asyncio/__main__.py:123 console.interact",
+            "asyncio/__main__.py:130 loop.call_soon_threadsafe",
+            "asyncio/__main__.py:189 repl_thread.start"
+          ],
+          "call:self_outside_method": [
+            "email/_policybase.py:100 cls.__doc__.startswith",
+            "email/_policybase.py:102 cls.__dict__.items",
+            "email/iterators.py:26 self.is_multipart",
+            "email/iterators.py:27 self.get_payload",
+            "json/__init__.py:173 cls(skipkeys=skipkeys, ensure_ascii=ensure_ascii,\n            check_circular=check_circular, allow_nan=allow_nan, indent=indent,\n            separators=separators,\n            default=default, sort_keys=sort_keys, **kw).iterencode",
+            "json/__init__.py:173 cls",
+            "json/__init__.py:234 cls(\n        skipkeys=skipkeys, ensure_ascii=ensure_ascii,\n        check_circular=check_circular, allow_nan=allow_nan, indent=indent,\n        separators=separators, default=default, sort_keys=sort_keys,\n        **kw).encode",
+            "json/__init__.py:234 cls"
+          ],
+          "call:subscript": [
+            "asyncio/base_events.py:167 addrinfos_by_family[family].append",
+            "email/_encoded_words.py:178 _cte_decoders[cte]",
+            "email/_encoded_words.py:226 _cte_encode_length['q']",
+            "email/_encoded_words.py:227 _cte_encode_length['b']",
+            "email/_encoded_words.py:230 _cte_encoders[encoding]",
+            "email/_header_value_parser.py:151 self[0].startswith_fws",
+            "email/_header_value_parser.py:546 self[0].value.rstrip",
+            "email/_header_value_parser.py:546 self[2].value.lstrip"
+          ],
+          "call:untyped_receiver": [
+            "asyncio/__main__.py:49 future.set_exception",
+            "asyncio/__main__.py:52 future.set_exception",
+            "asyncio/__main__.py:56 future.set_result",
+            "asyncio/__main__.py:63 future.set_exception",
+            "asyncio/__main__.py:68 future.result",
+            "asyncio/__main__.py:100 f.read",
+            "asyncio/__main__.py:139 r.threading_hook.add",
+            "asyncio/base_events.py:94 sock.setsockopt"
+          ],
+          "with:builtin": [
+            "http/cookiejar.py:1802 open"
+          ],
+          "with:external": [
+            "asyncio/__main__.py:99 tokenize.open",
+            "asyncio/staggered.py:98 contextlib.suppress",
+            "asyncio/unix_events.py:200 warnings.catch_warnings",
+            "http/cookiejar.py:1894 os.fdopen",
+            "http/cookiejar.py:2088 os.fdopen",
+            "http/server.py:1314 contextlib.suppress"
+          ],
+          "with:local_variable": [
+            "http/server.py:1270 ServerClass"
+          ]
+        },
+        "edges_by_type": {
+          "calls": 1595,
+          "calls_inferred": 73,
+          "contains": 1515,
+          "context_manager": 2,
+          "implements": 11,
+          "inherits": 210,
+          "instantiates": 357,
+          "references": 196
+        }
+      }
+    }
+  },
+  "answer_model": "mlx-community/Qwen3-4B-Instruct-2507-4bit",
+  "backend": "mlx",
+  "model_load": {
+    "seconds": 3.959656166000059,
+    "peak_rss_mb": 1148.289024,
+    "swap_used_start_mb": 1200.553984,
+    "swap_used_peak_mb": 1200.553984,
+    "swap_used_end_mb": 1200.553984
+  },
+  "settings": {
+    "split": "all",
+    "retrieval": "dense+graph(hops=2, weight=2)",
+    "top_k": 8,
+    "max_context_tokens": 12000,
+    "max_new_tokens": 1024,
+    "abstention_sentence": "The retrieved code does not contain the answer."
+  },
+  "summary": {
+    "n": 40,
+    "classifications": {
+      "answered": 29,
+      "abstained": 6,
+      "mixed": 4,
+      "near_miss_abstention": 1
+    },
+    "abstention": {
+      "strict": {
+        "negatives": 4,
+        "answerable": 36,
+        "true_abstentions": 4,
+        "false_abstentions": 2,
+        "missed_abstentions": 0,
+        "precision": 0.6666666666666666,
+        "recall": 1.0,
+        "false_abstention_rate": 0.05555555555555555
+      },
+      "lenient": {
+        "negatives": 4,
+        "answerable": 36,
+        "true_abstentions": 4,
+        "false_abstentions": 7,
+        "missed_abstentions": 0,
+        "precision": 0.36363636363636365,
+        "recall": 1.0,
+        "false_abstention_rate": 0.19444444444444445
+      }
+    },
+    "context_relative_abstention": {
+      "answerable": {
+        "overall": {
+          "n": 7,
+          "answered": 5,
+          "abstained": 2,
+          "answered_rate": 0.7142857142857143,
+          "abstained_rate": 0.2857142857142857,
+          "ids": [
+            "q07",
+            "q11",
+            "q16",
+            "h03",
+            "h04",
+            "h07",
+            "h15"
+          ]
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 2,
+            "answered": 2,
+            "abstained": 0,
+            "answered_rate": 1.0,
+            "abstained_rate": 0.0,
+            "ids": [
+              "q16",
+              "h15"
+            ]
+          },
+          "stdlib": {
+            "n": 5,
+            "answered": 3,
+            "abstained": 2,
+            "answered_rate": 0.6,
+            "abstained_rate": 0.4,
+            "ids": [
+              "q07",
+              "q11",
+              "h03",
+              "h04",
+              "h07"
+            ]
+          }
+        }
+      },
+      "with_negatives": {
+        "overall": {
+          "n": 11,
+          "answered": 5,
+          "abstained": 6,
+          "answered_rate": 0.45454545454545453,
+          "abstained_rate": 0.5454545454545454,
+          "ids": [
+            "q07",
+            "q11",
+            "q16",
+            "h03",
+            "h04",
+            "h07",
+            "h15",
+            "q15",
+            "q22",
+            "h11",
+            "h18"
+          ]
+        },
+        "by_corpus": {
+          "chatter": {
+            "n": 4,
+            "answered": 2,
+            "abstained": 2,
+            "answered_rate": 0.5,
+            "abstained_rate": 0.5,
+            "ids": [
+              "q16",
+              "h15",
+              "q22",
+              "h18"
+            ]
+          },
+          "stdlib": {
+            "n": 7,
+            "answered": 3,
+            "abstained": 4,
+            "answered_rate": 0.42857142857142855,
+            "abstained_rate": 0.5714285714285714,
+            "ids": [
+              "q07",
+              "q11",
+              "h03",
+              "h04",
+              "h07",
+              "q15",
+              "h11"
+            ]
+          }
+        }
+      }
+    },
+    "memory": {
+      "max_peak_rss_mb": 1001.865216,
+      "median_peak_rss_mb": 283.222016,
+      "max_swap_used_mb": 1377.370112,
+      "swap_growth_mb": 176.81612800000016,
+      "max_accelerator_mb": 4450.352172,
+      "accelerator_metric": "mlx peak memory during the answer"
+    },
+    "answerable": {
+      "n": 36,
+      "relevant_in_context": {
+        "strict": 0.7777777777777778,
+        "contain": 0.8055555555555556
+      },
+      "cited_relevant": {
+        "strict": 0.7222222222222222,
+        "contain": 0.7222222222222222
+      }
+    },
+    "invalid_tags": 0,
+    "answers_with_invalid_tags": 0,
+    "stopped_for_repetition": 0,
+    "median_ttft_s": 16.039870562504802,
+    "median_tokens_per_s": 26.228589212979188,
+    "median_prompt_tokens": 4325.5
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "corpus": "stdlib",
+      "type": "exact_name",
+      "split": "tune",
+      "question": "What is JSONDecodeError and what extra information does it carry about where parsing failed?",
+      "expect_abstain": false,
+      "relevant": [
+        "json/decoder.py::JSONDecodeError"
+      ],
+      "classification": "answered",
+      "answer": "JSONDecodeError is a subclass of ValueError that is used to indicate errors during JSON parsing. It carries additional information about where parsing failed, including:\n\n- `msg`: The unformatted error message.\n- `doc`: The JSON document being parsed.\n- `pos`: The start index of the document where parsing failed.\n- `lineno`: The line number corresponding to the position where parsing failed.\n- `colno`: The column number corresponding to the position where parsing failed.\n\nThis information allows for more precise error reporting, indicating both the line and column in the JSON document where the parsing error occurred, along with the actual error message and the document itself [C1, C8].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "json/decoder.py::JSONDecodeError",
+          "location": "json/decoder.py:20-43",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "json/decoder.py::<module>",
+          "location": "json/decoder.py:1-3,5-9,11-11,13-13,15-17,46-50,53-58,130-131,133-134",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "json/decoder.py::JSONDecoder",
+          "location": "json/decoder.py:262-364",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "json/decoder.py::py_scanstring",
+          "location": "json/decoder.py:70-127",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "json/decoder.py::JSONDecoder.decode",
+          "location": "json/decoder.py:340-349",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "json/decoder.py::JSONDecoder.raw_decode",
+          "location": "json/decoder.py:351-364",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "json/decoder.py::JSONObject",
+          "location": "json/decoder.py:137-219",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "json/decoder.py::JSONDecodeError.__init__",
+          "location": "json/decoder.py:31-40",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "json/decoder.py::JSONDecodeError",
+          "location": "json/decoder.py:20-43"
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "json/decoder.py::JSONDecodeError.__init__",
+          "location": "json/decoder.py:31-40"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 3504,
+      "generated_tokens": 136,
+      "ttft_s": 11.162043332995381,
+      "tokens_per_s": 27.87705157969336,
+      "memory": {
+        "peak_rss_mb": 1001.865216,
+        "swap_used_start_mb": 1200.553984,
+        "swap_used_peak_mb": 1200.553984,
+        "swap_used_end_mb": 1200.553984,
+        "accelerator_mb": 3370.3001600000002,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q02",
+      "corpus": "stdlib",
+      "type": "exact_name",
+      "split": "tune",
+      "question": "What does make_msgid produce and how does it make the value unique?",
+      "expect_abstain": false,
+      "relevant": [
+        "email/utils.py::make_msgid"
+      ],
+      "classification": "answered",
+      "answer": "make_msgid produces a string suitable for RFC 2822 compliant Message-ID, formatted as `<timeval.pid.rand@domain>`, where:\n- `timeval` is the current time in milliseconds (from `time.time() * 100`).\n- `pid` is the process ID of the current process.\n- `rand` is a random 64-bit integer generated by `random.getrandbits(64)`.\n- `domain` is the fully qualified domain name (FQDN), defaulting to the local hostname if not provided.\n\nThe uniqueness of the value is ensured by combining a timestamp, a unique process ID, and a random 64-bit integer. This combination makes it highly unlikely that two messages will have the same ID, even if they are generated at the same time or on the same machine, due to the inclusion of the process ID and random number. The domain portion further ensures uniqueness across different systems. [C1]",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "email/utils.py::make_msgid",
+          "location": "email/utils.py:287-312",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "email/_header_value_parser.py::MsgID",
+          "location": "email/_header_value_parser.py:861-867",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "email/generator.py::BytesGenerator._handle_text",
+          "location": "email/generator.py:436-446",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "email/generator.py::Generator._handle_text",
+          "location": "email/generator.py:244-263",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "email/_header_value_parser.py::MsgID.fold",
+          "location": "email/_header_value_parser.py:865-867",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "email/_header_value_parser.py::get_msg_id",
+          "location": "email/_header_value_parser.py:2085-2151",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "email/generator.py::Generator",
+          "location": "email/generator.py:27-403",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "email/_header_value_parser.py::MessageID",
+          "location": "email/_header_value_parser.py:870-871",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "email/utils.py::make_msgid",
+          "location": "email/utils.py:287-312"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 5247,
+      "generated_tokens": 199,
+      "ttft_s": 17.044240999995964,
+      "tokens_per_s": 25.357712854685317,
+      "memory": {
+        "peak_rss_mb": 460.406784,
+        "swap_used_start_mb": 1200.553984,
+        "swap_used_peak_mb": 1200.553984,
+        "swap_used_end_mb": 1200.553984,
+        "accelerator_mb": 3630.120012,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q03",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "question": "When an asyncio program's main coroutine finishes, what happens to background tasks that are still running?",
+      "expect_abstain": false,
+      "relevant": [
+        "asyncio/runners.py::_cancel_all_tasks",
+        "asyncio/runners.py::Runner.close"
+      ],
+      "classification": "mixed",
+      "answer": "The provided code does not describe the behavior of background tasks when a main coroutine finishes. Therefore, the retrieved code does not contain the answer.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/runners.py::run",
+          "location": "asyncio/runners.py:160-195",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/runners.py::Runner",
+          "location": "asyncio/runners.py:20-157",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "asyncio/staggered.py::staggered_race",
+          "location": "asyncio/staggered.py:13-174",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "asyncio/runners.py::Runner.run",
+          "location": "asyncio/runners.py:86-129",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup",
+          "location": "asyncio/taskgroups.py:12-278",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "asyncio/tasks.py::_AsCompletedIterator",
+          "location": "asyncio/tasks.py:570-634",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "asyncio/staggered.py::staggered_race.run_one_coro",
+          "location": "asyncio/staggered.py:91-145",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "asyncio/tasks.py::as_completed",
+          "location": "asyncio/tasks.py:637-688",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": false,
+        "contain": true
+      },
+      "citations": [],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": false,
+        "contain": false
+      },
+      "prompt_tokens": 7249,
+      "generated_tokens": 28,
+      "ttft_s": 26.9270135830011,
+      "tokens_per_s": 22.554790514004818,
+      "memory": {
+        "peak_rss_mb": 459.112448,
+        "swap_used_start_mb": 1200.553984,
+        "swap_used_peak_mb": 1200.553984,
+        "swap_used_end_mb": 1200.553984,
+        "accelerator_mb": 3864.7224960000003,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q04",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "question": "What does the JSON encoder do if I try to serialize infinity or not-a-number?",
+      "expect_abstain": false,
+      "relevant": [
+        "json/encoder.py::JSONEncoder.iterencode.floatstr",
+        "json/encoder.py::JSONEncoder.iterencode"
+      ],
+      "classification": "answered",
+      "answer": "If `allow_nan` is `True`, the JSON encoder will serialize `Infinity`, `-Infinity`, and `NaN` as strings `\"Infinity\"`, `\"-Infinity\"`, and `\"NaN\"`, respectively. This behavior is not strictly compliant with the JSON specification, but it is consistent with most JavaScript-based encoders and decoders. If `allow_nan` is `False`, encoding such values will raise a `ValueError`. This is defined in the `floatstr` function within the `iterencode` method of `JSONEncoder`, which checks for special floating-point values and raises an error if `allow_nan` is disabled [C4, C3].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "json/encoder.py::JSONEncoder.__init__",
+          "location": "json/encoder.py:105-159",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "json/encoder.py::JSONEncoder",
+          "location": "json/encoder.py:74-261",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "json/encoder.py::JSONEncoder.iterencode.floatstr",
+          "location": "json/encoder.py:224-244",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "json/encoder.py::JSONEncoder.iterencode",
+          "location": "json/encoder.py:205-261",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "json/encoder.py::JSONEncoder.default",
+          "location": "json/encoder.py:161-181",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "json/encoder.py::JSONEncoder.encode",
+          "location": "json/encoder.py:183-203",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "json/decoder.py::JSONDecoder",
+          "location": "json/decoder.py:262-364",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "json/__init__.py::<module>",
+          "location": "json/__init__.py:1-102,104-104,106-108,110-118,241-241",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C4",
+          "chunk_id": "json/encoder.py::JSONEncoder.iterencode",
+          "location": "json/encoder.py:205-261"
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "json/encoder.py::JSONEncoder.iterencode.floatstr",
+          "location": "json/encoder.py:224-244"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 5363,
+      "generated_tokens": 133,
+      "ttft_s": 19.57151837499987,
+      "tokens_per_s": 23.236292258164895,
+      "memory": {
+        "peak_rss_mb": 309.673984,
+        "swap_used_start_mb": 1200.553984,
+        "swap_used_peak_mb": 1200.553984,
+        "swap_used_end_mb": 1200.553984,
+        "accelerator_mb": 3659.2016,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q05",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "question": "How does the HTTP client read a response body when the server doesn't say how long it is and sends it in pieces?",
+      "expect_abstain": false,
+      "relevant": [
+        "http/client.py::HTTPResponse._read_chunked",
+        "http/client.py::HTTPResponse._read_next_chunk_size",
+        "http/client.py::HTTPResponse._get_chunk_left"
+      ],
+      "classification": "answered",
+      "answer": "When the server does not specify the length of the response body and sends it in pieces (using chunked transfer encoding), the HTTP client reads the response body using chunked transfer encoding. Specifically, the `HTTPResponse` class handles this through its `_read_chunked` method, which reads each chunk from the response body in a loop until the entire body is consumed.\n\nThe process works as follows:\n- The client checks if the response uses chunked transfer encoding by examining the `transfer-encoding` header. If it is set to \"chunked\", the `chunked` flag in the `HTTPResponse` object is set to `True` [C5].\n- The `_read_chunked` method is then used to read the response body in chunks. It reads each chunk size from the response, which is specified in the chunked encoding format, and appends it to the result [C7].\n- The method reads the chunk size, then reads the actual data of that size from the underlying file pointer (`self.fp`), and continues until all chunks are processed.\n- If the client requests a limited number of bytes (`amt`), it stops reading once the requested amount is reached, or when the end of the response is reached [C7].\n\nThis approach allows the client to read the response body in pieces without needing to know the total size in advance, which is essential for handling streaming or large responses. The client also manages the connection state appropriately, such as closing the connection when the response ends or when the server indicates it should close the connection [C5, C4, C6].\n\nThus, the HTTP client reads the response body in pieces using chunked transfer encoding, reading each chunk as it arrives and managing the connection accordingly.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "http/client.py::HTTPResponse.read",
+          "location": "http/client.py:463-501",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "http/server.py::BaseHTTPRequestHandler",
+          "location": "http/server.py:189-237",
+          "truncated": true
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "http/client.py::HTTPConnection",
+          "location": "http/client.py:1379-1433",
+          "truncated": true
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "http/client.py::HTTPResponse",
+          "location": "http/client.py:480-541",
+          "truncated": true
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "http/client.py::HTTPResponse.begin",
+          "location": "http/client.py:324-394",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "http/client.py::HTTPResponse.readinto",
+          "location": "http/client.py:503-535",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "http/client.py::HTTPResponse._read_chunked",
+          "location": "http/client.py:591-609",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "http/client.py::HTTPResponse.read1",
+          "location": "http/client.py:655-672",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C5",
+          "chunk_id": "http/client.py::HTTPResponse.begin",
+          "location": "http/client.py:324-394"
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "http/client.py::HTTPResponse._read_chunked",
+          "location": "http/client.py:591-609"
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "http/client.py::HTTPResponse",
+          "location": "http/client.py:480-541"
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "http/client.py::HTTPResponse.readinto",
+          "location": "http/client.py:503-535"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 3324,
+      "generated_tokens": 353,
+      "ttft_s": 11.590070207996177,
+      "tokens_per_s": 27.7310528195313,
+      "memory": {
+        "peak_rss_mb": 304.7424,
+        "swap_used_start_mb": 1200.553984,
+        "swap_used_peak_mb": 1200.553984,
+        "swap_used_end_mb": 1200.553984,
+        "accelerator_mb": 3472.43732,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q06",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "question": "Given an email message, how do I loop over just the attached files and skip the main body text?",
+      "expect_abstain": false,
+      "relevant": [
+        "email/message.py::MIMEPart.iter_attachments"
+      ],
+      "classification": "answered",
+      "answer": "To loop over just the attached files and skip the main body text in an email message, you should use the `iter_attachments()` method of the `MIMEPart` class. This method iterates over non-main parts of a multipart message, skipping the first occurrence of certain content types like `text/plain`, `text/html`, `multipart/related`, or `multipart/alternative` if they don't have a `Content-Disposition: attachment` header. For a `multipart/related` message, it returns all parts except the root part, which is typically the main body. \n\nIf the message is a `multipart/alternative` or a non-multipart, the method returns an empty iterator. The method effectively filters out the main body content and focuses only on the attachment parts. This behavior is defined in the `iter_attachments` method of the `MIMEPart` class, which is implemented in both `C1` and `C3` [C1, C3].\n\nFor example, you can use it as follows:\n```python\nfor part in message.iter_attachments():\n    # Process the attachment part\n    print(part.get_filename())\n    print(part.get_payload(decode=True))\n```\n\nThis ensures that only the attachment parts are processed, and the main body text is skipped.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "email/message.py::MIMEPart.iter_attachments",
+          "location": "email/message.py:1066-1119",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "email/_parseaddr.py::AddrlistClass.gotonext",
+          "location": "email/_parseaddr.py:243-255",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "email/message.py::MIMEPart",
+          "location": "email/message.py:981-1201",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "email/message.py::MIMEPart.clear_content",
+          "location": "email/message.py:1198-1201",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "email/message.py::MIMEPart.iter_parts",
+          "location": "email/message.py:1121-1127",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "email/message.py::Message.get_payload",
+          "location": "email/message.py:243-333",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "email/message.py::MIMEPart._find_body",
+          "location": "email/message.py:1013-1040",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "email/generator.py::DecodedGenerator._dispatch",
+          "location": "email/generator.py:494-512",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "email/message.py::MIMEPart.iter_attachments",
+          "location": "email/message.py:1066-1119"
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "email/message.py::MIMEPart",
+          "location": "email/message.py:981-1201"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 4414,
+      "generated_tokens": 260,
+      "ttft_s": 15.495903542003362,
+      "tokens_per_s": 26.403862032859436,
+      "memory": {
+        "peak_rss_mb": 264.76544,
+        "swap_used_start_mb": 1200.553984,
+        "swap_used_peak_mb": 1200.553984,
+        "swap_used_end_mb": 1200.553984,
+        "accelerator_mb": 3474.783284,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q07",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "question": "A subject line looks like =?utf-8?b?SGVsbG8=?= . How do I turn that into readable text?",
+      "expect_abstain": false,
+      "relevant": [
+        "email/header.py::decode_header"
+      ],
+      "classification": "near_miss_abstention",
+      "answer": "The provided code does not contain the answer.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "email/message.py::_formatparam",
+          "location": "email/message.py:39-71",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "email/quoprimime.py::decode",
+          "location": "email/quoprimime.py:232-276",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "email/header.py::_ValueFormatter.feed",
+          "location": "email/header.py:438-473",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "email/header.py::_ValueFormatter",
+          "location": "email/header.py:408-533",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "email/quoprimime.py::body_encode",
+          "location": "email/quoprimime.py:153-226",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "email/charset.py::Charset.body_encode",
+          "location": "email/charset.py:369-398",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "email/header.py::Header.encode",
+          "location": "email/header.py:309-387",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "email/contentmanager.py::_encode_text",
+          "location": "email/contentmanager.py:144-180",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": false,
+        "contain": false
+      },
+      "citations": [],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": false,
+        "contain": false
+      },
+      "prompt_tokens": 5184,
+      "generated_tokens": 9,
+      "ttft_s": 18.31612570800644,
+      "tokens_per_s": 25.66122197407925,
+      "memory": {
+        "peak_rss_mb": 267.567104,
+        "swap_used_start_mb": 1200.553984,
+        "swap_used_peak_mb": 1200.553984,
+        "swap_used_end_mb": 1200.553984,
+        "accelerator_mb": 3647.110232,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q08",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "question": "How can I put a deadline on a block of async code so it gets stopped if it takes too long?",
+      "expect_abstain": false,
+      "relevant": [
+        "asyncio/timeouts.py::timeout",
+        "asyncio/timeouts.py::Timeout",
+        "asyncio/tasks.py::wait_for"
+      ],
+      "classification": "answered",
+      "answer": "You can use the `asyncio.timeout()` function to set a deadline on a block of async code. This function creates an asynchronous context manager that will interrupt the execution if the code takes longer than the specified timeout. For example:\n\n```python\nasync with asyncio.timeout(10):  # 10 seconds timeout\n    await long_running_task()\n```\n\nThis will stop the execution if `long_running_task()` takes more than 10 seconds. If the timeout occurs, a `TimeoutError` is raised. Alternatively, you can use `asyncio.timeout_at(when)` to specify an absolute deadline in the same time system as `loop.time()` [C2, C5]. The timeout context manager also converts a `CancelledError` into a `TimeoutError` [C2, C5].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/timeouts.py::Timeout",
+          "location": "asyncio/timeouts.py:26-142",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/timeouts.py::timeout",
+          "location": "asyncio/timeouts.py:145-162",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "asyncio/locks.py::Barrier._block",
+          "location": "asyncio/locks.py:534-548",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "asyncio/locks.py::Barrier",
+          "location": "asyncio/locks.py:476-617",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/timeouts.py::timeout_at",
+          "location": "asyncio/timeouts.py:165-184",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "asyncio/base_events.py::_SendfileFallbackProtocol",
+          "location": "asyncio/base_events.py:207-272",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "asyncio/tasks.py::wait_for",
+          "location": "asyncio/tasks.py:459-507",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "asyncio/timeouts.py::Timeout.__aexit__",
+          "location": "asyncio/timeouts.py:97-125",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/timeouts.py::timeout",
+          "location": "asyncio/timeouts.py:145-162"
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/timeouts.py::timeout_at",
+          "location": "asyncio/timeouts.py:165-184"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 3968,
+      "generated_tokens": 164,
+      "ttft_s": 13.814885082989349,
+      "tokens_per_s": 25.516454727917107,
+      "memory": {
+        "peak_rss_mb": 269.631488,
+        "swap_used_start_mb": 1200.553984,
+        "swap_used_peak_mb": 1200.553984,
+        "swap_used_end_mb": 1200.553984,
+        "accelerator_mb": 3439.409716,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q09",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "tune",
+      "question": "What happens to code that is waiting to take an item from an asyncio queue when the queue gets closed down?",
+      "expect_abstain": false,
+      "relevant": [
+        "asyncio/queues.py::Queue.shutdown",
+        "asyncio/queues.py::QueueShutDown",
+        "asyncio/queues.py::Queue.get"
+      ],
+      "classification": "answered",
+      "answer": "When the queue is closed down, any code waiting to take an item from the queue will raise a `QueueShutDown` exception if the queue is empty or if the shutdown is immediate. Specifically, if the queue is shut down and empty, the `get()` method will raise `QueueShutDown` after checking the empty condition [C1]. Additionally, if the shutdown is immediate, the queue will raise `QueueShutDown` immediately, and any blocked callers of `get()` or `put()` will be unblocked [C5]. The `get()` method also ensures that all pending getters are canceled or set to result in `None` to properly handle the shutdown state [C1, C5].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/queues.py::Queue.get",
+          "location": "asyncio/queues.py:172-201",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/queues.py::Queue",
+          "location": "asyncio/queues.py:33-279",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "asyncio/queues.py::Queue.put",
+          "location": "asyncio/queues.py:125-154",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "asyncio/queues.py::Queue.get_nowait",
+          "location": "asyncio/queues.py:203-217",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/queues.py::Queue.shutdown",
+          "location": "asyncio/queues.py:253-279",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "asyncio/queues.py::Queue.put_nowait",
+          "location": "asyncio/queues.py:156-170",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "asyncio/queues.py::Queue.join",
+          "location": "asyncio/queues.py:242-251",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "asyncio/queues.py::Queue.task_done",
+          "location": "asyncio/queues.py:219-240",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/queues.py::Queue.get",
+          "location": "asyncio/queues.py:172-201"
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/queues.py::Queue.shutdown",
+          "location": "asyncio/queues.py:253-279"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 3646,
+      "generated_tokens": 146,
+      "ttft_s": 12.537587832994177,
+      "tokens_per_s": 26.401515479979544,
+      "memory": {
+        "peak_rss_mb": 271.859712,
+        "swap_used_start_mb": 1200.553984,
+        "swap_used_peak_mb": 1200.553984,
+        "swap_used_end_mb": 1200.553984,
+        "accelerator_mb": 3462.64224,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q10",
+      "corpus": "stdlib",
+      "type": "location",
+      "split": "tune",
+      "question": "Where does the simple file-serving HTTP server stop a request like /../../etc/passwd from escaping the served folder?",
+      "expect_abstain": false,
+      "relevant": [
+        "http/server.py::SimpleHTTPRequestHandler.translate_path"
+      ],
+      "classification": "answered",
+      "answer": "The simple file-serving HTTP server stops a request like `/../../etc/passwd` from escaping the served folder in the `translate_path` method, specifically in the line where it filters out components that are not simple file or directory names using the condition `if os.path.dirname(word) or word in (os.curdir, os.pardir): continue`. This ensures that components like `..` (parent directory) are not used to navigate outside the served directory. The relevant code is in the `translate_path` method of the `SimpleHTTPRequestHandler` class [C1, C2, C3].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "http/server.py::SimpleHTTPRequestHandler",
+          "location": "http/server.py:646-906",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "http/server.py::SimpleHTTPRequestHandler.translate_path",
+          "location": "http/server.py:837-865",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "http/server.py::SimpleHTTPRequestHandler.__init__",
+          "location": "http/server.py:668-672",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "http/server.py::CGIHTTPRequestHandler",
+          "location": "http/server.py:982-1247",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "http/server.py::CGIHTTPRequestHandler.run_cgi",
+          "location": "http/server.py:1063-1247",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "http/server.py::SimpleHTTPRequestHandler.send_head",
+          "location": "http/server.py:689-775",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "http/server.py::BaseHTTPRequestHandler",
+          "location": "http/server.py:146-643",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "http/server.py::SimpleHTTPRequestHandler.do_GET",
+          "location": "http/server.py:674-681",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "http/server.py::SimpleHTTPRequestHandler",
+          "location": "http/server.py:646-906"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "http/server.py::SimpleHTTPRequestHandler.translate_path",
+          "location": "http/server.py:837-865"
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "http/server.py::SimpleHTTPRequestHandler.__init__",
+          "location": "http/server.py:668-672"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 11508,
+      "generated_tokens": 122,
+      "ttft_s": 52.425790333989426,
+      "tokens_per_s": 16.950001064411456,
+      "memory": {
+        "peak_rss_mb": 275.890176,
+        "swap_used_start_mb": 1200.553984,
+        "swap_used_peak_mb": 1200.553984,
+        "swap_used_end_mb": 1200.553984,
+        "accelerator_mb": 4450.352172,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q11",
+      "corpus": "stdlib",
+      "type": "location",
+      "split": "tune",
+      "question": "Where does json notice that an object contains itself and refuse to encode it?",
+      "expect_abstain": false,
+      "relevant": [
+        "json/encoder.py::_make_iterencode._iterencode_list",
+        "json/encoder.py::_make_iterencode._iterencode_dict",
+        "json/encoder.py::_make_iterencode._iterencode"
+      ],
+      "classification": "answered",
+      "answer": "The JSON encoder checks for circular references by using a markers dictionary during the encoding process. If `check_circular` is set to `True`, the encoder maintains a dictionary (`markers`) to track objects that have already been seen during encoding. When an object is encountered that is already in the markers dictionary, it indicates a circular reference, and the encoder will refuse to encode it to prevent infinite recursion. This behavior is implemented in the `iterencode` method of `JSONEncoder`, where the `markers` dictionary is initialized if `check_circular` is `True` [C2, C5].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "json/encoder.py::JSONEncoder.__init__",
+          "location": "json/encoder.py:105-159",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "json/encoder.py::JSONEncoder",
+          "location": "json/encoder.py:74-261",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "json/__init__.py::dumps",
+          "location": "json/__init__.py:183-238",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "json/__init__.py::<module>",
+          "location": "json/__init__.py:1-102,104-104,106-108,110-118,241-241",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "json/encoder.py::JSONEncoder.iterencode",
+          "location": "json/encoder.py:205-261",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "json/decoder.py::JSONDecoder",
+          "location": "json/decoder.py:262-364",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "json/encoder.py::JSONEncoder.encode",
+          "location": "json/encoder.py:183-203",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "json/encoder.py::JSONEncoder.default",
+          "location": "json/encoder.py:161-181",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": false,
+        "contain": false
+      },
+      "citations": [
+        {
+          "tag": "C2",
+          "chunk_id": "json/encoder.py::JSONEncoder",
+          "location": "json/encoder.py:74-261"
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "json/encoder.py::JSONEncoder.iterencode",
+          "location": "json/encoder.py:205-261"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": false,
+        "contain": false
+      },
+      "prompt_tokens": 5841,
+      "generated_tokens": 121,
+      "ttft_s": 21.766549958003452,
+      "tokens_per_s": 25.14736646670053,
+      "memory": {
+        "peak_rss_mb": 255.524864,
+        "swap_used_start_mb": 1200.553984,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3669.425204,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q12",
+      "corpus": "stdlib",
+      "type": "location",
+      "split": "tune",
+      "question": "Where does the HTTP client handle connecting to an HTTPS site through a proxy?",
+      "expect_abstain": false,
+      "relevant": [
+        "http/client.py::HTTPConnection.set_tunnel",
+        "http/client.py::HTTPConnection._tunnel"
+      ],
+      "classification": "answered",
+      "answer": "The HTTP client handles connecting to an HTTPS site through a proxy using the `HTTPSConnection` class, specifically through its `connect()` method. When a tunnel is set up via `set_tunnel()`, the client sends an HTTP CONNECT request to the proxy server. The proxy server then establishes a tunnel to the destination HTTPS server, and the `HTTPSConnection.connect()` method wraps the socket with SSL context to establish a secure connection to the destination site. This process is detailed in the `connect()` method of `HTTPSConnection`, which calls `super().connect()` to establish the initial connection and then applies the SSL context using `self._context.wrap_socket()` [C1, C6]. The `set_tunnel()` method configures the tunneling behavior, ensuring the proxy relays traffic to the destination HTTPS endpoint [C2, C5].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "http/client.py::HTTPSConnection.connect",
+          "location": "http/client.py:1469-1480",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "http/client.py::HTTPConnection",
+          "location": "http/client.py:819-1447",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "http/client.py::<module>",
+          "location": "http/client.py:1-69,71-80,82-90,92-93,95-95,97-100,106-108,110-112,137-140,142-147,152-154,156-158,1549-1550",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "http/client.py::HTTPSConnection.__init__",
+          "location": "http/client.py:1459-1467",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "http/client.py::HTTPConnection.set_tunnel",
+          "location": "http/client.py:890-924",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "http/client.py::HTTPSConnection",
+          "location": "http/client.py:1454-1480",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "http/client.py::HTTPConnection.__init__",
+          "location": "http/client.py:867-888",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "http/client.py::HTTPConnection.connect",
+          "location": "http/client.py:1000-1013",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "http/client.py::HTTPSConnection.connect",
+          "location": "http/client.py:1469-1480"
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "http/client.py::HTTPSConnection",
+          "location": "http/client.py:1454-1480"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "http/client.py::HTTPConnection",
+          "location": "http/client.py:819-1447"
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "http/client.py::HTTPConnection.set_tunnel",
+          "location": "http/client.py:890-924"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 7797,
+      "generated_tokens": 168,
+      "ttft_s": 31.992082500000834,
+      "tokens_per_s": 21.778174440619026,
+      "memory": {
+        "peak_rss_mb": 272.859136,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3971.9557640000003,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q13",
+      "corpus": "stdlib",
+      "type": "flow",
+      "split": "tune",
+      "question": "In an asyncio task group, if one task crashes, what happens to its sibling tasks and how does the error reach my code?",
+      "expect_abstain": false,
+      "relevant": [
+        "asyncio/taskgroups.py::TaskGroup._on_task_done",
+        "asyncio/taskgroups.py::TaskGroup._abort",
+        "asyncio/taskgroups.py::TaskGroup.__aexit__",
+        "asyncio/taskgroups.py::TaskGroup._aexit"
+      ],
+      "classification": "answered",
+      "answer": "In an asyncio TaskGroup, if one task crashes, its exception is captured and added to the `_errors` list. If the crashing task's exception is not a `SystemExit` or `KeyboardInterrupt`, and no other errors are present, the error is propagated as an `ExceptionGroup` when the TaskGroup exits. Specifically, if the parent task is not being cancelled, the TaskGroup will cancel the parent task to prevent further execution, and all errors from the tasks (including the one that crashed) are aggregated and raised as a single `ExceptionGroup`. This ensures that any unhandled exceptions from tasks within the group are reported collectively, allowing your code to catch and handle them as a single exception group. The error propagation occurs during the `__aexit__` method, where the `BaseExceptionGroup` is raised if there are any errors in the group [C1, C3, C4, C5, C8].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup",
+          "location": "asyncio/taskgroups.py:12-278",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup._on_task_done",
+          "location": "asyncio/taskgroups.py:228-278",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup._aexit",
+          "location": "asyncio/taskgroups.py:82-178",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup._is_base_error",
+          "location": "asyncio/taskgroups.py:217-219",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup.create_task",
+          "location": "asyncio/taskgroups.py:181-211",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup.__init__",
+          "location": "asyncio/taskgroups.py:28-38",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup.__aenter__",
+          "location": "asyncio/taskgroups.py:54-66",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup._abort",
+          "location": "asyncio/taskgroups.py:221-226",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup",
+          "location": "asyncio/taskgroups.py:12-278"
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup._aexit",
+          "location": "asyncio/taskgroups.py:82-178"
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup._is_base_error",
+          "location": "asyncio/taskgroups.py:217-219"
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup.create_task",
+          "location": "asyncio/taskgroups.py:181-211"
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "asyncio/taskgroups.py::TaskGroup._abort",
+          "location": "asyncio/taskgroups.py:221-226"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 4237,
+      "generated_tokens": 190,
+      "ttft_s": 17.084253583001555,
+      "tokens_per_s": 25.21327778981892,
+      "memory": {
+        "peak_rss_mb": 272.351232,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3474.783284,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q14",
+      "corpus": "stdlib",
+      "type": "flow",
+      "split": "tune",
+      "question": "What are the steps between building an email message object and getting the raw bytes to send over SMTP?",
+      "expect_abstain": false,
+      "relevant": [
+        "email/message.py::Message.as_bytes",
+        "email/generator.py::BytesGenerator",
+        "email/generator.py::Generator.flatten"
+      ],
+      "classification": "answered",
+      "answer": "The steps between building an email message object and getting the raw bytes to send over SMTP are as follows:\n\n1. **Building the Message Object**: The email content is structured using the `Message` class, which defines headers and a payload. Headers are set using methods like `add_header()` or `set_header()`, and the payload (body) is set using `set_payload()` or `attach()` [C3].\n\n2. **Serializing the Message to Bytes**: To convert the message object into raw bytes suitable for transmission, the `as_bytes()` method is used. This method internally uses a `BytesGenerator` to generate the message in bytes [C3, C4].\n\n3. **Using the Generator**: The `BytesGenerator` class, which inherits from `Generator`, is responsible for formatting the message. It processes the message object, handling headers and body content, and writes the output to a `BytesIO` buffer [C6].\n\n4. **Final Output**: The `as_bytes()` method returns the formatted message as a bytes object, which can now be sent over SMTP.\n\nThis process ensures that the message is properly formatted according to RFC 2822 and MIME standards, with appropriate encoding and header handling, before being transmitted.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "email/message.py::Message.__bytes__",
+          "location": "email/message.py:191-194",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "email/__init__.py::message_from_bytes",
+          "location": "email/__init__.py:39-45",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "email/message.py::Message",
+          "location": "email/message.py:135-978",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "email/message.py::Message.as_bytes",
+          "location": "email/message.py:196-209",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "email/message.py::Message.get_payload",
+          "location": "email/message.py:243-333",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "email/generator.py::BytesGenerator",
+          "location": "email/generator.py:406-453",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "email/__init__.py::message_from_binary_file",
+          "location": "email/__init__.py:55-61",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "email/parser.py::BytesParser",
+          "location": "email/parser.py:75-119",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C3",
+          "chunk_id": "email/message.py::Message",
+          "location": "email/message.py:135-978"
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "email/message.py::Message.as_bytes",
+          "location": "email/message.py:196-209"
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "email/generator.py::BytesGenerator",
+          "location": "email/generator.py:406-453"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 9730,
+      "generated_tokens": 253,
+      "ttft_s": 40.39246554199781,
+      "tokens_per_s": 19.675383457192993,
+      "memory": {
+        "peak_rss_mb": 276.23424,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 4268.211252,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q15",
+      "corpus": "stdlib",
+      "type": "negative",
+      "split": "tune",
+      "question": "How does asyncio retry failed HTTP requests with exponential backoff?",
+      "expect_abstain": true,
+      "relevant": [],
+      "classification": "abstained",
+      "answer": "The retrieved code does not contain the answer.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/constants.py::<module>",
+          "location": "asyncio/constants.py:5-5,7-8,10-11,13-16,18-20,22-24,26-28,30-31,33-34",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/events.py::AbstractEventLoop",
+          "location": "asyncio/events.py:221-629",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "asyncio/base_events.py::_SendfileFallbackProtocol",
+          "location": "asyncio/base_events.py:207-272",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "asyncio/base_events.py::BaseEventLoop._sendfile_fallback",
+          "location": "asyncio/base_events.py:1284-1307",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/base_events.py::Server",
+          "location": "asyncio/base_events.py:275-414",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "asyncio/base_events.py::_SendfileFallbackProtocol.restore",
+          "location": "asyncio/base_events.py:262-272",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "asyncio/events.py::AbstractEventLoop.create_server",
+          "location": "asyncio/events.py:328-388",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "asyncio/base_events.py::_SendfileFallbackProtocol.connection_lost",
+          "location": "asyncio/base_events.py:234-243",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": null,
+        "contain": null
+      },
+      "citations": [],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": null,
+        "contain": null
+      },
+      "prompt_tokens": 5990,
+      "generated_tokens": 9,
+      "ttft_s": 22.63396200000716,
+      "tokens_per_s": 23.323521956871534,
+      "memory": {
+        "peak_rss_mb": 277.62688,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3759.471668,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q16",
+      "corpus": "chatter",
+      "type": "location",
+      "split": "tune",
+      "question": "How does the tool cope with a source file that has a syntax error halfway through?",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/extract.py::_extract_segmented",
+        "src/chatter/extract.py::_split_segments",
+        "src/chatter/extract.py::_recover_broken"
+      ],
+      "classification": "answered",
+      "answer": "The tool handles a source file with a syntax error halfway through by extracting valid code chunks up to and including the error, ensuring that the syntax error does not cause the entire file to be discarded. Specifically, it preserves the module and valid code segments before the error, and it correctly identifies and isolates syntactically valid components such as functions, methods, and variables. For instance, in a test case, a broken method definition (e.g., `def broken(:`) causes the parser to stop at that point, and the rest of the file is not included, but the valid code before and after the error is preserved as separate chunks. The tool ensures that the module chunk and its valid components survive, and syntax errors do not cause the loss of subsequent valid code. This behavior is validated in the test `test_module_chunk_survives_syntax_errors`, which confirms that the module's docstring and valid assignments (like `BEFORE = 1` and `AFTER = 2`) are preserved, while invalid or broken syntax (like `def broken(:`) is excluded [C1]. Additionally, the `assert_source_consistent` function verifies that the extracted chunks maintain the correct line order and content, ensuring integrity of the source [C2].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "tests/test_extract.py::test_module_chunk_survives_syntax_errors",
+          "location": "tests/test_extract.py:685-699",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "tests/test_extract.py::assert_source_consistent",
+          "location": "tests/test_extract.py:27-42",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/cli.py::<module>",
+          "location": "src/chatter/cli.py:1-5,7-7,9-13,15-15,17-37,39-40,244-244",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/cli.py::make_app",
+          "location": "src/chatter/cli.py:47-189",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/cli.py::make_app.ask",
+          "location": "src/chatter/cli.py:122-187",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/index.py::build_index",
+          "location": "src/chatter/index.py:332-408",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/cli.py::make_app.index",
+          "location": "src/chatter/cli.py:60-99",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "tests/test_extract.py::test_broken_method_does_not_swallow_rest_of_file",
+          "location": "tests/test_extract.py:309-331",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": false,
+        "contain": false
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "tests/test_extract.py::test_module_chunk_survives_syntax_errors",
+          "location": "tests/test_extract.py:685-699"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "tests/test_extract.py::assert_source_consistent",
+          "location": "tests/test_extract.py:27-42"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": false,
+        "contain": false
+      },
+      "prompt_tokens": 4578,
+      "generated_tokens": 253,
+      "ttft_s": 16.66133995799464,
+      "tokens_per_s": 27.27336831449907,
+      "memory": {
+        "peak_rss_mb": 280.674304,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3474.783284,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q17",
+      "corpus": "chatter",
+      "type": "location",
+      "split": "tune",
+      "question": "Why are line and column positions read by index rather than by attribute name?",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/extract.py::_start_row",
+        "src/chatter/extract.py::_end_row"
+      ],
+      "classification": "abstained",
+      "answer": "The retrieved code does not contain the answer.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/index.py::IndexStats",
+          "location": "src/chatter/index.py:70-76",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/cli.py::make_app.index",
+          "location": "src/chatter/cli.py:60-99",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/answer.py::ContextBlock.location",
+          "location": "src/chatter/answer.py:121-124",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/extract.py::Chunk",
+          "location": "src/chatter/extract.py:53-83",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/index.py::build_index",
+          "location": "src/chatter/index.py:332-408",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/index.py::IndexConfig",
+          "location": "src/chatter/index.py:62-67",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/extract.py::_end_row",
+          "location": "src/chatter/extract.py:218-223",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "src/chatter/answer.py::format_line_ranges",
+          "location": "src/chatter/answer.py:329-341",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": false,
+        "contain": false
+      },
+      "prompt_tokens": 2219,
+      "generated_tokens": 9,
+      "ttft_s": 7.365359208008158,
+      "tokens_per_s": 29.47249953383186,
+      "memory": {
+        "peak_rss_mb": 281.411584,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3179.060952,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q18",
+      "corpus": "chatter",
+      "type": "behavior",
+      "split": "tune",
+      "question": "What stops the local model from repeating the same sentence over and over?",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/answer.py::RepetitionGuard",
+        "src/chatter/answer.py::RepetitionGuard.feed",
+        "src/chatter/answer.py::RepetitionGuard._count_line",
+        "src/chatter/answer.py::RepetitionGuard._phrase_loop"
+      ],
+      "classification": "answered",
+      "answer": "The `RepetitionGuard` class stops the local model from repeating the same sentence over and over by detecting specific patterns of repetition in the generated text. It monitors for two types of repetition:\n\n1. **Line repetition**: If a non-trivial line (with at least `min_line_chars` characters and not a code fence) appears `max_line_repeats` times (default is 3), the generation is stopped.\n2. **Phrase repetition**: If the end of the text contains a phrase of 8 to 80 characters repeated `max_phrase_repeats` times (default is 6), the generation is stopped and the repeating tail is trimmed from the output [C1, C2, C5, C7].\n\nWhen either condition is met, the `trip_at` attribute is set to the position where the loop begins, and the generation stops to prevent infinite repetition [C1, C5]. This mechanism ensures that the model does not generate endlessly repeating content during streaming text generation.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/answer.py::RepetitionGuard",
+          "location": "src/chatter/answer.py:386-449",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/answer.py::RepetitionGuard._phrase_loop",
+          "location": "src/chatter/answer.py:436-446",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/answer.py::<module>",
+          "location": "src/chatter/answer.py:1-45,47-47,49-54,56-58,60-64,66-76,78-83",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/cli.py::make_app",
+          "location": "src/chatter/cli.py:47-189",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/answer.py::RepetitionGuard.feed",
+          "location": "src/chatter/answer.py:409-420",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/cli.py::make_app.ask",
+          "location": "src/chatter/cli.py:122-187",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/answer.py::RepetitionGuard.__init__",
+          "location": "src/chatter/answer.py:394-403",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "src/chatter/cli.py::<module>",
+          "location": "src/chatter/cli.py:1-5,7-7,9-13,15-15,17-37,39-40,244-244",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/answer.py::RepetitionGuard",
+          "location": "src/chatter/answer.py:386-449"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/answer.py::RepetitionGuard._phrase_loop",
+          "location": "src/chatter/answer.py:436-446"
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/answer.py::RepetitionGuard.feed",
+          "location": "src/chatter/answer.py:409-420"
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/answer.py::RepetitionGuard.__init__",
+          "location": "src/chatter/answer.py:394-403"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 4783,
+      "generated_tokens": 202,
+      "ttft_s": 17.97375025000656,
+      "tokens_per_s": 26.05566294597883,
+      "memory": {
+        "peak_rss_mb": 282.558464,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3474.783284,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q19",
+      "corpus": "chatter",
+      "type": "behavior",
+      "split": "tune",
+      "question": "Why doesn't a word that appears in almost every function get a negative keyword score?",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/retrieve.py::PositiveIdfBM25",
+        "src/chatter/retrieve.py::PositiveIdfBM25._calc_idf"
+      ],
+      "classification": "mixed",
+      "answer": "The provided code does not contain information explaining why a word that appears in almost every function does not get a negative keyword score. The relevant code discusses BM25 scoring and IDf calculations, including the use of Lucene's IDf formula, which ensures positive scores for matches and zero for non-matches [C3]. However, there is no explicit explanation or mechanism in the code that addresses the behavior of a word appearing in almost every function resulting in a non-negative score. Therefore, based on the provided chunks, the reasoning behind this behavior cannot be determined.\n\nThe retrieved code does not contain the answer.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/answer.py::_line_score",
+          "location": "src/chatter/answer.py:263-264",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "tests/test_retrieve.py::test_positive_idf_bm25_scores_matches_above_zero_and_others_zero",
+          "location": "tests/test_retrieve.py:41-47",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/retrieve.py::PositiveIdfBM25",
+          "location": "src/chatter/retrieve.py:53-63",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/answer.py::query_terms",
+          "location": "src/chatter/answer.py:154-155",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/retrieve.py::BM25Index",
+          "location": "src/chatter/retrieve.py:66-79",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/answer.py::truncation_window",
+          "location": "src/chatter/answer.py:217-249",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "tests/test_retrieve.py::test_okapi_scores_real_matches_at_or_below_zero_on_tiny_corpora",
+          "location": "tests/test_retrieve.py:31-38",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "tests/test_answer.py::test_best_line_wins_by_distinct_query_terms_earliest_on_tie",
+          "location": "tests/test_answer.py:88-97",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/retrieve.py::PositiveIdfBM25",
+          "location": "src/chatter/retrieve.py:53-63"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 1573,
+      "generated_tokens": 122,
+      "ttft_s": 5.380920499999775,
+      "tokens_per_s": 30.828556948777,
+      "memory": {
+        "peak_rss_mb": 283.017216,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3088.555072,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q20",
+      "corpus": "chatter",
+      "type": "behavior",
+      "split": "tune",
+      "question": "When I index the same folder again, how does it know which functions don't need new vectors?",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/index.py::build_index",
+        "src/chatter/index.py::content_hash",
+        "src/chatter/index.py::_stored_parts"
+      ],
+      "classification": "answered",
+      "answer": "When indexing the same folder again, the system determines which functions (or chunks) don't need new vectors by comparing content hashes. Specifically, during the indexing process, each chunk's content is hashed using the embedder's fingerprint. If a previously stored chunk has the same hash as a new chunk being processed, it is considered a duplicate and marked as reused. This means the system skips re-embedding that chunk, as its content has not changed [C1].\n\nAdditionally, the index maintains a manifest that records the schema, model, and fingerprint used during the previous indexing. If the model or schema has not changed, and the content hash matches, the system recognizes the chunk as unchanged and reuses it, avoiding redundant embedding [C1, C3]. This reuse is tracked in the `reused_chunks` field of the `IndexStats` object [C4].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/index.py::build_index",
+          "location": "src/chatter/index.py:332-408",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "tests/test_retrieve.py::test_open_requires_existing_index",
+          "location": "tests/test_retrieve.py:184-186",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/cli.py::make_app.index",
+          "location": "src/chatter/cli.py:60-99",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/index.py::IndexStats",
+          "location": "src/chatter/index.py:70-76",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/index.py::default_index_dir",
+          "location": "src/chatter/index.py:260-261",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/index.py::_drop_collection",
+          "location": "src/chatter/index.py:486-489",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/index.py::_PartWriter",
+          "location": "src/chatter/index.py:411-460",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "tests/test_index.py::test_duplicate_names_across_files",
+          "location": "tests/test_index.py:251-260",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/index.py::build_index",
+          "location": "src/chatter/index.py:332-408"
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/cli.py::make_app.index",
+          "location": "src/chatter/cli.py:60-99"
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/index.py::IndexStats",
+          "location": "src/chatter/index.py:70-76"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 2334,
+      "generated_tokens": 175,
+      "ttft_s": 8.026097333990037,
+      "tokens_per_s": 30.116933297645758,
+      "memory": {
+        "peak_rss_mb": 283.574272,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3179.061412,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q21",
+      "corpus": "chatter",
+      "type": "flow",
+      "split": "tune",
+      "question": "How does a Python file on disk end up as vectors in the store?",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/index.py::iter_source_files",
+        "src/chatter/extract.py::extract_file",
+        "src/chatter/index.py::embedding_text",
+        "src/chatter/embed.py::SentenceTransformerEmbedder.embed_documents",
+        "src/chatter/index.py::_PartWriter.flush",
+        "src/chatter/index.py::build_index",
+        "src/chatter/index.py::plan_parts"
+      ],
+      "classification": "answered",
+      "answer": "A Python file on disk ends up as vectors in the store through a series of steps involving file extraction, chunking, and embedding. \n\nFirst, the `extract_file` function processes a Python file, checking if it is readable, not binary (i.e., does not contain NUL bytes), and within a size limit [C1]. If valid, it extracts source code and passes it to `extract_source`, which generates `Chunk` objects representing individual code units like functions, classes, or the module itself [C1, C6]. \n\nFor each file, the `iter_source_files` function iterates over relevant files (e.g., those with `.py` suffixes), skipping ignored or binary files [C4]. Each file is processed to extract its content, and a module-level chunk (named `<module>`) and symbol-level chunks (like functions or classes) are created based on the file's parse tree [C6].\n\nThese chunks are then passed to the `_PartWriter`, which buffers them and, when flushed, splits them into parts for embedding. The `build_index` function uses the `_PartWriter` to batch process chunks, embedding their text content using an `Embedder` (e.g., `SentenceTransformerEmbedder`) [C3, C2]. The resulting vectors are upserted into the vector store (e.g., Chroma) via the `collection.upsert` method, with metadata like chunk ID, hash, and part indices preserved [C2, C3].\n\nAdditionally, if a chunk already exists in the index with the same hash, it is considered reused and skipped from re-embedding, ensuring efficiency [C3]. Thus, the entire process transforms the raw Python file into structured, searchable chunks, which are then converted into vectors and stored in the index.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/extract.py::extract_file",
+          "location": "src/chatter/extract.py:109-135",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/index.py::_PartWriter",
+          "location": "src/chatter/index.py:411-460",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/index.py::build_index",
+          "location": "src/chatter/index.py:332-408",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/index.py::iter_source_files",
+          "location": "src/chatter/index.py:199-232",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/extract.py::_file_context",
+          "location": "src/chatter/extract.py:235-259",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/extract.py::<module>",
+          "location": "src/chatter/extract.py:1-14,16-16,18-28,30-31,33-33,35-36,38-39,41-46,48-50,101-101",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/index.py::_stored_parts",
+          "location": "src/chatter/index.py:463-478",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "src/chatter/extract.py::_module_chunk",
+          "location": "src/chatter/extract.py:446-499",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/extract.py::extract_file",
+          "location": "src/chatter/extract.py:109-135"
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/extract.py::<module>",
+          "location": "src/chatter/extract.py:1-14,16-16,18-28,30-31,33-33,35-36,38-39,41-46,48-50,101-101"
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/index.py::iter_source_files",
+          "location": "src/chatter/index.py:199-232"
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/index.py::build_index",
+          "location": "src/chatter/index.py:332-408"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/index.py::_PartWriter",
+          "location": "src/chatter/index.py:411-460"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 3544,
+      "generated_tokens": 367,
+      "ttft_s": 12.590186083994922,
+      "tokens_per_s": 26.61811427655475,
+      "memory": {
+        "peak_rss_mb": 284.639232,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3384.9148480000003,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "q22",
+      "corpus": "chatter",
+      "type": "negative",
+      "split": "tune",
+      "question": "How does chatter send questions to the Anthropic API?",
+      "expect_abstain": true,
+      "relevant": [],
+      "classification": "abstained",
+      "answer": "The retrieved code does not contain the answer.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/answer.py::HFGenerator",
+          "location": "src/chatter/answer.py:517-608",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/cli.py::make_app",
+          "location": "src/chatter/cli.py:47-189",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/cli.py::make_app.ask",
+          "location": "src/chatter/cli.py:122-187",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/cli.py::<module>",
+          "location": "src/chatter/cli.py:1-5,7-7,9-13,15-15,17-37,39-40,244-244",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/answer.py::HFGenerator.generate",
+          "location": "src/chatter/answer.py:564-608",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/answer.py::answer_question",
+          "location": "src/chatter/answer.py:457-496",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/cli.py::make_app.search",
+          "location": "src/chatter/cli.py:101-120",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "src/chatter/cli.py::_open_retriever",
+          "location": "src/chatter/cli.py:192-204",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": null,
+        "contain": null
+      },
+      "citations": [],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": null,
+        "contain": null
+      },
+      "prompt_tokens": 4536,
+      "generated_tokens": 9,
+      "ttft_s": 16.583837583006243,
+      "tokens_per_s": 26.927527870485257,
+      "memory": {
+        "peak_rss_mb": 285.048832,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3474.783284,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h01",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "heldout",
+      "question": "json.loads keeps giving me 'Extra data' on a file that looks fine to me. What does that error actually mean and where is it raised?",
+      "expect_abstain": false,
+      "relevant": [
+        "json/decoder.py::JSONDecoder.decode"
+      ],
+      "classification": "answered",
+      "answer": "The error \"Extra data\" in `json.loads` means that the input string contains data after the valid JSON document, which is not part of the JSON structure. This typically happens when the input has trailing characters or is malformed, such as having extra content after the closing bracket or brace of a JSON object or array.\n\nThis error is raised in the `decode` method of the `JSONDecoder` class, specifically in the `decode` method where it checks if the end of the parsed string matches the length of the input string. If there's extra data, it raises a `JSONDecodeError` with the message \"Extra data\" [C6].\n\nThe error is further detailed in the `JSONDecodeError` class, which includes properties like `doc`, `pos`, `lineno`, and `colno` to help pinpoint the exact location of the error in the input [C2, C4]. The `JSONDecodeError` is raised when the parser detects that the input string has content beyond the valid JSON document, which is not allowed per JSON specification.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "json/decoder.py::JSONObject",
+          "location": "json/decoder.py:137-219",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "json/decoder.py::JSONDecodeError",
+          "location": "json/decoder.py:20-43",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "json/tool.py::main",
+          "location": "json/tool.py:18-82",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "json/decoder.py::JSONDecodeError.__init__",
+          "location": "json/decoder.py:31-40",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "json/decoder.py::JSONArray",
+          "location": "json/decoder.py:221-259",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "json/decoder.py::JSONDecoder.decode",
+          "location": "json/decoder.py:340-349",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "json/decoder.py::py_scanstring",
+          "location": "json/decoder.py:70-127",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "json/__init__.py::loads",
+          "location": "json/__init__.py:299-359",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C6",
+          "chunk_id": "json/decoder.py::JSONDecoder.decode",
+          "location": "json/decoder.py:340-349"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "json/decoder.py::JSONDecodeError",
+          "location": "json/decoder.py:20-43"
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "json/decoder.py::JSONDecodeError.__init__",
+          "location": "json/decoder.py:31-40"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 3766,
+      "generated_tokens": 215,
+      "ttft_s": 13.282469500001753,
+      "tokens_per_s": 28.07805256887322,
+      "memory": {
+        "peak_rss_mb": 285.474816,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3491.6247280000002,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h02",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "heldout",
+      "question": "json duplicate keys which one wins",
+      "expect_abstain": false,
+      "relevant": [
+        "json/decoder.py::JSONObject"
+      ],
+      "classification": "abstained",
+      "answer": "The retrieved code does not contain the answer.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "json/encoder.py::JSONEncoder.__init__",
+          "location": "json/encoder.py:105-159",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "json/__init__.py::dumps",
+          "location": "json/__init__.py:183-238",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "json/encoder.py::JSONEncoder",
+          "location": "json/encoder.py:74-261",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "json/__init__.py::<module>",
+          "location": "json/__init__.py:1-102,104-104,106-108,110-118,241-241",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "json/decoder.py::JSONObject",
+          "location": "json/decoder.py:137-219",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "json/decoder.py::JSONDecoder",
+          "location": "json/decoder.py:262-364",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "json/encoder.py::JSONEncoder.encode",
+          "location": "json/encoder.py:183-203",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "json/decoder.py::py_scanstring",
+          "location": "json/decoder.py:70-127",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": false,
+        "contain": false
+      },
+      "prompt_tokens": 6573,
+      "generated_tokens": 9,
+      "ttft_s": 25.414337124995654,
+      "tokens_per_s": 23.561175740780204,
+      "memory": {
+        "peak_rss_mb": 296.96,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3743.284348,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h03",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "heldout",
+      "question": "How does the built-in HTTP server decide whether to keep a connection open for another request or close it?",
+      "expect_abstain": false,
+      "relevant": [
+        "http/server.py::BaseHTTPRequestHandler.parse_request",
+        "http/server.py::BaseHTTPRequestHandler.handle"
+      ],
+      "classification": "answered",
+      "answer": "The built-in HTTP server decides whether to keep a connection open or close it based on the HTTP/1.1 \"Connection\" header. Specifically, if the server receives a \"Connection: close\" header, the connection will be closed after the response. Otherwise, the connection is assumed to remain open. For HTTP/1.0, the presence of a \"Keep-Alive\" header indicates a persistent connection, while the absence of such a header implies the connection will close. Additionally, if no explicit \"Connection\" header is present, the server defaults to closing the connection after the response. This behavior is implemented in the `_check_close` method of the `HTTPResponse` class, which checks for these headers and determines whether the connection will close at the end of the response. [C2, C4, C7]",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "http/client.py::<module>",
+          "location": "http/client.py:1-69,71-80,82-90,92-93,95-95,97-100,106-108,110-112,137-140,142-147,152-154,156-158,1549-1550",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "http/client.py::HTTPResponse._check_close",
+          "location": "http/client.py:396-423",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "http/client.py::HTTPResponse.isclosed",
+          "location": "http/client.py:453-461",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "http/client.py::HTTPResponse",
+          "location": "http/client.py:252-803",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "http/client.py::HTTPResponse.close",
+          "location": "http/client.py:430-435",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "http/client.py::HTTPConnection.getresponse",
+          "location": "http/client.py:1386-1447",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "http/client.py::HTTPResponse.begin",
+          "location": "http/client.py:324-394",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "http/client.py::HTTPResponse.__init__",
+          "location": "http/client.py:261-289",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": false,
+        "contain": false
+      },
+      "citations": [
+        {
+          "tag": "C2",
+          "chunk_id": "http/client.py::HTTPResponse._check_close",
+          "location": "http/client.py:396-423"
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "http/client.py::HTTPResponse",
+          "location": "http/client.py:252-803"
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "http/client.py::HTTPResponse.begin",
+          "location": "http/client.py:324-394"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": false,
+        "contain": false
+      },
+      "prompt_tokens": 7736,
+      "generated_tokens": 167,
+      "ttft_s": 31.082395916993846,
+      "tokens_per_s": 19.226253436798455,
+      "memory": {
+        "peak_rss_mb": 296.370176,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3955.538996,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h04",
+      "corpus": "stdlib",
+      "type": "location",
+      "split": "heldout",
+      "question": "What stops a malicious server from sending an endless list of response headers to the HTTP client?",
+      "expect_abstain": false,
+      "relevant": [
+        "http/client.py::_read_headers",
+        "http/client.py::parse_headers"
+      ],
+      "classification": "answered",
+      "answer": "The HTTP client enforces a state machine that prevents a malicious server from sending an endless list of response headers. Specifically, the client only allows a new request to be sent after the response headers have been fully read and processed. This is enforced by the `HTTPConnection` class, which ensures that the client cannot issue a new request until it has read the response headers. As stated in the code, \"a second request may not be started until {response-headers-read}\" [C1]. This mechanism prevents the client from being overwhelmed by an endless stream of headers, as it ensures that the client only proceeds to the next request after confirming the response headers have been received and parsed. Additionally, the `HTTPResponse.begin()` method reads headers until a non-100 response is encountered, which stops the client from processing an infinite loop of 100 Continue responses [C5].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "http/client.py::<module>",
+          "location": "http/client.py:1-69,71-80,82-90,92-93,95-95,97-100,106-108,110-112,137-140,142-147,152-154,156-158,1549-1550",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "http/server.py::BaseHTTPRequestHandler",
+          "location": "http/server.py:350-394",
+          "truncated": true
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "http/client.py::HTTPConnection",
+          "location": "http/client.py:1379-1433",
+          "truncated": true
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "http/client.py::HTTPResponse",
+          "location": "http/client.py:356-413",
+          "truncated": true
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "http/client.py::HTTPResponse.begin",
+          "location": "http/client.py:324-394",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "http/server.py::BaseHTTPRequestHandler.parse_request",
+          "location": "http/server.py:267-375",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "http/client.py::HTTPResponse._check_close",
+          "location": "http/client.py:396-423",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "http/client.py::HTTPConnection._send_request",
+          "location": "http/client.py:1340-1384",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": false,
+        "contain": false
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "http/client.py::<module>",
+          "location": "http/client.py:1-69,71-80,82-90,92-93,95-95,97-100,106-108,110-112,137-140,142-147,152-154,156-158,1549-1550"
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "http/client.py::HTTPResponse.begin",
+          "location": "http/client.py:324-394"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": false,
+        "contain": false
+      },
+      "prompt_tokens": 5191,
+      "generated_tokens": 179,
+      "ttft_s": 20.95525629199983,
+      "tokens_per_s": 19.678194281224926,
+      "memory": {
+        "peak_rss_mb": 292.978688,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3650.223192,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h05",
+      "corpus": "stdlib",
+      "type": "location",
+      "split": "heldout",
+      "question": "where are status codes like 404 defined along with their short descriptions",
+      "expect_abstain": false,
+      "relevant": [
+        "http/__init__.py::HTTPStatus"
+      ],
+      "classification": "answered",
+      "answer": "The status codes like 404 are defined in the `HTTPStatus` class within the `http/__init__.py` file, along with their short descriptions. For example, the 404 status code is defined as `(404, 'Not Found', 'Nothing matches the given URI')` [C1].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "http/__init__.py::HTTPStatus",
+          "location": "http/__init__.py:6-173",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "http/client.py::<module>",
+          "location": "http/client.py:1-69,71-80,82-90,92-93,95-95,97-100,106-108,110-112,137-140,142-147,152-154,156-158,1549-1550",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "http/client.py::HTTPResponse.getcode",
+          "location": "http/client.py:798-803",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "http/client.py::HTTPResponse._read_status",
+          "location": "http/client.py:291-322",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "http/client.py::HTTPResponse",
+          "location": "http/client.py:295-355",
+          "truncated": true
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "http/server.py::BaseHTTPRequestHandler",
+          "location": "http/server.py:444-485",
+          "truncated": true
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "http/client.py::HTTPResponse.begin",
+          "location": "http/client.py:324-394",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "http/server.py::BaseHTTPRequestHandler.parse_request",
+          "location": "http/server.py:267-375",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "http/__init__.py::HTTPStatus",
+          "location": "http/__init__.py:6-173"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 6221,
+      "generated_tokens": 68,
+      "ttft_s": 25.252217457993538,
+      "tokens_per_s": 24.06255165885748,
+      "memory": {
+        "peak_rss_mb": 295.043072,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3728.5386639999997,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h06",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "heldout",
+      "question": "I have the Date header of an email as a string. How do I get it as a proper datetime with the timezone?",
+      "expect_abstain": false,
+      "relevant": [
+        "email/utils.py::parsedate_to_datetime",
+        "email/headerregistry.py::DateHeader.parse"
+      ],
+      "classification": "answered",
+      "answer": "To convert a Date header string from an email into a proper datetime with timezone information, you can use the `email.headerregistry.DateHeader.parse` method. This method parses the input string, extracts the datetime, and stores it in the `datetime` attribute of the `DateHeader` object. The `DateHeader.parse` method internally uses `email.utils.parsedate_to_datetime`, which converts the string into a `datetime` object with timezone information if present [C3, C4].\n\nSpecifically:\n- The `DateHeader.parse` method takes the string value of the Date header and converts it into a `datetime` object with timezone if the input includes a timezone (e.g., `+0000`, `-0500`) [C3, C6].\n- It uses `parsedate_to_datetime` to parse the date string and assign the resulting `datetime` object to the `datetime` attribute of the `DateHeader` instance [C4, C6].\n\nThus, after parsing the Date header, you can access the proper datetime with timezone via the `datetime` property of the `DateHeader` object.\n\nExample:\n```python\nfrom email.headerregistry import DateHeader\ndate_header = DateHeader()\ndate_header.parse(\"Fri, 09 Nov 2001 01:08:47 -0000\")\nprint(date_header.datetime)  # This will be a datetime with timezone\n```\n\nThis approach ensures the datetime is properly parsed and includes timezone information as per the input string [C3, C4, C6].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "http/server.py::BaseHTTPRequestHandler.date_time_string",
+          "location": "http/server.py:605-609",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "email/utils.py::format_datetime",
+          "location": "email/utils.py:268-284",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "email/headerregistry.py::DateHeader",
+          "location": "email/headerregistry.py:276-319",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "email/utils.py::parsedate_to_datetime",
+          "location": "email/utils.py:315-323",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "email/utils.py::formatdate",
+          "location": "email/utils.py:239-266",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "email/headerregistry.py::DateHeader.parse",
+          "location": "email/headerregistry.py:292-311",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "email/_parseaddr.py::_parsedate_tz",
+          "location": "email/_parseaddr.py:57-179",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "email/_parseaddr.py::parsedate_tz",
+          "location": "email/_parseaddr.py:45-55",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C3",
+          "chunk_id": "email/headerregistry.py::DateHeader",
+          "location": "email/headerregistry.py:276-319"
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "email/utils.py::parsedate_to_datetime",
+          "location": "email/utils.py:315-323"
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "email/headerregistry.py::DateHeader.parse",
+          "location": "email/headerregistry.py:292-311"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 2833,
+      "generated_tokens": 324,
+      "ttft_s": 10.226155374999507,
+      "tokens_per_s": 27.09542292861472,
+      "memory": {
+        "peak_rss_mb": 290.65216,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3196.020892,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h07",
+      "corpus": "stdlib",
+      "type": "location",
+      "split": "heldout",
+      "question": "When an email with attachments is written out, how is the separator between the parts chosen so it can't accidentally appear inside the content?",
+      "expect_abstain": false,
+      "relevant": [
+        "email/generator.py::Generator._make_boundary",
+        "email/generator.py::Generator._handle_multipart"
+      ],
+      "classification": "mixed",
+      "answer": "The provided code does not describe how the separator between parts in an email is chosen or how it is ensured not to appear inside the content. Therefore, the retrieved code does not contain the answer.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "email/feedparser.py::FeedParser",
+          "location": "email/feedparser.py:136-530",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "email/message.py::MIMEPart.iter_attachments",
+          "location": "email/message.py:1066-1119",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "email/message.py::MIMEPart",
+          "location": "email/message.py:981-1201",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "email/message.py::MIMEPart.iter_parts",
+          "location": "email/message.py:1121-1127",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "email/message.py::MIMEPart.is_attachment",
+          "location": "email/message.py:1009-1011",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "email/feedparser.py::FeedParser._parsegen",
+          "location": "email/feedparser.py:218-470",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "email/message.py::MIMEPart.add_attachment",
+          "location": "email/message.py:1191-1192",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "email/message.py::Message.is_multipart",
+          "location": "email/message.py:211-213",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": false,
+        "contain": false
+      },
+      "citations": [],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": false,
+        "contain": false
+      },
+      "prompt_tokens": 8747,
+      "generated_tokens": 39,
+      "ttft_s": 36.06576029199641,
+      "tokens_per_s": 21.453028765456438,
+      "memory": {
+        "peak_rss_mb": 294.109184,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 4074.5524079999996,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h08",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "heldout",
+      "question": "how do i run a blocking funtion from async code without freezing the event loop",
+      "expect_abstain": false,
+      "relevant": [
+        "asyncio/threads.py::to_thread",
+        "asyncio/base_events.py::BaseEventLoop.run_in_executor"
+      ],
+      "classification": "answered",
+      "answer": "You can run a blocking function from async code without freezing the event loop by using `loop.run_in_executor()`. This allows the blocking operation to run in a separate thread, preserving the event loop's execution. For example, you can use `asyncio.to_thread()` to asynchronously execute a blocking function, which will run in a separate thread and not block the event loop. This is implemented in `asyncio/threads.py::to_thread` [C5].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/locks.py::Event.wait",
+          "location": "asyncio/locks.py:200-216",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/locks.py::Event",
+          "location": "asyncio/locks.py:158-216",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "asyncio/locks.py::Barrier._block",
+          "location": "asyncio/locks.py:534-548",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "asyncio/events.py::get_running_loop",
+          "location": "asyncio/events.py:755-764",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/threads.py::to_thread",
+          "location": "asyncio/threads.py:12-25",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "asyncio/runners.py::run",
+          "location": "asyncio/runners.py:160-195",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "asyncio/staggered.py::staggered_race",
+          "location": "asyncio/staggered.py:13-174",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "asyncio/events.py::_get_running_loop",
+          "location": "asyncio/events.py:767-776",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/threads.py::to_thread",
+          "location": "asyncio/threads.py:12-25"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 3143,
+      "generated_tokens": 93,
+      "ttft_s": 10.916967334007495,
+      "tokens_per_s": 28.84881368177314,
+      "memory": {
+        "peak_rss_mb": 273.956864,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3381.1777159999997,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h09",
+      "corpus": "stdlib",
+      "type": "flow",
+      "split": "heldout",
+      "question": "Walk me through what happens when a task awaits asyncio.sleep(0): how does control get back to the event loop, and how does the task resume afterwards?",
+      "expect_abstain": false,
+      "relevant": [
+        "asyncio/tasks.py::sleep",
+        "asyncio/tasks.py::__sleep0",
+        "asyncio/tasks.py::Task.__step",
+        "asyncio/tasks.py::Task.__step_run_and_handle_result"
+      ],
+      "classification": "answered",
+      "answer": "When a task awaits `asyncio.sleep(0)`, the following sequence occurs:\n\n1. The `sleep(0)` function is called, and since the delay is 0, it calls `__sleep0()` as a private helper [C1]. \n2. `__sleep0()` is a coroutine that uses a `yield` expression, which instructs the event loop to skip one event loop run cycle [C2]. \n3. The event loop detects the `yield` and schedules a single iteration to proceed, effectively pausing the current task and allowing the event loop to process other tasks or callbacks. \n4. After the event loop completes this single iteration, control returns to the task, and it resumes execution, as the `yield` has been processed and the task is now \"woken up\" [C2].\n\nThis mechanism allows the event loop to yield control to other tasks without creating a Future object, making it efficient for zero-delay sleeps. The task resumes immediately after the event loop processes the `yield`, and execution continues from where it left off.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/tasks.py::sleep",
+          "location": "asyncio/tasks.py:703-720",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/tasks.py::__sleep0",
+          "location": "asyncio/tasks.py:691-700",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "asyncio/runners.py::Runner",
+          "location": "asyncio/runners.py:20-157",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "asyncio/tasks.py::_AsCompletedIterator",
+          "location": "asyncio/tasks.py:570-634",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/tasks.py::as_completed",
+          "location": "asyncio/tasks.py:637-688",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "asyncio/runners.py::run",
+          "location": "asyncio/runners.py:160-195",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "asyncio/base_events.py::BaseEventLoop.__init__",
+          "location": "asyncio/base_events.py:419-449",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "asyncio/base_events.py::Server.start_serving",
+          "location": "asyncio/base_events.py:362-366",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/tasks.py::sleep",
+          "location": "asyncio/tasks.py:703-720"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/tasks.py::__sleep0",
+          "location": "asyncio/tasks.py:691-700"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 3371,
+      "generated_tokens": 218,
+      "ttft_s": 11.814035041999887,
+      "tokens_per_s": 28.547281548392565,
+      "memory": {
+        "peak_rss_mb": 275.136512,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3405.148396,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h10",
+      "corpus": "stdlib",
+      "type": "behavior",
+      "split": "heldout",
+      "question": "If several coroutines are waiting on an asyncio semaphore, do they get in first-come first-served, and what makes that happen?",
+      "expect_abstain": false,
+      "relevant": [
+        "asyncio/locks.py::Semaphore.acquire",
+        "asyncio/locks.py::Semaphore._wake_up_next",
+        "asyncio/locks.py::Semaphore.release"
+      ],
+      "classification": "answered",
+      "answer": "Yes, if several coroutines are waiting on an asyncio semaphore, they get in first-come, first-served. This behavior is enforced by the FIFO (First-In, First-Out) rule implemented in the semaphore's `acquire` method.\n\nSpecifically, when a coroutine calls `acquire()` and the semaphore's internal counter is zero, it blocks and waits. The semaphore maintains a queue of waiters using a `collections.deque` to store futures representing the waiting coroutines. When a `release()` call increments the internal counter, the semaphore wakes up the first waiter in the queue (i.e., the one that has been waiting the longest) using the `_wake_up_next()` method [C1, C6]. This ensures that the first coroutine to call `acquire()` waits before any others, maintaining a first-come, first-served order.\n\nThe FIFO behavior is explicitly stated in the code: \"Maintain FIFO, wait for others to start even if _value > 0\" [C1, C2]. This ensures that no coroutine is allowed to proceed before all previous waiters have been processed, preserving the order of arrival.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/locks.py::Semaphore",
+          "location": "asyncio/locks.py:352-448",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/locks.py::Semaphore.acquire",
+          "location": "asyncio/locks.py:386-426",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "asyncio/locks.py::Semaphore.locked",
+          "location": "asyncio/locks.py:380-384",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "asyncio/tasks.py::gather",
+          "location": "asyncio/tasks.py:784-915",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/tasks.py::_AsCompletedIterator",
+          "location": "asyncio/tasks.py:570-634",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "asyncio/locks.py::Semaphore._wake_up_next",
+          "location": "asyncio/locks.py:437-448",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "asyncio/tasks.py::as_completed",
+          "location": "asyncio/tasks.py:637-688",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "asyncio/locks.py::Semaphore.release",
+          "location": "asyncio/locks.py:428-435",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/locks.py::Semaphore",
+          "location": "asyncio/locks.py:352-448"
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "asyncio/locks.py::Semaphore._wake_up_next",
+          "location": "asyncio/locks.py:437-448"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/locks.py::Semaphore.acquire",
+          "location": "asyncio/locks.py:386-426"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 3919,
+      "generated_tokens": 235,
+      "ttft_s": 15.063131916002021,
+      "tokens_per_s": 22.143737504356768,
+      "memory": {
+        "peak_rss_mb": 276.430848,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3499.915644,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h11",
+      "corpus": "stdlib",
+      "type": "negative",
+      "split": "heldout",
+      "question": "How do I open a websocket connection with asyncio and send a message?",
+      "expect_abstain": true,
+      "relevant": [],
+      "classification": "abstained",
+      "answer": "The retrieved code does not contain the answer.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "asyncio/streams.py::open_unix_connection",
+          "location": "asyncio/streams.py:90-100",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "asyncio/base_events.py::BaseEventLoop.create_connection",
+          "location": "asyncio/base_events.py:1058-1203",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "asyncio/events.py::AbstractEventLoop.create_connection",
+          "location": "asyncio/events.py:318-326",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "asyncio/streams.py::open_connection",
+          "location": "asyncio/streams.py:26-51",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "asyncio/selector_events.py::BaseSelectorEventLoop.sock_sendto",
+          "location": "asyncio/selector_events.py:579-604",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "asyncio/selector_events.py::BaseSelectorEventLoop.sock_sendall",
+          "location": "asyncio/selector_events.py:526-555",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "asyncio/base_events.py::BaseEventLoop._connect_sock",
+          "location": "asyncio/base_events.py:1015-1056",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "asyncio/events.py::AbstractEventLoop",
+          "location": "asyncio/events.py:221-629",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": null,
+        "contain": null
+      },
+      "citations": [],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": null,
+        "contain": null
+      },
+      "prompt_tokens": 5696,
+      "generated_tokens": 9,
+      "ttft_s": 22.13740787500865,
+      "tokens_per_s": 24.19587093121388,
+      "memory": {
+        "peak_rss_mb": 280.49408,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3709.008948,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h12",
+      "corpus": "chatter",
+      "type": "behavior",
+      "split": "heldout",
+      "question": "If I search for 'http response', would it find a function named parseHTTPResponse? What makes that work?",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/index.py::tokenize_code"
+      ],
+      "classification": "answered",
+      "answer": "The search would find a function named `parseHTTPResponse` because the system tokenizes the query and the content using a function that splits identifiers into their components (e.g., `parseHTTPResponse` \u2192 `parsehttpresponse parse http response`). This tokenization process ensures that variations in capitalization and naming (like camelCase or snake_case) are converted into lowercased, readable tokens for matching purposes. \n\nSpecifically, when the query \"http response\" is processed, it is tokenized into relevant terms such as \"http response\", and during retrieval, the system uses these tokens to match against the tokenized content of chunks, including those from `net/http.py`. The `tokenize_code` function handles identifiers like `parseHTTPResponse` by splitting them into components (e.g., `parsehttpresponse parse http response`), which enables matching even if the original name uses camelCase or similar formats [C4]. \n\nAdditionally, the search process uses BM25 and dense retrieval, which index and score chunks based on token matches. When a query like \"parse_http_response\" is processed, it aligns with the tokenized form of `parseHTTPResponse`, allowing the system to retrieve relevant hits, such as the one at `net/http.py:4-7` [C2, C3]. This ensures that even if the function name is in camelCase, the search can still identify and retrieve it due to the normalization and tokenization process [C4, C5, C6]. \n\nThus, the combination of tokenization, case-insensitive matching, and provenance-based retrieval enables the system to find a function named `parseHTTPResponse` when searching for \"http response\".",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "tests/test_cli.py::test_ask_prints_answer_and_citations",
+          "location": "tests/test_cli.py:203-212",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "tests/test_cli.py::test_search_table",
+          "location": "tests/test_cli.py:149-157",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "tests/test_retrieve.py::test_search_returns_scored_hits_with_provenance",
+          "location": "tests/test_retrieve.py:114-125",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/index.py::tokenize_code",
+          "location": "src/chatter/index.py:94-114",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/answer.py::query_terms",
+          "location": "src/chatter/answer.py:154-155",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/retrieve.py::Retriever.search",
+          "location": "src/chatter/retrieve.py:155-189",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/index.py::bm25_tokens",
+          "location": "src/chatter/index.py:117-118",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "tests/test_cli.py::test_ask_repetition_notice",
+          "location": "tests/test_cli.py:250-260",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/index.py::tokenize_code",
+          "location": "src/chatter/index.py:94-114"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "tests/test_cli.py::test_search_table",
+          "location": "tests/test_cli.py:149-157"
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "tests/test_retrieve.py::test_search_returns_scored_hits_with_provenance",
+          "location": "tests/test_retrieve.py:114-125"
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/answer.py::query_terms",
+          "location": "src/chatter/answer.py:154-155"
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/retrieve.py::Retriever.search",
+          "location": "src/chatter/retrieve.py:155-189"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 1753,
+      "generated_tokens": 343,
+      "ttft_s": 5.66945754099288,
+      "tokens_per_s": 28.34996059210169,
+      "memory": {
+        "peak_rss_mb": 282.099712,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3153.30464,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h13",
+      "corpus": "chatter",
+      "type": "behavior",
+      "split": "heldout",
+      "question": "What happens if I build the index with one embedding model and later try to search it using a different one?",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/index.py::check_manifest",
+        "src/chatter/retrieve.py::Retriever.open",
+        "src/chatter/cli.py::_open_retriever"
+      ],
+      "classification": "answered",
+      "answer": "If you build the index with one embedding model and later try to search it using a different one, an `IndexMismatchError` is raised. The system detects the model mismatch and reports an error indicating that the index was built with a different model. As a result, the search operation fails, and the user is instructed to re-run the index command with the `--rebuild` flag to re-embed everything using the new model [C1, C4, C5, C6, C8].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "tests/test_cli.py::test_search_uses_index_model_and_reports_mismatch",
+          "location": "tests/test_cli.py:186-195",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "tests/test_index.py::test_model_mismatch_requires_rebuild",
+          "location": "tests/test_index.py:346-354",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/index.py::build_index",
+          "location": "src/chatter/index.py:332-408",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/cli.py::make_app.index",
+          "location": "src/chatter/cli.py:60-99",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/index.py::check_manifest",
+          "location": "src/chatter/index.py:288-297",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/cli.py::_open_retriever",
+          "location": "src/chatter/cli.py:192-204",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/cli.py::make_app",
+          "location": "src/chatter/cli.py:47-189",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "src/chatter/retrieve.py::Retriever.open",
+          "location": "src/chatter/retrieve.py:126-150",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "tests/test_cli.py::test_search_uses_index_model_and_reports_mismatch",
+          "location": "tests/test_cli.py:186-195"
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/cli.py::make_app.index",
+          "location": "src/chatter/cli.py:60-99"
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/index.py::check_manifest",
+          "location": "src/chatter/index.py:288-297"
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/cli.py::_open_retriever",
+          "location": "src/chatter/cli.py:192-204"
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "src/chatter/retrieve.py::Retriever.open",
+          "location": "src/chatter/retrieve.py:126-150"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 3877,
+      "generated_tokens": 103,
+      "ttft_s": 13.70411583299574,
+      "tokens_per_s": 27.402703582823026,
+      "memory": {
+        "peak_rss_mb": 283.0336,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3486.546132,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h14",
+      "corpus": "chatter",
+      "type": "location",
+      "split": "heldout",
+      "question": "Where do the [C1]-style labels in an answer get turned back into real file names and line numbers?",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/answer.py::parse_citations",
+        "src/chatter/answer.py::ContextBlock.location",
+        "src/chatter/cli.py::make_app.ask"
+      ],
+      "classification": "answered",
+      "answer": "The [C1]-style labels in an answer are turned back into real file names and line numbers in the `ContextBlock.location` property, which formats the output as `path:a-b` or `path:a-b,c-d` based on the shown line ranges [C2, C6]. The line ranges are derived from the `shown_lines` tuple, which is populated during the truncation or full block rendering process [C8, C5]. Specifically, the `format_line_ranges` function converts the sequence of line numbers into a comma-separated range format (e.g., '1-3,7-8') [C7]. This formatting is then used in the `location` property to produce the final path and line number representation.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/answer.py::<module>",
+          "location": "src/chatter/answer.py:1-45,47-47,49-54,56-58,60-64,66-76,78-83",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/answer.py::ContextBlock",
+          "location": "src/chatter/answer.py:109-124",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "tests/test_cli.py::test_ask_prints_answer_and_citations",
+          "location": "tests/test_cli.py:203-212",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/answer.py::truncation_window",
+          "location": "src/chatter/answer.py:217-249",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/answer.py::_full_block",
+          "location": "src/chatter/answer.py:267-275",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/answer.py::ContextBlock.location",
+          "location": "src/chatter/answer.py:121-124",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/answer.py::format_line_ranges",
+          "location": "src/chatter/answer.py:329-341",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "src/chatter/answer.py::_truncated_block",
+          "location": "src/chatter/answer.py:278-300",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/answer.py::<module>",
+          "location": "src/chatter/answer.py:1-45,47-47,49-54,56-58,60-64,66-76,78-83"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/answer.py::ContextBlock",
+          "location": "src/chatter/answer.py:109-124"
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/answer.py::ContextBlock.location",
+          "location": "src/chatter/answer.py:121-124"
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "src/chatter/answer.py::_truncated_block",
+          "location": "src/chatter/answer.py:278-300"
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/answer.py::_full_block",
+          "location": "src/chatter/answer.py:267-275"
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/answer.py::format_line_ranges",
+          "location": "src/chatter/answer.py:329-341"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 2577,
+      "generated_tokens": 151,
+      "ttft_s": 9.11859120799636,
+      "tokens_per_s": 30.565382401888638,
+      "memory": {
+        "peak_rss_mb": 283.410432,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3179.067584,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h15",
+      "corpus": "chatter",
+      "type": "behavior",
+      "split": "heldout",
+      "question": "A function is too long to fit in the prompt. Which lines of it does the model actually get to see?",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/answer.py::truncation_window",
+        "src/chatter/answer.py::_truncated_block",
+        "src/chatter/answer.py::_region",
+        "src/chatter/answer.py::_line_score"
+      ],
+      "classification": "answered",
+      "answer": "When a function is too long to fit in the prompt, the model truncates oversized lines and processes only the portions that fit within the token budget. Specifically, if a single line exceeds the budget, it becomes its own part and is truncated by the model, as seen in the test case where a line longer than the budget is cut and marked with \" \u2026\" [C4]. Additionally, the model only processes lines that fit within the token limit, and for a large function, only the relevant lines (based on lexical or semantic matching) are shown, such as in the test where only lines related to \"summarize results\" are shown, and the rest are excluded [C6]. The exact lines seen depend on the budget and the content, with the model ensuring that no single line exceeds the token limit, and only the first and last lines of a chunk that fit within the budget are processed [C2, C7].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "tests/test_answer.py::test_question_too_long_for_budget",
+          "location": "tests/test_answer.py:201-203",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "tests/test_index.py::test_single_line_longer_than_budget_becomes_its_own_part",
+          "location": "tests/test_index.py:151-154",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "tests/test_cli.py::test_ask_context_too_small",
+          "location": "tests/test_cli.py:282-285",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "tests/test_answer.py::test_line_longer_than_allowance_is_cut_by_characters",
+          "location": "tests/test_answer.py:144-147",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "tests/test_answer.py::big_function",
+          "location": "tests/test_answer.py:54-59",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "tests/test_answer.py::test_dense_only_hit_with_lexical_match_is_anchored_too",
+          "location": "tests/test_answer.py:108-111",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/index.py::plan_parts",
+          "location": "src/chatter/index.py:151-167",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "src/chatter/embed.py::<module>",
+          "location": "src/chatter/embed.py:1-5,7-7,9-12,14-15",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": false,
+        "contain": false
+      },
+      "citations": [
+        {
+          "tag": "C4",
+          "chunk_id": "tests/test_answer.py::test_line_longer_than_allowance_is_cut_by_characters",
+          "location": "tests/test_answer.py:144-147"
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "tests/test_answer.py::test_dense_only_hit_with_lexical_match_is_anchored_too",
+          "location": "tests/test_answer.py:108-111"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "tests/test_index.py::test_single_line_longer_than_budget_becomes_its_own_part",
+          "location": "tests/test_index.py:151-154"
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/index.py::plan_parts",
+          "location": "src/chatter/index.py:151-167"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": false,
+        "contain": false
+      },
+      "prompt_tokens": 1350,
+      "generated_tokens": 189,
+      "ttft_s": 4.730143875000067,
+      "tokens_per_s": 30.965964419984232,
+      "memory": {
+        "peak_rss_mb": 283.901952,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3188.464728,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h16",
+      "corpus": "chatter",
+      "type": "location",
+      "split": "heldout",
+      "question": "where does it skip those ._ files that macOS creates",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/index.py::iter_source_files"
+      ],
+      "classification": "answered",
+      "answer": "The code skips macOS AppleDouble files (those starting with `._`) in the `iter_source_files` function, specifically in the line:\n\n```python\nif path.suffix not in suffixes or name.startswith(\"._\") or path.is_symlink():\n    continue\n```\n\nThis condition checks if the filename starts with `._`, which is the pattern for macOS AppleDouble metadata files (e.g., `._a.py`). If it does, the file is skipped [C2].",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "tests/test_index.py::test_iter_source_files_skips_dirs_and_respects_gitignore",
+          "location": "tests/test_index.py:162-192",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/index.py::iter_source_files",
+          "location": "src/chatter/index.py:199-232",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "tests/test_extract.py::test_binary_file_skipped",
+          "location": "tests/test_extract.py:504-507",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/index.py::_ignored",
+          "location": "src/chatter/index.py:243-252",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/index.py::build_index",
+          "location": "src/chatter/index.py:332-408",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/cli.py::make_app.index",
+          "location": "src/chatter/cli.py:60-99",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "tests/test_extract.py::test_huge_file_skipped",
+          "location": "tests/test_extract.py:497-501",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "tests/test_embed.py::test_embed_empty_batch_skips_model",
+          "location": "tests/test_embed.py:94-97",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/index.py::iter_source_files",
+          "location": "src/chatter/index.py:199-232"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 2487,
+      "generated_tokens": 98,
+      "ttft_s": 8.543272707989672,
+      "tokens_per_s": 30.759503542199212,
+      "memory": {
+        "peak_rss_mb": 284.196864,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3194.626928,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h17",
+      "corpus": "chatter",
+      "type": "flow",
+      "split": "heldout",
+      "question": "Walk me through everything that happens between typing chatter ask and seeing the answer printed with its sources.",
+      "expect_abstain": false,
+      "relevant": [
+        "src/chatter/cli.py::make_app.ask",
+        "src/chatter/retrieve.py::Retriever.search",
+        "src/chatter/answer.py::answer_question",
+        "src/chatter/answer.py::build_context",
+        "src/chatter/answer.py::build_user_message",
+        "src/chatter/answer.py::HFGenerator.generate",
+        "src/chatter/answer.py::RepetitionGuard.feed",
+        "src/chatter/answer.py::classify_answer",
+        "src/chatter/answer.py::parse_citations"
+      ],
+      "classification": "mixed",
+      "answer": "1. The user types `chatter ask` with a question, optional `k` (number of chunks to retrieve), `path` (repository root), `model` (Hugging Face answer model), `max_context_tokens`, and `max_new_tokens`.\n\n2. The CLI invokes the `ask` command, which first retrieves relevant code chunks using the retriever. It calls `_open_retriever(path, embedder_factory).search(question, k=k)` to find the most relevant chunks based on the query and top-k limit [C4, C5].\n\n3. If no hits are found, the CLI outputs \"No indexed code matched the question; nothing to answer from\" and exits [C4, C5].\n\n4. Otherwise, it loads an answer model using `_load(...)` with the provided `model` name, which is passed to `generator_factory(GeneratorConfig(model_name=model))` [C4, C5].\n\n5. The `answer_question` function is called with the question, hits, and generator. It first builds the prompt context by calling `build_context(question, hits, generator, max_context_tokens=max_context_tokens)` [C3, C7]. This function allocates a budget of tokens to each hit based on the `max_context_tokens` limit, ensuring no single chunk exceeds its fair share. If a chunk's share falls below `MIN_BLOCK_TOKENS`, it is dropped and not included in the final prompt [C2, C7].\n\n6. The prompt is constructed with the user's question and the relevant code chunks, each wrapped in `<chunk tag=\"C1\" ...>` format [C2, C3]. The prompt includes metadata such as chunk tags, file:line locations, and chunk IDs.\n\n7. The generator produces a streamed response, which is passed to `on_text` (a lambda that prints each piece without a newline) to display the answer incrementally [C4, C3].\n\n8. During generation, a `RepetitionGuard` monitors for loops. If a substantial line appears three times or a repeated phrase (8\u201380 characters) appears six times, generation stops and the model's output is truncated [C6].\n\n9. After generation, the result is processed:\n   - If the model stopped due to repetition, a warning is printed: \"[generation stopped: the model started repeating itself]\" [C4].\n   - If any chunks were dropped due to context budget, a warning is printed indicating how many were dropped [C4].\n   - If the model returned `AnswerStatus.ABSTAINED`, the CLI prints \"NOT FOUND: the retrieved code does not contain the answer\" and lists the searched chunks with their tags and locations [C4, C5].\n   - If the model returned `AnswerStatus.MIXED`, a note is printed indicating the retrieved code does not fully answer the question [C4].\n   - Otherwise, the answer is printed with citations. Each citation includes the chunk's tag, chunk ID, and location. If a chunk was truncated, a \"(truncated)\" note is appended [C4, C5].\n\n10. If the answer cites unknown tags, a warning is printed listing them [C4].\n\n11. The final output includes the answer and, if applicable, citations to the source code chunks, with tags cited inline (e.g., [C1]) and mapped to file:line locations [C2, C4].\n\nThis entire process ensures that the answer is generated from relevant, contextually appropriate code chunks, with proper handling of edge cases like no matches, repetition, or abstinence.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/cli.py::make_app.search",
+          "location": "src/chatter/cli.py:101-120",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/answer.py::<module>",
+          "location": "src/chatter/answer.py:1-45,47-47,49-54,56-58,60-64,66-76,78-83",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/answer.py::answer_question",
+          "location": "src/chatter/answer.py:457-496",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/cli.py::make_app.ask",
+          "location": "src/chatter/cli.py:122-187",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/cli.py::make_app",
+          "location": "src/chatter/cli.py:47-189",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/answer.py::RepetitionGuard",
+          "location": "src/chatter/answer.py:386-449",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/answer.py::build_context",
+          "location": "src/chatter/answer.py:163-195",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "src/chatter/answer.py::AnswerResult",
+          "location": "src/chatter/answer.py:133-142",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": true,
+        "contain": true
+      },
+      "citations": [
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/cli.py::make_app.ask",
+          "location": "src/chatter/cli.py:122-187"
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/cli.py::make_app",
+          "location": "src/chatter/cli.py:47-189"
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/answer.py::answer_question",
+          "location": "src/chatter/answer.py:457-496"
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/answer.py::build_context",
+          "location": "src/chatter/answer.py:163-195"
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/answer.py::<module>",
+          "location": "src/chatter/answer.py:1-45,47-47,49-54,56-58,60-64,66-76,78-83"
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/answer.py::RepetitionGuard",
+          "location": "src/chatter/answer.py:386-449"
+        },
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/cli.py::make_app.search",
+          "location": "src/chatter/cli.py:101-120"
+        }
+      ],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": true,
+        "contain": true
+      },
+      "prompt_tokens": 5173,
+      "generated_tokens": 736,
+      "ttft_s": 18.85902620900015,
+      "tokens_per_s": 24.53951050807933,
+      "memory": {
+        "peak_rss_mb": 285.523968,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3642.276952,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    },
+    {
+      "id": "h18",
+      "corpus": "chatter",
+      "type": "negative",
+      "split": "heldout",
+      "question": "How does chatter notice that I saved a file and re-index it automatically in the background?",
+      "expect_abstain": true,
+      "relevant": [],
+      "classification": "abstained",
+      "answer": "The retrieved code does not contain the answer.",
+      "stopped_for_repetition": false,
+      "context": [
+        {
+          "tag": "C1",
+          "chunk_id": "src/chatter/cli.py::make_app.index",
+          "location": "src/chatter/cli.py:60-99",
+          "truncated": false
+        },
+        {
+          "tag": "C2",
+          "chunk_id": "src/chatter/index.py::IndexStats",
+          "location": "src/chatter/index.py:70-76",
+          "truncated": false
+        },
+        {
+          "tag": "C3",
+          "chunk_id": "src/chatter/index.py::build_index",
+          "location": "src/chatter/index.py:332-408",
+          "truncated": false
+        },
+        {
+          "tag": "C4",
+          "chunk_id": "src/chatter/index.py::_PartWriter",
+          "location": "src/chatter/index.py:411-460",
+          "truncated": false
+        },
+        {
+          "tag": "C5",
+          "chunk_id": "src/chatter/cli.py::_open_retriever",
+          "location": "src/chatter/cli.py:192-204",
+          "truncated": false
+        },
+        {
+          "tag": "C6",
+          "chunk_id": "src/chatter/index.py::default_index_dir",
+          "location": "src/chatter/index.py:260-261",
+          "truncated": false
+        },
+        {
+          "tag": "C7",
+          "chunk_id": "src/chatter/cli.py::make_app.ask",
+          "location": "src/chatter/cli.py:122-187",
+          "truncated": false
+        },
+        {
+          "tag": "C8",
+          "chunk_id": "src/chatter/index.py::IndexConfig",
+          "location": "src/chatter/index.py:62-67",
+          "truncated": false
+        }
+      ],
+      "dropped_chunks": [],
+      "relevant_in_context": {
+        "strict": null,
+        "contain": null
+      },
+      "citations": [],
+      "invalid_tags": [],
+      "cited_relevant": {
+        "strict": null,
+        "contain": null
+      },
+      "prompt_tokens": 3042,
+      "generated_tokens": 9,
+      "ttft_s": 10.432677874996443,
+      "tokens_per_s": 28.1809067799105,
+      "memory": {
+        "peak_rss_mb": 285.81888,
+        "swap_used_start_mb": 1377.370112,
+        "swap_used_peak_mb": 1377.370112,
+        "swap_used_end_mb": 1377.370112,
+        "accelerator_mb": 3302.288352,
+        "accelerator_metric": "mlx peak memory during the answer"
+      }
+    }
+  ]
+}
