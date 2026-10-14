@@ -691,8 +691,8 @@ def test_config_file_with_decision_rule(tmp_path: Path) -> None:
              "graph_hops": 1, "graph_weight": 1.5, "counterpart": "k10-w3"},
         ],
     }))
-    configs, rule = load_config_file(path)
-    assert rule == {"text": "adopt only if it wins"}
+    configs, rules = load_config_file(path)
+    assert rules == [{"text": "adopt only if it wins", "kind": "adopt", "source": str(path)}]
     assert configs[1].expansion is not None and configs[1].counterpart == "k10-w3"
     assert load_configs(path) == configs
 
@@ -713,6 +713,7 @@ def test_run_eval_scores_graph_configs_against_counterparts(tmp_path: Path) -> N
     results = run_eval(
         qpath, corpora, lambda n: HashEmbedder(name=n), model_name="m", repo_root=repo,
         configs=sweep_graph_configs([1.0], [1, 2]),
+        decision_rules=[{"text": "adopt if it wins", "kind": "adopt", "source": "rules.yaml"}],
     )
     cells = {c["name"]: c for c in results["configs"]["cells"]}
     variant = cells["default+g1-w1"]
@@ -720,8 +721,13 @@ def test_run_eval_scores_graph_configs_against_counterparts(tmp_path: Path) -> N
     assert isinstance(variant["top3_losses"], list) and isinstance(variant["top3_losses_contain"], list)
     for name in ("default+g1-w1", "default+g2-w1", "k10-w3+g1-w1"):
         assert cells[name]["top3_losses"] == []  # ranks 1-3 are protected
-    table = format_configs(results["configs"], {"text": "adopt if it wins"})
-    assert "decision rule: adopt if it wins" in table and "default+g1-w1:" in table
+    decision = results["configs"]["decisions"][0]
+    assert decision["complete"] is False  # tune only; the rule names both splits
+    assert [v["name"] for v in decision["variants"]][:2] == ["default+g1-w1", "default+g2-w1"]
+    assert all(v["considered"] for v in decision["variants"]) and "chosen" not in decision
+    table = format_configs(results["configs"])
+    assert "[adopt] rules.yaml: adopt if it wins" in table and "NOT FINAL" in table
+    assert "default+g1-w1" in table.split("decision rules")[1]
     coverage = format_graph_coverage(results["corpora"])
     assert "call graph coverage" in coverage and "mini:" in coverage and "call sites resolved" in coverage
     graph = results["corpora"]["mini"]["graph"]
@@ -739,10 +745,21 @@ def test_cli_sweep_graph(tmp_path: Path) -> None:
     assert "call graph coverage" in result.output
 
 
-def test_repository_graph_candidates_file_has_decision_rule() -> None:
-    configs, rule = load_config_file(EVAL_DIR / "candidates-graph.yaml")
-    assert rule and "tune+heldout" in rule["text"] and "top-3" in rule["text"]
-    assert {"dense-only", "default", "k10-w3"} <= {c.name for c in configs}
+def test_repository_candidate_files_have_decision_rules() -> None:
+    fusion_configs, fusion_rules = load_config_file(EVAL_DIR / "candidates.yaml")
+    assert [r["name"] for r in fusion_rules] == ["fusion"]
+    configs, rules = load_config_file(EVAL_DIR / "candidates-graph.yaml")
+    assert [(r["name"], r["kind"]) for r in rules] == [("fusion", "select"), ("graph", "adopt")]
+    assert rules[0] == fusion_rules[0]
+    fusion, graph = rules
+    assert fusion["reference"] == "dense-only" and fusion["candidates"] == ["default", "k10-w3"]
+    for rule in rules:
+        assert rule["splits"] == ["tune", "heldout"] and "top-3" in rule["text"]
+    assert configs[:3] == fusion_configs
+    by_name = {c.name: c for c in configs}
+    assert graph["variants"] == ["default+g2-w1", "k10-w3+g2-w3"]
+    assert by_name["default+g2-w1"] == RetrievalConfig("default+g2-w1", "fused", 60, 1.0, 2, 1.0, "default")
+    assert by_name["k10-w3+g2-w3"] == RetrievalConfig("k10-w3+g2-w3", "fused", 10, 3.0, 2, 3.0, "k10-w3")
 
 
 def test_unfinished_split_only_blocks_itself(tmp_path: Path) -> None:
@@ -761,3 +778,188 @@ def test_default_graph_grid_is_closed() -> None:
     names = [c.name for c in sweep_graph_configs()[3:]]
     assert len(names) == 2 * (3 + 5)
     assert "k10-w3+g2-w4" in names and "default+g1-w3" not in names
+
+
+# ---------------------------------------------------------------------------
+# Decision rules
+# ---------------------------------------------------------------------------
+
+from chatter.evaluate import apply_decision_rules, format_decisions  # noqa: E402
+
+FUSION_RULE = {"name": "fusion", "kind": "select", "text": "pick", "source": "candidates.yaml",
+               "reference": "dense-only", "candidates": ["default", "k10-w3"], "splits": ["tune", "heldout"]}
+GRAPH_RULE = {"name": "graph", "kind": "adopt", "text": "adopt", "source": "candidates-graph.yaml",
+              "after": "candidates.yaml", "variants": ["default+g", "k10-w3+g"], "splits": ["tune", "heldout"]}
+SPLIT_OF = {"t1": "tune", "t2": "tune", "t3": "tune", "h1": "heldout", "h2": "heldout"}
+
+
+def _cell(name: str, ranks: dict[str, int | None], counterpart: str | None = None) -> dict[str, object]:
+    return {"name": name, "counterpart": counterpart, "first_ranks": ranks, "first_ranks_contain": ranks}
+
+
+def _table(**ranks: dict[str, int | None]) -> dict[str, object]:
+    counterparts = {"default+g": "default", "k10-w3+g": "k10-w3"}
+    names = {"dense": "dense-only", "default": "default", "k10": "k10-w3",
+             "default_g": "default+g", "k10_g": "k10-w3+g"}
+    return {"cells": [_cell(names[k], r, counterparts.get(names[k])) for k, r in ranks.items()]}
+
+
+DENSE = {"t1": 1, "t2": 5, "t3": 9, "h1": 4, "h2": None}
+
+
+def test_select_rule_adopts_the_best_paired_config() -> None:
+    table = _table(
+        dense=DENSE,
+        default={"t1": 1, "t2": 2, "t3": 9, "h1": 4, "h2": None},  # 1/0
+        k10={"t1": 1, "t2": 2, "t3": 3, "h1": 2, "h2": None},  # 3/0
+        default_g={"t1": 1, "t2": 2, "t3": 9, "h1": 4, "h2": None},
+        k10_g={"t1": 1, "t2": 1, "t3": 3, "h1": 2, "h2": 7},  # 2/0 vs k10-w3
+    )
+    fusion, graph = apply_decision_rules(table, [FUSION_RULE, GRAPH_RULE], SPLIT_OF)
+    assert fusion["complete"] and fusion["questions"] == 5
+    assert (fusion["best"], fusion["adopted"], fusion["chosen"]) == ("k10-w3", True, "k10-w3")
+    k10 = fusion["candidates"][1]
+    assert (k10["wins"], k10["losses"], k10["ties"]) == (3, 0, 2)
+    assert k10["by_split"] == {"heldout": {"wins": 1, "losses": 0, "ties": 1},
+                               "tune": {"wins": 2, "losses": 0, "ties": 1}}
+    assert graph["counterpart"] == "k10-w3"
+    considered = {v["name"]: (v["considered"], v["passes"]) for v in graph["variants"]}
+    assert considered == {"default+g": (False, False), "k10-w3+g": (True, True)}
+    assert graph["chosen"] == "k10-w3+g"
+    report = format_decisions([FUSION_RULE, GRAPH_RULE], [fusion, graph])
+    assert "best paired W/L: k10-w3, adopted -> chosen: k10-w3" in report
+    assert "not considered" in report and "rules choose: k10-w3+g" in report and "NOT FINAL" not in report
+
+
+def test_select_rule_falls_back_to_the_reference() -> None:
+    # k10-w3 has the best net W/L but loses a dense top-3 rank; default would pass, but the
+    # rule adopts only the best config, so dense-only is chosen and no graph variant applies.
+    table = _table(
+        dense=DENSE,
+        default={"t1": 1, "t2": 4, "t3": 9, "h1": 4, "h2": None},  # 1/0
+        k10={"t1": 2, "t2": 2, "t3": 3, "h1": 2, "h2": None},  # 3/1, loses t1's top-3 rank
+        default_g={"t1": 1, "t2": 1, "t3": 1, "h1": 1, "h2": 1},
+        k10_g={"t1": 1, "t2": 1, "t3": 1, "h1": 1, "h2": 1},
+    )
+    fusion, graph = apply_decision_rules(table, [FUSION_RULE, GRAPH_RULE], SPLIT_OF)
+    assert (fusion["best"], fusion["adopted"], fusion["chosen"]) == ("k10-w3", False, "dense-only")
+    assert fusion["candidates"][1]["top3_losses"] == ["t1"]
+    assert graph["counterpart"] == "dense-only" and graph["chosen"] == "dense-only"
+    assert not any(v["considered"] or v["passes"] for v in graph["variants"])
+    assert "not adopted (top-3 losses) -> chosen: dense-only" in format_decisions(
+        [FUSION_RULE, GRAPH_RULE], [fusion, graph]
+    )
+
+
+def test_select_rule_needs_more_wins_than_losses_and_breaks_ties() -> None:
+    tied = {"t1": 1, "t2": 4, "t3": 10, "h1": 4, "h2": None}  # 1/1, no top-3 loss
+    table = _table(dense=DENSE, default=tied, k10=tied,
+                   default_g=tied, k10_g=tied)
+    (fusion,) = apply_decision_rules(table, [FUSION_RULE], SPLIT_OF)
+    assert fusion["best"] == "default"  # same W/L and MRR: listed order
+    assert fusion["chosen"] == "dense-only"
+    assert "not adopted (wins <= losses)" in format_decisions([FUSION_RULE], [fusion])
+
+    better_mrr = {"t1": 1, "t2": 3, "t3": 10, "h1": 4, "h2": None}  # also 1/1
+    table = _table(dense=DENSE, default=tied, k10=better_mrr, default_g=tied, k10_g=tied)
+    assert apply_decision_rules(table, [FUSION_RULE], SPLIT_OF)[0]["best"] == "k10-w3"
+
+
+def test_graph_variant_must_beat_its_counterpart_without_top3_losses() -> None:
+    k10 = {"t1": 1, "t2": 2, "t3": 3, "h1": 2, "h2": None}
+    table = _table(dense=DENSE, default=DENSE, k10=k10, default_g=DENSE,
+                   k10_g={"t1": 1, "t2": 3, "t3": 1, "h1": 1, "h2": 1})  # 3/1 but t2 lost rank 2
+    graph = apply_decision_rules(table, [FUSION_RULE, GRAPH_RULE], SPLIT_OF)[1]
+    variant = graph["variants"][1]
+    assert (variant["wins"], variant["losses"], variant["top3_losses"]) == (3, 1, ["t2"])
+    assert not variant["passes"] and graph["chosen"] == "k10-w3"
+
+
+def test_rules_on_a_partial_run_are_not_final() -> None:
+    tune_only = {k: v for k, v in SPLIT_OF.items() if v == "tune"}
+    ranks = {k: DENSE[k] for k in tune_only}
+    table = _table(dense=ranks, default=ranks, k10=ranks, default_g=ranks, k10_g=ranks)
+    fusion, graph = apply_decision_rules(table, [FUSION_RULE, GRAPH_RULE], tune_only)
+    assert not fusion["complete"] and not graph["complete"] and fusion["questions"] == 3
+    report = format_decisions([FUSION_RULE, GRAPH_RULE], [fusion, graph])
+    assert report.count("NOT FINAL: decided on splits tune+heldout") == 2
+    assert report.endswith("rules choose: dense-only (NOT FINAL: the run lacks a required split)")
+
+
+def _write_rule_files(directory: Path, graph_configs: list[dict[str, object]] | None = None) -> Path:
+    base = [{"name": "dense-only", "mode": "dense"},
+            {"name": "default", "mode": "fused"},
+            {"name": "k10-w3", "mode": "fused", "rrf_k": 10, "dense_weight": 3}]
+    (directory / "candidates.yaml").write_text(yaml.safe_dump({
+        "decision_rule": {k: v for k, v in FUSION_RULE.items() if k != "source"}, "configs": base,
+    }))
+    graph = directory / "candidates-graph.yaml"
+    graph.write_text(yaml.safe_dump({
+        "decision_rule": {**{k: v for k, v in GRAPH_RULE.items() if k != "source"},
+                          "variants": ["default+g1", "k10-w3+g1"]},
+        "configs": graph_configs or [
+            *base,
+            {"name": "default+g1", "mode": "fused", "graph_hops": 1, "counterpart": "default"},
+            {"name": "k10-w3+g1", "mode": "fused", "rrf_k": 10, "dense_weight": 3,
+             "graph_hops": 1, "counterpart": "k10-w3"},
+        ],
+    }))
+    return graph
+
+
+def test_load_rule_after_another_file(tmp_path: Path) -> None:
+    graph = _write_rule_files(tmp_path)
+    configs, rules = load_config_file(graph)
+    assert [r["name"] for r in rules] == ["fusion", "graph"]
+    assert rules[0]["source"] == str(tmp_path / "candidates.yaml") and rules[1]["source"] == str(graph)
+
+    _write_rule_files(tmp_path, [
+        {"name": "dense-only", "mode": "dense"},
+        {"name": "default", "mode": "fused", "rrf_k": 20},
+        {"name": "k10-w3", "mode": "fused", "rrf_k": 10, "dense_weight": 3},
+        {"name": "default+g1", "mode": "dense"},
+    ])
+    with pytest.raises(EvalError) as err:
+        load_config_file(graph)
+    for expected in ("config 'default' differs from candidates.yaml", "'k10-w3+g1' is not a config",
+                     "variant 'default+g1' has no counterpart"):
+        assert expected in str(err.value)
+
+
+def test_load_rule_validates(tmp_path: Path) -> None:
+    path = tmp_path / "c.yaml"
+    configs = [{"name": "dense-only", "mode": "dense"}]
+    for rule, expected in [
+        ({"kind": "select"}, "needs a text"),
+        ({"text": "x", "kind": "pick"}, "kind must be one of"),
+        ({"text": "x", "kind": "select", "reference": "dense-only"}, "needs a reference and candidates"),
+        ({"text": "x", "kind": "select", "reference": "dense-only", "candidates": ["nope"]}, "'nope' is not"),
+        ({"text": "x", "splits": ["dev"]}, "splits must be a list"),
+        ({"text": "x", "after": "missing.yaml"}, "after 'missing.yaml'"),
+    ]:
+        path.write_text(yaml.safe_dump({"decision_rule": rule, "configs": configs}))
+        with pytest.raises(EvalError, match=expected):
+            load_config_file(path)
+    plain = tmp_path / "plain.yaml"
+    plain.write_text(yaml.safe_dump({"decision_rule": {"text": "x"}, "configs": configs}))
+    path.write_text(yaml.safe_dump({"decision_rule": {"text": "x", "after": "plain.yaml"}, "configs": configs}))
+    with pytest.raises(EvalError, match="plain.yaml has no select rule"):
+        load_config_file(path)
+
+
+def test_cli_candidates_decide_both_rules(tmp_path: Path) -> None:
+    questions = [QUESTIONS[0], {**QUESTIONS[1], "split": "heldout"}, QUESTIONS[2]]
+    _, qpath, _ = write_eval(tmp_path, questions)
+    graph = _write_rule_files(qpath.parent)
+    app = make_app(embedder_factory=lambda name: HashEmbedder(name=name))
+    result = CliRunner().invoke(app, ["eval", str(qpath), "--candidates", str(graph)])
+    assert result.exit_code == 0, result.output
+    assert "[fusion]" in result.output and "[graph]" in result.output
+    assert "rules choose:" in result.output and "NOT FINAL" not in result.output
+    saved = json.loads(next((qpath.parent / "results").glob("*.json")).read_text())
+    assert [d["rule"] for d in saved["configs"]["decisions"]] == ["fusion", "graph"]
+    assert [r["name"] for r in saved["configs"]["decision_rules"]] == ["fusion", "graph"]
+
+    partial = CliRunner().invoke(app, ["eval", str(qpath), "--no-save", "--split", "tune", "--candidates", str(graph)])
+    assert partial.exit_code == 0, partial.output
+    assert "NOT FINAL" in partial.output

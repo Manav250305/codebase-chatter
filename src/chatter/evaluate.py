@@ -539,13 +539,15 @@ def run_eval(
     index_root: Path | None = None,
     split: str | None = None,
     configs: Sequence[RetrievalConfig] | None = None,
+    decision_rules: Sequence[Mapping[str, Any]] = (),
     log: Callable[[str], None] = lambda _: None,
 ) -> dict[str, Any]:
     """Materialise and index corpora, score every question in every mode.
 
     ``split`` restricts the run to one split (None: all questions); only the
     selected questions are validated, indexed for, and scored. ``configs``
-    adds a table of retrieval configs; see ``evaluate_configs``. Corpus
+    adds a table of retrieval configs; see ``evaluate_configs``. The table
+    records ``decision_rules`` and their outcomes on these questions. Corpus
     handling is described in ``open_corpora``.
     """
     questions = select_questions(questions_path, split)
@@ -596,7 +598,12 @@ def run_eval(
         ],
     }
     if configs:
-        results["configs"] = evaluate_configs(questions, retrievers, matchers, configs)
+        table = evaluate_configs(questions, retrievers, matchers, configs)
+        if decision_rules:
+            split_of = {q.id: q.split for q in questions if q.scored}
+            table["decision_rules"] = [dict(rule) for rule in decision_rules]
+            table["decisions"] = apply_decision_rules(table, decision_rules, split_of)
+        results["configs"] = table
     return results
 
 
@@ -673,13 +680,32 @@ def load_configs(path: Path) -> list[RetrievalConfig]:
     """Read frozen candidate configs.
 
     The file is a YAML list of configs, or a mapping with ``configs`` (that
-    list) and an optional ``decision_rule`` section that the report shows.
+    list) and an optional ``decision_rule``; see ``load_config_file``.
     """
     return load_config_file(path)[0]
 
 
-def load_config_file(path: Path) -> tuple[list[RetrievalConfig], dict[str, Any] | None]:
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+RULE_KINDS = ("select", "adopt")
+
+
+def load_config_file(path: Path) -> tuple[list[RetrievalConfig], list[dict[str, Any]]]:
+    """Configs and the decision rules to apply to them, in order.
+
+    A ``decision_rule`` has ``text`` and a ``kind``:
+
+    - ``select``: among ``candidates``, choose the best paired W/L against
+      ``reference``; adopt it only if it has more wins than losses and no
+      top-3 losses, otherwise the reference is chosen.
+    - ``adopt`` (the default): each variant in ``variants`` (default: every
+      config with a counterpart) is adopted only if it beats its counterpart
+      the same way. With ``after: <file>``, that file's configs must appear
+      here unchanged, its rules run first, and only the variant whose
+      counterpart its last ``select`` rule chose is considered.
+
+    ``splits`` lists the splits the rule is decided on (default: all).
+    """
+    path = Path(path)
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
     rule = None
     if isinstance(data, dict):
         rule = data.get("decision_rule")
@@ -721,9 +747,56 @@ def load_config_file(path: Path) -> tuple[list[RetrievalConfig], dict[str, Any] 
         for c in configs
         if c.counterpart is not None and c.counterpart not in names
     ]
+    rules: list[dict[str, Any]] = []
+    if rule is not None:
+        earlier, rule_problems = _load_rule(path, rule, {c.name: c for c in configs})
+        problems += rule_problems
+        rules = [*earlier, {**rule, "kind": rule.get("kind", "adopt"), "source": str(path)}]
     if problems:
         raise EvalError(f"invalid configs in {path}:\n  " + "\n  ".join(problems))
-    return configs, rule
+    return configs, rules
+
+
+def _load_rule(
+    path: Path, rule: Any, configs: Mapping[str, RetrievalConfig]
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Validate one decision rule; return the rules of its ``after`` file and any problems."""
+    if not isinstance(rule, dict) or not isinstance(rule.get("text"), str):
+        return [], ["decision_rule: needs a text"]
+    problems: list[str] = []
+    kind = rule.get("kind", "adopt")
+    if kind not in RULE_KINDS:
+        problems.append(f"decision_rule: kind must be one of {', '.join(RULE_KINDS)}")
+    splits = rule.get("splits", list(SPLITS))
+    if not isinstance(splits, list) or not splits or not set(splits) <= set(SPLITS):
+        problems.append(f"decision_rule: splits must be a list from {', '.join(SPLITS)}")
+    listed = [rule.get("reference"), *(rule.get("candidates") or [])] if kind == "select" else (
+        rule.get("variants") or []
+    )
+    problems += [f"decision_rule: {n!r} is not a config in this file" for n in listed if n not in configs]
+    if kind == "select" and (not rule.get("reference") or not rule.get("candidates")):
+        problems.append("decision_rule: a select rule needs a reference and candidates")
+    if kind == "adopt":
+        problems += [
+            f"decision_rule: variant {n!r} has no counterpart"
+            for n in rule.get("variants") or []
+            if n in configs and configs[n].counterpart is None
+        ]
+    earlier: list[dict[str, Any]] = []
+    if kind == "adopt" and rule.get("after"):
+        after = path.parent / str(rule["after"])
+        try:
+            after_configs, earlier = load_config_file(after)
+        except (EvalError, OSError) as exc:
+            return [], [*problems, f"decision_rule: after {rule['after']!r}: {exc}"]
+        problems += [
+            f"decision_rule: config {c.name!r} differs from {rule['after']}"
+            for c in after_configs
+            if configs.get(c.name) != c
+        ]
+        if not earlier or earlier[-1]["kind"] != "select":
+            problems.append(f"decision_rule: {rule['after']} has no select rule to follow")
+    return earlier, problems
 
 
 def evaluate_configs(
@@ -786,6 +859,99 @@ def top3_losses(ranks: Mapping[str, int | None], counterpart: Mapping[str, int |
         if theirs is not None and theirs <= 3 and (mine is None or mine > theirs):
             lost.append(qid)
     return lost
+
+
+def apply_decision_rules(
+    table: Mapping[str, Any], rules: Sequence[Mapping[str, Any]], split_of: Mapping[str, str]
+) -> list[dict[str, Any]]:
+    """Decide each rule (see ``load_config_file``) on this run's scored questions.
+
+    ``split_of`` maps each scored question to its split. A rule only counts
+    questions in its ``splits`` and is ``complete`` only if the run scored
+    all of them. Pairing uses the strict first relevant rank. "Best paired
+    W/L" means most wins minus losses, then fewest losses, then higher strict
+    MRR@50, then the order listed.
+    """
+    cells = {c["name"]: c for c in table["cells"]}
+    outcomes: list[dict[str, Any]] = []
+    chosen_before: str | None = None
+    for rule in rules:
+        splits = list(rule.get("splits", SPLITS))
+        ids = sorted(q for q, split in split_of.items() if split in splits)
+        outcome: dict[str, Any] = {
+            "rule": rule.get("name", rule["kind"]),
+            "kind": rule["kind"],
+            "source": rule.get("source"),
+            "splits": splits,
+            "complete": set(splits) <= set(split_of.values()),
+            "questions": len(ids),
+        }
+        if rule["kind"] == "select":
+            reference = rule["reference"]
+            rows = [
+                {"name": n, **_rule_comparison(cells[n], cells[reference], ids, split_of)}
+                for n in rule["candidates"]
+            ]
+            best = _best_paired(rows)
+            adopted = _beats(best)
+            outcome |= {
+                "reference": reference,
+                "candidates": rows,
+                "best": best["name"],
+                "adopted": adopted,
+                "chosen": best["name"] if adopted else reference,
+            }
+        else:
+            follow = chosen_before if rule.get("after") else None
+            names = rule.get("variants") or [c["name"] for c in table["cells"] if c.get("counterpart")]
+            rows = []
+            for n in names:
+                counterpart = cells[n]["counterpart"]
+                considered = not rule.get("after") or counterpart == follow
+                row = {"name": n, "counterpart": counterpart, "considered": considered,
+                       **_rule_comparison(cells[n], cells[counterpart], ids, split_of)}
+                rows.append(row | {"passes": considered and _beats(row)})
+            passing = [r for r in rows if r["passes"]]
+            outcome |= {"counterpart": follow, "variants": rows}
+            if rule.get("after"):
+                outcome["chosen"] = _best_paired(passing)["name"] if passing else follow
+        chosen_before = outcome.get("chosen", chosen_before)
+        outcomes.append(outcome)
+    return outcomes
+
+
+def _rule_comparison(
+    cell: Mapping[str, Any], other: Mapping[str, Any], ids: Sequence[str], split_of: Mapping[str, str]
+) -> dict[str, Any]:
+    def key(rank: int | None) -> float:
+        return float("inf") if rank is None else rank
+
+    def tally(subset: Sequence[str]) -> dict[str, int]:
+        wins = sum(key(cell["first_ranks"][i]) < key(other["first_ranks"][i]) for i in subset)
+        losses = sum(key(cell["first_ranks"][i]) > key(other["first_ranks"][i]) for i in subset)
+        return {"wins": wins, "losses": losses, "ties": len(subset) - wins - losses}
+
+    def only(ranks: Mapping[str, int | None]) -> dict[str, int | None]:
+        return {i: ranks[i] for i in ids}
+
+    return {
+        **tally(ids),
+        "by_split": {s: tally([i for i in ids if split_of[i] == s]) for s in sorted({split_of[i] for i in ids})},
+        "top3_losses": top3_losses(only(cell["first_ranks"]), only(other["first_ranks"])),
+        "top3_losses_contain": top3_losses(
+            only(cell["first_ranks_contain"]), only(other["first_ranks_contain"])
+        ),
+        "mrr@50": sum(1 / r for r in only(cell["first_ranks"]).values() if r) / len(ids) if ids else 0.0,
+    }
+
+
+def _best_paired(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
+    order = {id(r): n for n, r in enumerate(rows)}
+    return min(rows, key=lambda r: (r["losses"] - r["wins"], r["losses"], -r["mrr@50"], order[id(r)]))
+
+
+def _beats(row: Mapping[str, Any]) -> bool:
+    return row["wins"] > row["losses"] and not row["top3_losses"]
 
 
 def _config_ranking_for(
@@ -851,9 +1017,10 @@ def _config_ranking(config: RetrievalConfig, lists: Mapping[str, Sequence[str]])
     return [chunk_id for chunk_id, _, _ in fused[:DEPTH]]
 
 
-def format_configs(table: Mapping[str, Any], decision_rule: Mapping[str, Any] | None = None) -> str:
+def format_configs(table: Mapping[str, Any]) -> str:
     """Strict MRR@50 per corpus and overall, hit/recall, W/L/T vs dense-only and,
-    for graph variants, vs their counterpart with any lost top-3 ranks."""
+    for graph variants, vs their counterpart with any lost top-3 ranks; then
+    the decision rules' outcomes, if the table has any."""
     cells = [c for c in table["cells"] if c["overall"].get("n")]
     if not cells:
         return "(no scored questions)"
@@ -890,19 +1057,71 @@ def format_configs(table: Mapping[str, Any], decision_rule: Mapping[str, Any] | 
             f"{strict['recall@10']:>6.3f} {cell['overall']['contain']['mrr@50']:>6.3f}  "
             f"{wlt(cell['vs_dense']['overall']):>9}  {counterpart:>14} {lost:>9}"
         )
-    if decision_rule:
-        lines += ["", "decision rule: " + " ".join(str(decision_rule.get("text", "")).split())]
-        for cell in cells:
-            if "vs_counterpart" in cell:
-                vs = cell["vs_counterpart"]["overall"]
-                passed = vs["wins"] > vs["losses"] and not cell["top3_losses"]
-                lines.append(
-                    f"  {cell['name']}: {'PASSES' if passed else 'fails'} on these questions "
-                    f"(W/L {vs['wins']}/{vs['losses']} vs {cell['counterpart']}; "
-                    f"top-3 losses: {', '.join(cell['top3_losses']) or 'none'}; "
-                    f"containment top-3 losses: {', '.join(cell['top3_losses_contain']) or 'none'})"
-                )
+    if table.get("decisions"):
+        lines += ["", format_decisions(table["decision_rules"], table["decisions"])]
     return "\n".join(lines)
+
+
+def format_decisions(rules: Sequence[Mapping[str, Any]], outcomes: Sequence[Mapping[str, Any]]) -> str:
+    """Each rule's text and outcome, and the config the rules choose."""
+    wl = lambda r: f"{r['wins']}/{r['losses']}/{r['ties']}"  # noqa: E731
+    by_split = lambda r: " ".join(f"{s} {wl(t)}" for s, t in r["by_split"].items()) or "-"  # noqa: E731
+    lost = lambda r: ",".join(r["top3_losses"]) or "none"  # noqa: E731
+    lost_contain = lambda r: ",".join(r["top3_losses_contain"]) or "none"  # noqa: E731
+    lines = ["decision rules (paired strict first relevant rank; W/L/T = wins/losses/ties)"]
+    final = True
+    for rule, out in zip(rules, outcomes):
+        lines += ["", f"[{out['rule']}] {out['source']}: " + " ".join(str(rule["text"]).split())]
+        if not out["complete"]:
+            final = False
+            lines.append(
+                f"  NOT FINAL: decided on splits {'+'.join(out['splits'])}; "
+                f"this run has {out['questions']} scored question(s) from those splits"
+            )
+        if out["kind"] == "select":
+            rows = out["candidates"]
+            width = max(9, *(len(r["name"]) for r in rows))
+            split_w, lost_w, contain_w = _widths(rows, by_split, lost, lost_contain)
+            lines.append(
+                f"  {'candidate':<{width}} {'vs ' + out['reference']:>14}  {'by split':<{split_w}} "
+                f"{'top-3 lost':<{lost_w}} {'(contain)':<{contain_w}} {'MRR@50':>6}"
+            )
+            for r in rows:
+                lines.append(
+                    f"  {r['name']:<{width}} {wl(r):>14}  {by_split(r):<{split_w}} "
+                    f"{lost(r):<{lost_w}} {lost_contain(r):<{contain_w}} {r['mrr@50']:>6.3f}"
+                )
+            best = next(r for r in out["candidates"] if r["name"] == out["best"])
+            verdict = "adopted" if out["adopted"] else (
+                "not adopted (" + ("wins <= losses" if best["wins"] <= best["losses"] else "top-3 losses") + ")"
+            )
+            lines.append(f"  best paired W/L: {out['best']}, {verdict} -> chosen: {out['chosen']}")
+        else:
+            if out.get("counterpart") is not None:
+                lines.append(f"  counterpart chosen by the previous rule: {out['counterpart']}")
+            rows = out["variants"]
+            width = max(7, *(len(r["name"]) for r in rows))
+            split_w, lost_w, contain_w = _widths(rows, by_split, lost, lost_contain)
+            lines.append(
+                f"  {'variant':<{width}} {'counterpart':<12} {'W/L/T':>8}  {'by split':<{split_w}} "
+                f"{'top-3 lost':<{lost_w}} {'(contain)':<{contain_w}} verdict"
+            )
+            for r in rows:
+                verdict = "PASSES" if r["passes"] else ("fails" if r["considered"] else "not considered")
+                lines.append(
+                    f"  {r['name']:<{width}} {r['counterpart']:<12} {wl(r):>8}  {by_split(r):<{split_w}} "
+                    f"{lost(r):<{lost_w}} {lost_contain(r):<{contain_w}} {verdict}"
+                )
+            if "chosen" in out:
+                lines.append(f"  -> chosen: {out['chosen']}")
+    chosen = next((o["chosen"] for o in reversed(outcomes) if "chosen" in o), None)
+    if chosen is not None:
+        lines += ["", f"rules choose: {chosen}" + ("" if final else " (NOT FINAL: the run lacks a required split)")]
+    return "\n".join(lines)
+
+
+def _widths(rows: Sequence[Mapping[str, Any]], *columns: Callable[[Any], str]) -> list[int]:
+    return [max(10, *(len(column(r)) for r in rows)) for column in columns]
 
 
 def save_results(results: Mapping[str, Any], results_dir: Path, *, label: str = "") -> Path:

@@ -9,18 +9,35 @@
 #   default     0.523  6/8/6    loses dense top-5 hits (q18 1->7, q20 1->3)
 #   k10-w3      0.574  5/5/10   wins near the top; losses only below dense rank 9
 #
-# Evaluate with:
-#   chatter eval eval/questions.yaml --split heldout --candidates eval/candidates.yaml
+# The decision rule is decided on tune+heldout combined, so the held-out run
+# scores every split (no --split). candidates-graph.yaml repeats these configs
+# and applies this rule first, so one run decides both:
+#   chatter eval eval/questions.yaml --candidates eval/candidates-graph.yaml
 
-- name: dense-only
-  mode: dense
+decision_rule:
+  name: fusion
+  kind: select
+  text: >
+    Among default and k10-w3, choose the config with the best paired W/L vs
+    dense-only (strict first relevant rank) over tune+heldout combined: most
+    wins minus losses, then fewest losses, then higher strict MRR@50, then
+    listed order. Adopt it only if it has more wins than losses and zero
+    top-3 losses vs dense-only; otherwise dense-only becomes the default.
+  reference: dense-only
+  candidates: [default, k10-w3]
+  paired_metric: strict first relevant rank
+  splits: [tune, heldout]
 
-- name: default
-  mode: fused
-  rrf_k: 60
-  dense_weight: 1.0
+configs:
+  - name: dense-only
+    mode: dense
 
-- name: k10-w3
-  mode: fused
-  rrf_k: 10
-  dense_weight: 3.0
+  - name: default
+    mode: fused
+    rrf_k: 60
+    dense_weight: 1.0
+
+  - name: k10-w3
+    mode: fused
+    rrf_k: 10
+    dense_weight: 3.0

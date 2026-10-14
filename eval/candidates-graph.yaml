@@ -1,13 +1,30 @@
 # Graph-expanded retrieval candidates (roadmap step 5). Frozen copies of the
-# non-graph candidates from candidates.yaml, plus graph variants that will be
-# added after the Phase A tune sweep is reviewed and before any held-out run.
-# Do not edit decision_rule or frozen entries after the first held-out run.
+# non-graph candidates from candidates.yaml, plus one graph variant per fused
+# counterpart. Do not edit decision_rule or configs after the first held-out
+# run.
+#
+# Graph variants were chosen on the tune split only, with call graph Phase B
+# (GRAPH_VERSION 3, commit 0fb721e), from the closed grid in
+# eval/results/20261005T145739-0fb721e-tune.json: per counterpart, the highest
+# tune strict MRR@50 with zero top-3 losses, ties to fewer hops.
+#   default+g2-w1   0.526 (default 0.523)  W/L/T 2/2/16 vs default
+#   k10-w3+g2-w3    0.583 (k10-w3 0.574)   W/L/T 4/1/15 vs k10-w3, R@10 0.646 (0.539)
+#
+# This rule runs after the fusion rule in candidates.yaml, which picks the
+# counterpart. One run, over all splits, decides both:
+#   chatter eval eval/questions.yaml --candidates eval/candidates-graph.yaml
 
 decision_rule:
+  name: graph
+  kind: adopt
+  after: candidates.yaml
   text: >
-    Adopt a graph variant only if it beats its non-graph counterpart on paired
-    W/L (strict first relevant rank) over tune+heldout combined, and no
+    Only the graph variant whose counterpart the fusion rule in
+    candidates.yaml chose is considered; if that rule chose dense-only, no
+    graph variant is adopted. Adopt it only if it beats that counterpart on
+    paired W/L (strict first relevant rank) over tune+heldout combined, and no
     question loses a top-3 rank relative to that counterpart.
+  variants: [default+g2-w1, k10-w3+g2-w3]
   paired_metric: strict first relevant rank
   splits: [tune, heldout]
   constants: {seeds: 5, per_seed: 8, budget: 3, protected_ranks: 3, window: 10}
@@ -25,3 +42,19 @@ configs:
     mode: fused
     rrf_k: 10
     dense_weight: 3.0
+
+  - name: default+g2-w1
+    mode: fused
+    rrf_k: 60
+    dense_weight: 1.0
+    graph_hops: 2
+    graph_weight: 1.0
+    counterpart: default
+
+  - name: k10-w3+g2-w3
+    mode: fused
+    rrf_k: 10
+    dense_weight: 3.0
+    graph_hops: 2
+    graph_weight: 3.0
+    counterpart: k10-w3

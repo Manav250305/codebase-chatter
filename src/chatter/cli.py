@@ -386,14 +386,14 @@ def make_app(
                 )
                 typer.echo(f"\nSaved {json_path}\nReview {review_path}")
             return
-        decision_rule = None
+        decision_rules: list[dict[str, Any]] = []
         try:
             if sweep_fusion:
                 configs = sweep_configs(rrf_k or list(SWEEP_RRF_K), dense_weight or list(SWEEP_DENSE_WEIGHT))
             elif sweep_graph:
                 configs = sweep_graph_configs(graph_weight or None, graph_hops or GRAPH_SWEEP_HOPS)
             elif candidates:
-                configs, decision_rule = load_config_file(candidates)
+                configs, decision_rules = load_config_file(candidates)
             else:
                 configs = None
         except (EvalError, OSError) as exc:
@@ -408,13 +408,14 @@ def make_app(
                 index_root=index_root,
                 split=None if split is SplitChoice.ALL else split.value,
                 configs=configs,
+                decision_rules=decision_rules,
                 log=lambda line: typer.echo(line, err=True),
             )
         except EvalError as exc:
             _fail(f"Eval aborted: {exc}")
         typer.echo(format_report(results))
         if "configs" in results:
-            typer.echo("\n" + format_configs(results["configs"], decision_rule))
+            typer.echo("\n" + format_configs(results["configs"]))
         typer.echo("\n" + format_graph_coverage(results["corpora"]))
         if save:
             path = save_results(results, results_dir or questions.parent / "results")

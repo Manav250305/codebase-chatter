@@ -172,6 +172,16 @@ chatter eval eval/questions.yaml --split tune --candidates eval/candidates.yaml
 chatter eval eval/questions.yaml --split tune --answers
 ```
 
+A candidates file can carry a `decision_rule`, which the report applies
+automatically. `eval/candidates.yaml` chooses the fusion config, and
+`eval/candidates-graph.yaml` then decides its graph variant against that
+choice. Both rules are decided on tune and heldout combined, so run every
+split; a run that lacks one is marked NOT FINAL:
+
+```bash
+chatter eval eval/questions.yaml --candidates eval/candidates-graph.yaml
+```
+
 Results are saved in `eval/results/` with the commit, models and corpus
 versions.
 
