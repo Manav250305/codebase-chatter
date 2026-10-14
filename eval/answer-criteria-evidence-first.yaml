@@ -1,0 +1,51 @@
+# Success criterion for the evidence-first answer prompt, recorded on
+# 2026-10-14 before any evidence-first run. Do not edit after the first run.
+#
+# The comparison is against the plain-prompt baseline below, on the same
+# questions with the same retrieval, context and decoding, so differences come
+# from the prompt and the verification step only. Held-out v1 is spent, so this
+# is a regression check on questions already seen, not a held-out confirmation.
+
+name: evidence-first
+
+baseline:
+  results: eval/results/20261014T172908-152daa3-answers-mlx.json
+  prompt: plain (SYSTEM_PROMPT in src/chatter/answer.py at 152daa3)
+  grades: pending  # your verdicts on the baseline review file
+
+comparison:
+  questions: all 40 (36 answerable, 4 negative)
+  unchanged: >
+    dense+graph(hops=2, weight=2) retrieval, top 8, max context 12000 tokens,
+    max_new_tokens 1024, mlx backend, mlx-community/Qwen3-4B-Instruct-2507-4bit,
+    greedy decoding.
+  require_identical_context: true  # per question: same context chunk ids and shown lines, else the comparison is void
+  scored_on: final output after quote verification (raw model output reported alongside)
+
+criteria:
+  unsupported_answers:
+    definition: >
+      Answerable questions whose context holds no relevant or containing chunk
+      and whose final classification is answered.
+    baseline: {count: 5, questions: [q11, q16, h03, h04, h15]}
+    pass_if: "<= 2"
+  false_abstentions:
+    definition: >
+      Answerable questions whose final classification is abstained (the exact
+      sentence), including abstentions forced by failed verification.
+    baseline: {count: 2, questions: [q17, h02]}
+    pass_if: "<= 3"
+  relevant_citation_rate:
+    definition: >
+      Share of the 36 answerable questions whose final output cites a relevant
+      chunk (strict match).
+    baseline: {count: 26, of: 36, rate: 0.722}
+    pass_if: ">= 26/36"
+  graded_regressions:
+    definition: >
+      Questions graded correct in the baseline that are not graded correct in
+      the new run (graded partial or wrong, or abstained).
+    baseline: needs grades of both runs
+    pass_if: "== 0"
+
+decision: Make evidence-first the default answer prompt only if all four criteria pass.
