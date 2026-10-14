@@ -27,12 +27,24 @@ questions about functions/modules, with `file:line-range` citations.
 2. Indexer: embeddings + BM25 hybrid retrieval
 3. CLI: `chatter index <path>`, `chatter ask "<question>"`
 4. Eval set in eval/ with baseline retrieval hit-rate (before adding features)
-5. Call graph + graph-expanded retrieval, re-measure
+5. Call graph + graph-expanded retrieval, re-measure (done: dense + call graph
+   is the default; see Eval status)
 6. Summary-enriched chunks, re-measure
 7. Agentic tool loop, git history, incremental indexing, MCP server (MCP done:
    `chatter mcp`, read-only)
 8. Abstention: retrieval currently cannot say "not found"
 - Optional: MLX generator for Apple Silicon (done; default there)
+
+## Eval status
+- 2026-10-14: held-out v1 (h01-h18 in eval/questions.yaml) is spent. Its one
+  run (eval/results/20261014T170530-c37049f.json) applied the frozen rules in
+  eval/candidates.yaml and eval/candidates-graph.yaml. No fusion config beat
+  dense-only. dense-only+g2-w2 (dense retrieval plus 2-hop call-graph
+  expansion at weight 2) did, 8/7/21 with no top-3 losses, and is now the
+  default for search, ask and MCP (DEFAULT_SEARCH in src/chatter/retrieve.py).
+  The margin is one question, so treat it as a small gain. Choosing or
+  confirming anything new needs a fresh held-out set (v2); h01-h18 are for
+  regression tracking only.
 
 ## Known issues (fix after the eval baseline)
 - Orphan comments are not in any chunk: a comment block above a def/class

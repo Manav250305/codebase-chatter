@@ -1,3 +1,13 @@
+# HELD-OUT v1 IS SPENT (2026-10-14). The heldout split (h01-h18) was scored
+# once, in eval/results/20261014T170530-c37049f.json, to apply the frozen
+# decision rules in eval/candidates.yaml and eval/candidates-graph.yaml.
+# Outcome: no fusion config passed against dense-only (default 14/14/8 and
+# k10-w3 9/13/14, both with top-3 losses); dense-only+g2-w2 passed against
+# dense-only (8/7/21, no top-3 losses) and became the default retrieval.
+# Results on h01-h18 have now been seen: do not use them to choose or confirm
+# configs. Use a fresh held-out batch (v2) for that; keep these questions for
+# regression tracking.
+#
 # Codebase Chatter eval set, batch 1.
 #
 # corpus:   stdlib  -> Python 3.13 asyncio, email, http, json (the indexed subset)
