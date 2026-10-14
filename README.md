@@ -2,8 +2,9 @@
 
 A local tool that indexes a Python repository and answers questions about its
 functions and modules, citing `path:start-end` locations. Everything runs on
-your machine: tree-sitter chunking, a local embedding model, hybrid BM25 +
-dense retrieval, and an optional local answer model.
+your machine: tree-sitter chunking, a local embedding model, dense retrieval
+expanded along a static call graph (BM25 and hybrid modes available), and an
+optional local answer model.
 
 ## Install
 
@@ -54,6 +55,7 @@ Useful options:
 
 - `--index-dir` / `CHATTER_INDEX_DIR`: keep the index somewhere other than `<repo>/.chatter`.
 - `chatter search --json`: machine-readable results.
+- `--mode dense|fused|bm25`, `--graph/--no-graph`, `--graph-hops`, `--graph-weight` (search and ask): retrieval. The default, dense with 2-hop call-graph expansion at weight 2, is the config the held-out evaluation chose (see [Results](#results)). For an exact identifier, `--mode fused` adds BM25 keyword matching.
 - `chatter ask --backend mlx|transformers`: choose the answer backend (default: mlx on Apple Silicon, transformers elsewhere).
 - `chatter index --rebuild`: re-embed everything, e.g. after changing `--model`.
 
@@ -65,7 +67,7 @@ automatically when you re-run `chatter index`.
 
 | Tool | Purpose |
 |---|---|
-| `search(query, k=10, mode="fused")` | Ranked chunks with `path:start-end`, signature, score and which retriever found them. `mode`: `fused`, `bm25`, or `dense`. |
+| `search(query, k=10, mode="dense", graph=true)` | Ranked chunks with `path:start-end`, signature, score and which retriever found them. `mode`: `dense`, `fused` (BM25 + dense), or `bm25`; `graph` adds call-graph neighbours (dense and fused only). |
 | `get_chunk(chunk_id)` | Full source of one chunk, with docstring, decorators and imports. |
 | `list_symbols(path_prefix="", kind=None, limit=200)` | Functions, classes and methods under a path, in file order. |
 | `ask(question, k=8)` | Opt-in (`--enable-ask`): answer with the local model. Slow and loads several GB; the client's own model can usually answer from `search` and `get_chunk`. |

@@ -59,6 +59,7 @@ from chatter.evaluate import (
     save_results,
     select_questions,
 )
+from chatter.retrieve import DEFAULT_SEARCH
 
 ANSWER_RESULTS_SCHEMA = 2  # 2: memory, backend, context-relative abstention
 DEFAULT_ANSWER_TOP_K = 8  # same as `chatter ask`
@@ -387,7 +388,9 @@ def run_answer_eval(
     records = []
     for n, question in enumerate(questions, 1):
         with MemorySampler() as memory:
-            hits = setup.retrievers[question.corpus].search(question.question, k=top_k)
+            hits = setup.retrievers[question.corpus].search(
+                question.question, k=top_k, mode=DEFAULT_SEARCH.mode, expansion=DEFAULT_SEARCH.expansion
+            )
             result = answer_question(
                 question.question,
                 hits,
@@ -415,7 +418,7 @@ def run_answer_eval(
         "model_load": load,
         "settings": {
             "split": split or "all",
-            "retrieval": "default",
+            "retrieval": DEFAULT_SEARCH.describe(),
             "top_k": top_k,
             "max_context_tokens": max_context_tokens,
             "max_new_tokens": max_new_tokens,
@@ -424,6 +427,11 @@ def run_answer_eval(
         "summary": summarize_answers(records),
         "questions": records,
     }
+
+
+def _retrieval(results: Mapping[str, Any]) -> str:
+    retrieval = results["settings"].get("retrieval", "default")
+    return "default fused" if retrieval == "default" else retrieval  # runs before the dense+graph default
 
 
 def save_answer_results(results: Mapping[str, Any], results_dir: Path) -> tuple[Path, Path]:
@@ -449,7 +457,7 @@ def format_answer_report(results: Mapping[str, Any]) -> str:
         f"answer model: {results['answer_model']} ({results.get('backend', 'transformers')})   "
         f"embedding model: {results['embedding_model']}   "
         f"commit: {(results['git'].get('commit') or 'none')[:10]}{' (dirty)' if results['git'].get('dirty') else ''}",
-        f"split: {results['settings']['split']}   questions: {s['n']}   retrieval: default fused, "
+        f"split: {results['settings']['split']}   questions: {s['n']}   retrieval: {_retrieval(results)}, "
         f"top {results['settings']['top_k']}",
         "",
         "classifications: " + ", ".join(f"{k} {v}" for k, v in s["classifications"].items()),
@@ -550,7 +558,7 @@ def format_review(results: Mapping[str, Any]) -> str:
         f"embedding model: `{results['embedding_model']}`",
         f"- commit: `{results['git'].get('commit')}`{' (dirty)' if results['git'].get('dirty') else ''}; "
         f"created {results['created']}",
-        f"- retrieval: default fused, top {results['settings']['top_k']}, "
+        f"- retrieval: {_retrieval(results)}, top {results['settings']['top_k']}, "
         f"max context {results['settings']['max_context_tokens']} tokens",
         "- classifications: " + ", ".join(f"{k} {v}" for k, v in s["classifications"].items()),
         "",

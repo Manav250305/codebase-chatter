@@ -56,7 +56,7 @@ from chatter.index import (
     default_index_dir,
     read_manifest,
 )
-from chatter.retrieve import Retriever, hit_location, hit_to_dict
+from chatter.retrieve import DEFAULT_SEARCH, Hit, Retriever, SearchSettings, hit_location, hit_to_dict
 
 Backend = enum.StrEnum("Backend", {name.upper(): name for name in BACKENDS})
 _MODEL_HELP = "Hugging Face answer model. Default: " + ", ".join(
@@ -72,6 +72,29 @@ class SplitChoice(enum.StrEnum):
     ALL = "all"
     TUNE = "tune"
     HELDOUT = "heldout"
+
+
+class ModeChoice(enum.StrEnum):
+    DENSE = "dense"
+    FUSED = "fused"
+    BM25 = "bm25"
+
+
+ModeOption = Annotated[
+    ModeChoice,
+    typer.Option(help="Retriever: dense embeddings, fused BM25 + dense, or BM25 keywords only."),
+]
+GraphOption = Annotated[
+    bool,
+    typer.Option(
+        "--graph/--no-graph",
+        help="Add call-graph neighbours of the top results (dense and fused modes; never bm25).",
+    ),
+]
+GraphHopsOption = Annotated[int, typer.Option("--graph-hops", min=1, help="Call-graph hops to expand.")]
+GraphWeightOption = Annotated[
+    float, typer.Option("--graph-weight", help="RRF weight of the call-graph list (> 0).")
+]
 
 
 EmbedderFactory = Callable[[str], Embedder]
@@ -160,10 +183,19 @@ def make_app(
         k: Annotated[int, typer.Option("-k", "--top-k", min=1, help="Results to show.")] = 10,
         path: Annotated[Path, typer.Option(help="Repository root containing .chatter.")] = Path("."),
         as_json: Annotated[bool, typer.Option("--json", help="Print results as JSON.")] = False,
+        mode: ModeOption = ModeChoice(DEFAULT_SEARCH.mode),
+        graph: GraphOption = DEFAULT_SEARCH.graph,
+        graph_hops: GraphHopsOption = DEFAULT_SEARCH.graph_hops,
+        graph_weight: GraphWeightOption = DEFAULT_SEARCH.graph_weight,
         index_dir: IndexDirOption = None,
     ) -> None:
-        """Retrieve the most relevant chunks (no answer generation)."""
-        hits = _open_retriever(path, index_dir, embedder_factory).search(query, k=k)
+        """Retrieve the most relevant chunks (no answer generation).
+
+        Default: dense retrieval with 2-hop call-graph expansion, the config
+        the held-out evaluation chose.
+        """
+        settings = _search_settings(mode, graph, graph_hops, graph_weight)
+        hits = _search(_open_retriever(path, index_dir, embedder_factory), settings, query, k)
         if as_json:
             typer.echo(json.dumps([hit_to_dict(rank, hit) for rank, hit in enumerate(hits, 1)], indent=2))
             return
@@ -189,10 +221,18 @@ def make_app(
         max_new_tokens: Annotated[
             int, typer.Option(min=16, help="Maximum answer length in tokens.")
         ] = DEFAULT_MAX_NEW_TOKENS,
+        mode: ModeOption = ModeChoice(DEFAULT_SEARCH.mode),
+        graph: GraphOption = DEFAULT_SEARCH.graph,
+        graph_hops: GraphHopsOption = DEFAULT_SEARCH.graph_hops,
+        graph_weight: GraphWeightOption = DEFAULT_SEARCH.graph_weight,
         index_dir: IndexDirOption = None,
     ) -> None:
-        """Answer QUESTION from retrieved code, citing chunks."""
-        hits = _open_retriever(path, index_dir, embedder_factory).search(question, k=k)
+        """Answer QUESTION from retrieved code, citing chunks.
+
+        Retrieval defaults to dense with 2-hop call-graph expansion, as for search.
+        """
+        settings = _search_settings(mode, graph, graph_hops, graph_weight)
+        hits = _search(_open_retriever(path, index_dir, embedder_factory), settings, question, k)
         if not hits:
             typer.echo("No indexed code matched the question; nothing to answer from.")
             return
@@ -429,6 +469,19 @@ def _repo_root(start: Path) -> Path:
         ["git", "rev-parse", "--show-toplevel"], cwd=start, capture_output=True, text=True
     )
     return Path(result.stdout.strip()) if result.returncode == 0 else start.resolve()
+
+
+def _search_settings(mode: ModeChoice, graph: bool, graph_hops: int, graph_weight: float) -> SearchSettings:
+    try:
+        return SearchSettings(
+            mode=mode.value, graph=graph, graph_hops=graph_hops, graph_weight=graph_weight  # type: ignore[arg-type]
+        )
+    except ValueError as exc:
+        _fail(str(exc))
+
+
+def _search(retriever: Retriever, settings: SearchSettings, query: str, k: int) -> list[Hit]:
+    return retriever.search(query, k=k, mode=settings.mode, expansion=settings.expansion)
 
 
 def _open_retriever(

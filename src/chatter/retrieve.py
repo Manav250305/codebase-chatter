@@ -247,6 +247,44 @@ class GraphExpansion:
     weight: float = 1.0
 
 
+@dataclass(frozen=True, slots=True)
+class SearchSettings:
+    """How ``chatter search``, ``chatter ask`` and the MCP server retrieve.
+
+    The default, dense retrieval with 2-hop call-graph expansion at weight 2
+    (eval config ``dense-only+g2-w2``), is what the frozen decision rules in
+    eval/candidates.yaml and eval/candidates-graph.yaml chose on the held-out
+    run eval/results/20261014T170530-c37049f.json. Graph expansion applies in
+    dense and fused modes; bm25 mode is never expanded.
+    """
+
+    mode: Mode = "dense"
+    graph: bool = True
+    graph_hops: int = 2
+    graph_weight: float = 2.0
+
+    def __post_init__(self) -> None:
+        if self.mode not in MODES:
+            raise ValueError(f"unknown retrieval mode {self.mode!r}; expected one of {MODES}")
+        if self.graph_hops < 1 or self.graph_weight <= 0:
+            raise ValueError("graph_hops must be >= 1 and graph_weight > 0")
+
+    @property
+    def expansion(self) -> GraphExpansion | None:
+        if not self.graph or self.mode == BM25:
+            return None
+        return GraphExpansion(hops=self.graph_hops, weight=self.graph_weight)
+
+    def describe(self) -> str:
+        expansion = self.expansion
+        if expansion is None:
+            return self.mode
+        return f"{self.mode}+graph(hops={expansion.hops}, weight={expansion.weight:g})"
+
+
+DEFAULT_SEARCH = SearchSettings()
+
+
 # ---------------------------------------------------------------------------
 # Fusion
 # ---------------------------------------------------------------------------
@@ -403,6 +441,8 @@ class Retriever:
         ``mode`` restricts retrieval to one retriever ("bm25" or "dense"); its
         ranking is then passed through RRF unchanged (scores are 1/(k + rank)).
         ``expansion`` applies in fused and dense modes when a graph is loaded.
+        These defaults are the plain building blocks the eval measures; the
+        tool default (``DEFAULT_SEARCH``) is passed explicitly by its callers.
         """
         if mode not in MODES:
             raise ValueError(f"unknown retrieval mode {mode!r}; expected one of {MODES}")

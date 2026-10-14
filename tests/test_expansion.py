@@ -7,14 +7,17 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from chatter.graph import CALLS, CONTAINS, TESTED_BY, GraphIndex
 from chatter.index import build_index, index_data
 from chatter.retrieve import (
+    DEFAULT_SEARCH,
     GRAPH_BUDGET,
     GRAPH_PER_SEED,
     GraphExpansion,
     Retriever,
+    SearchSettings,
     _apply_budget,
     graph_ranking,
 )
@@ -196,3 +199,15 @@ def test_expansion_is_identical_across_processes(write_repo: WriteRepo) -> None:
         )
         runs.append(json.loads(result.stdout.strip().splitlines()[-1]))
     assert runs[0] == runs[1] and runs[0]["1"]
+
+
+def test_search_settings_default_is_dense_with_two_hop_graph() -> None:
+    assert DEFAULT_SEARCH == SearchSettings("dense", True, 2, 2.0)
+    assert DEFAULT_SEARCH.expansion == GraphExpansion(hops=2, weight=2.0)
+    assert DEFAULT_SEARCH.describe() == "dense+graph(hops=2, weight=2)"
+    assert SearchSettings("fused").expansion == GraphExpansion(hops=2, weight=2.0)
+    assert SearchSettings("bm25").expansion is None and SearchSettings("bm25").describe() == "bm25"
+    assert SearchSettings("dense", graph=False).expansion is None
+    for bad in ({"mode": "hybrid"}, {"graph_hops": 0}, {"graph_weight": 0.0}):
+        with pytest.raises(ValueError):
+            SearchSettings(**bad)  # type: ignore[arg-type]

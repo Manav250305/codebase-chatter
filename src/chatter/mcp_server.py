@@ -42,7 +42,7 @@ from chatter.answer import (
 from chatter.embed import Embedder
 from chatter.extract import Chunk
 from chatter.index import MANIFEST_FILE, IndexMismatchError, default_index_dir, read_manifest
-from chatter.retrieve import Retriever, hit_location, hit_to_dict
+from chatter.retrieve import DEFAULT_SEARCH, Retriever, SearchSettings, hit_location, hit_to_dict
 
 SERVER_NAME = "chatter"
 MAX_SEARCH_K = 50
@@ -54,8 +54,9 @@ INSTRUCTIONS = """\
 Search and read the indexed Python code of one repository. Every result carries a
 chunk_id and a path:start-end location to cite.
 
-- search(query, k, mode): hybrid BM25 + dense retrieval over functions, classes,
-  methods and module-level code. Use natural language or identifiers.
+- search(query, k, mode, graph): dense retrieval over functions, classes, methods
+  and module-level code, expanded along the call graph. Use natural language;
+  for an exact identifier, mode="fused" (adds BM25 keywords) or "bm25" can help.
 - get_chunk(chunk_id): full source of a result, with its docstring and imports.
 - list_symbols(path_prefix): browse the symbols defined under a path.
 - ask(question), if enabled: a short answer from a small local model; prefer
@@ -130,12 +131,13 @@ class SearchHit(BaseModel):
     location: str = Field(description="path:start-end to cite")
     signature: str | None = Field(description="First line of the definition, if any")
     score: float
-    sources: list[str] = Field(description="Retrievers that found it: bm25, dense")
+    sources: list[str] = Field(description="Retrievers that found it: bm25, dense, graph")
 
 
 class SearchResult(BaseModel):
     query: str
     mode: str
+    graph: bool = Field(description="Whether call-graph expansion was applied")
     hits: list[SearchHit]
 
 
@@ -234,10 +236,16 @@ class ChatterService:
                 self._stamp = stamp
             return self._retriever
 
-    def search(self, query: str, k: int = 10, mode: str = "fused") -> SearchResult:
+    def search(
+        self, query: str, k: int = 10, mode: str = DEFAULT_SEARCH.mode, graph: bool = DEFAULT_SEARCH.graph
+    ) -> SearchResult:
         if not query.strip():
             raise ToolError("query is empty")
-        hits = self.retriever().search(query, k=k, mode=mode)  # type: ignore[arg-type]
+        try:
+            settings = SearchSettings(mode=mode, graph=graph)  # type: ignore[arg-type]
+        except ValueError as exc:
+            raise ToolError(str(exc)) from exc
+        hits = self.retriever().search(query, k=k, mode=settings.mode, expansion=settings.expansion)
         results = []
         for rank, hit in enumerate(hits, 1):
             data = hit_to_dict(rank, hit)
@@ -255,7 +263,7 @@ class ChatterService:
                     sources=data["sources"],
                 )
             )
-        return SearchResult(query=query, mode=mode, hits=results)
+        return SearchResult(query=query, mode=mode, graph=settings.expansion is not None, hits=results)
 
     def get_chunk(self, chunk_id: str) -> ChunkResult:
         chunk = self.retriever().chunk(chunk_id)
@@ -312,7 +320,9 @@ class ChatterService:
             raise ToolError("ask is disabled; start the server with --enable-ask")
         if not question.strip():
             raise ToolError("question is empty")
-        hits = self.retriever().search(question, k=k)
+        hits = self.retriever().search(
+            question, k=k, mode=DEFAULT_SEARCH.mode, expansion=DEFAULT_SEARCH.expansion
+        )
         if not hits:
             return AskResult(
                 answer="No indexed code matched the question.",
@@ -375,10 +385,15 @@ def build_server(service: ChatterService) -> MCPServer:
     def search(
         query: Annotated[str, Field(description="Natural-language question or identifiers")],
         k: Annotated[int, Field(ge=1, le=MAX_SEARCH_K, description="Number of results")] = 10,
-        mode: Annotated[Mode, Field(description="fused (default), bm25 only, or dense only")] = "fused",
+        mode: Annotated[
+            Mode, Field(description="dense (default), fused BM25 + dense, or bm25 keywords only")
+        ] = DEFAULT_SEARCH.mode,
+        graph: Annotated[
+            bool, Field(description="Expand along the call graph (default on; dense and fused modes only)")
+        ] = DEFAULT_SEARCH.graph,
     ) -> SearchResult:
         """Find the most relevant code chunks for a query, with file:line locations."""
-        return service.search(query, k, mode)
+        return service.search(query, k, mode, graph)
 
     @server.tool(annotations=READ_ONLY)
     def get_chunk(

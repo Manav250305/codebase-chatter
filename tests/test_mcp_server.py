@@ -13,7 +13,7 @@ from chatter.answer import ABSTENTION, GeneratorConfig
 from chatter.cli import make_app
 from chatter.index import build_index
 from chatter.mcp_server import ChatterService, ServerConfig, build_server, check_index, config_from_env
-from chatter.retrieve import Retriever
+from chatter.retrieve import DEFAULT_SEARCH, Retriever
 from conftest import FakeGenerator, HashEmbedder, WriteRepo
 
 REPO = {
@@ -107,9 +107,9 @@ def test_tools_are_read_only_with_schemas(indexed: Path) -> None:
         assert tool.annotations.destructive_hint is False
         assert tool.output_schema is not None
     search_props = listed["search"].input_schema["properties"]
-    assert set(search_props) == {"query", "k", "mode"}
+    assert set(search_props) == {"query", "k", "mode", "graph"}
     assert search_props["mode"]["enum"] == ["fused", "bm25", "dense"]
-    assert search_props["mode"]["default"] == "fused"
+    assert search_props["mode"]["default"] == "dense" and search_props["graph"]["default"] is True
     assert search_props["k"]["minimum"] == 1 and search_props["k"]["maximum"] == 50
     kind = listed["list_symbols"].input_schema["properties"]["kind"]
     assert kind["anyOf"][0]["enum"] == ["function", "method", "class", "lambda"]
@@ -130,14 +130,16 @@ def test_search_matches_retriever(indexed: Path) -> None:
     result = call(service, "search", {"query": "parse_http_response", "k": 3})
     assert not result.is_error
     data = result.structured_content
-    assert data["query"] == "parse_http_response" and data["mode"] == "fused"
-    expected = Retriever.open(indexed / ".chatter", HashEmbedder()).search("parse_http_response", k=3)
+    assert data["query"] == "parse_http_response" and data["mode"] == "dense" and data["graph"] is True
+    expected = Retriever.open(indexed / ".chatter", HashEmbedder()).search(
+        "parse_http_response", k=3, mode=DEFAULT_SEARCH.mode, expansion=DEFAULT_SEARCH.expansion
+    )
     assert [h["chunk_id"] for h in data["hits"]] == [h.chunk_id for h in expected]
     top = data["hits"][0]
     assert top["rank"] == 1 and top["chunk_id"] == "net/http.py::parse_http_response"
     assert top["location"] == "net/http.py:4-7" and top["lines"] == [4, 7]
     assert top["signature"] == "def parse_http_response(raw):"
-    assert top["sources"] == ["bm25", "dense"] and top["score"] > 0
+    assert top["sources"][0] == "dense" and "bm25" not in top["sources"] and top["score"] > 0
     assert log["embedders"] == ["fake-hash"]  # model taken from the index manifest
 
 
@@ -147,8 +149,12 @@ def test_search_modes_and_decorated_signature(indexed: Path) -> None:
     assert all(h["sources"] == ["bm25"] for h in bm25["hits"])
     hit = next(h for h in bm25["hits"] if h["chunk_id"] == "net/http.py::RetryPolicy.backoff_delay")
     assert hit["signature"] == "def backoff_delay(attempt):"  # decorator line skipped
-    dense = call(service, "search", {"query": "backoff_delay", "mode": "dense"}).structured_content
-    assert all(h["sources"] == ["dense"] for h in dense["hits"])
+    dense = call(service, "search", {"query": "backoff_delay", "mode": "dense", "graph": False}).structured_content
+    assert dense["graph"] is False and all(h["sources"] == ["dense"] for h in dense["hits"])
+    fused = call(service, "search", {"query": "parse_http_response", "mode": "fused", "graph": False})
+    assert fused.structured_content["hits"][0]["sources"] == ["bm25", "dense"]
+    graph = call(service, "search", {"query": "backoff_delay", "mode": "bm25", "graph": True}).structured_content
+    assert graph["graph"] is False  # bm25 is never expanded
 
 
 def test_search_validates_arguments(indexed: Path) -> None:

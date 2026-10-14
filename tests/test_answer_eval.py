@@ -102,7 +102,8 @@ def test_run_answer_eval_records_each_question(tmp_path: Path) -> None:
     assert summary["abstention"]["strict"]["precision"] == 1.0
     assert summary["abstention"]["strict"]["recall"] == 1.0
     assert summary["invalid_tags"] == 1 and summary["answers_with_invalid_tags"] == 1
-    assert results["settings"]["retrieval"] == "default" and results["answer_model"] == "fake-llm"
+    assert results["settings"]["retrieval"] == "dense+graph(hops=2, weight=2)"
+    assert results["answer_model"] == "fake-llm"
 
 
 def test_run_answer_eval_flags_near_miss_and_missed_abstention(tmp_path: Path) -> None:
@@ -142,6 +143,9 @@ def test_reports_and_saved_files(tmp_path: Path) -> None:
     assert "e2   flow" in report and "C9" in report
     review = format_review(results)
     assert review.count("**Verdict:**") == 3 and "## e3 (negative" in review
+    assert "- retrieval: dense+graph(hops=2, weight=2), top" in review
+    legacy = {**results, "settings": {**results["settings"], "retrieval": "default"}}
+    assert "- retrieval: default fused, top" in format_review(legacy)  # runs before the switch
     assert "> It splits head and body [C1] [C9]." in review and "invalid tags: C9" in review
 
     json_path, md_path = save_answer_results(results, tmp_path / "results")

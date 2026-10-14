@@ -152,9 +152,23 @@ def test_search_table(indexed: Callable[..., Harness], repo: Path) -> None:
     rows = result.output.strip().splitlines()
     assert len(rows) == 3
     rank, score, sources, location, chunk_id = rows[0].split()
-    assert (rank, sources) == ("1", "bm25+dense")
+    assert rank == "1" and sources.startswith("dense") and "bm25" not in result.output  # dense+graph default
     assert location == "net/http.py:4-7" and chunk_id == "net/http.py::parse_http_response"
     assert float(score) > 0
+
+
+def test_search_mode_and_graph_options(indexed: Callable[..., Harness], repo: Path) -> None:
+    h = indexed()
+    fused = h.run("search", "parse_http_response", "-k", "3", "--mode", "fused", "--no-graph", "--path", str(repo))
+    assert fused.exit_code == 0, fused.output
+    assert fused.output.split("\n")[0].split()[2] == "bm25+dense" and "graph" not in fused.output
+    bm25 = h.run("search", "backoff delay", "--mode", "bm25", "--json", "--path", str(repo))
+    assert {s for hit in json.loads(bm25.output) for s in hit["sources"]} == {"bm25"}
+    hops = h.run("search", "backoff delay", "--graph-hops", "1", "--graph-weight", "0.5", "--path", str(repo))
+    assert hops.exit_code == 0, hops.output
+    bad = h.run("search", "x", "--graph-weight", "0", "--path", str(repo))
+    assert bad.exit_code == 1 and "graph_weight" in bad.output
+    assert h.run("search", "x", "--mode", "hybrid", "--path", str(repo)).exit_code == 2
 
 
 def test_search_module_chunk_shows_all_spans(indexed: Callable[..., Harness], repo: Path) -> None:
@@ -172,7 +186,7 @@ def test_search_json(indexed: Callable[..., Harness], repo: Path) -> None:
     assert top["chunk_id"] == "net/http.py::RetryPolicy.backoff_delay"
     assert top["kind"] == "method" and top["path"] == "net/http.py"
     assert top["lines"] == [10, 11] and top["spans"] == [[10, 11]]
-    assert set(top["sources"]) <= {"bm25", "dense"} and top["ranks"] and top["raw_scores"]
+    assert set(top["sources"]) <= {"dense", "graph"} and top["ranks"] and top["raw_scores"]
 
 
 def test_search_empty_results(write_repo: WriteRepo) -> None:
@@ -258,7 +272,9 @@ def test_ask_repetition_notice(indexed: Callable[..., Harness], repo: Path) -> N
     result = h.run("ask", "parse", "--path", str(repo), "--max-new-tokens", "5000")
     assert result.exit_code == 0, result.output
     assert "repeating itself" in result.output and h.generator.closed
-    assert "[C1] net/http.py::parse_http_response" in result.output
+    assert "Citations:\n  [C1] " in result.output
+    fused = h.run("ask", "parse", "--path", str(repo), "--mode", "fused", "--no-graph", "--max-new-tokens", "5000")
+    assert "[C1] net/http.py::parse_http_response" in fused.output
 
 
 def test_ask_empty_retrieval_never_loads_model(write_repo: WriteRepo) -> None:
