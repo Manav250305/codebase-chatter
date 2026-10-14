@@ -1,7 +1,7 @@
 """Read-only MCP server over a chatter index (stdio transport).
 
 Tools:
-    search(query, k, mode)        ranked chunks with file:line locations
+    search(query, k, mode, graph) ranked chunks with file:line locations
     get_chunk(chunk_id)           one chunk's source and metadata
     list_symbols(path_prefix)     functions/classes/methods under a path
     ask(question, k)              optional: answer with the local generator
@@ -16,6 +16,7 @@ Configuration (CLI flags take precedence over the environment):
     CHATTER_MCP_ENABLE_ASK  "1" to expose the ask tool
     CHATTER_BACKEND         answer backend for ask (mlx | transformers)
     CHATTER_ANSWER_MODEL    answer model for ask
+    CHATTER_ANSWER_PROMPT   answer prompt for ask (plain | evidence)
 """
 
 from __future__ import annotations
@@ -33,10 +34,11 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
 from chatter.answer import (
+    DEFAULT_PROMPT,
+    PROMPTS,
     Generator,
     GeneratorConfig,
     answer_question,
-    classify_answer,
     format_line_ranges,
 )
 from chatter.embed import Embedder
@@ -77,6 +79,7 @@ class ServerConfig:
     enable_ask: bool = False
     backend: str | None = None  # None: default_backend()
     answer_model: str | None = None
+    answer_prompt: str = DEFAULT_PROMPT
 
 
 def config_from_env(
@@ -86,9 +89,13 @@ def config_from_env(
     enable_ask: bool | None = None,
     backend: str | None = None,
     answer_model: str | None = None,
+    answer_prompt: str | None = None,
     environ: Mapping[str, str] = os.environ,
 ) -> ServerConfig:
     """Explicit arguments win; otherwise the CHATTER_* environment variables."""
+    prompt = answer_prompt or environ.get("CHATTER_ANSWER_PROMPT") or DEFAULT_PROMPT
+    if prompt not in PROMPTS:
+        raise ValueError(f"unknown answer prompt {prompt!r}; expected one of {', '.join(PROMPTS)}")
     repo_path = Path(repo or environ.get("CHATTER_REPO") or ".").resolve()
     index = index_dir or (Path(environ["CHATTER_INDEX_DIR"]) if environ.get("CHATTER_INDEX_DIR") else None)
     return ServerConfig(
@@ -101,6 +108,7 @@ def config_from_env(
         ),
         backend=backend or environ.get("CHATTER_BACKEND") or None,
         answer_model=answer_model or environ.get("CHATTER_ANSWER_MODEL") or None,
+        answer_prompt=prompt,
     )
 
 
@@ -178,6 +186,14 @@ class Citation(BaseModel):
     location: str
 
 
+class EvidenceQuote(BaseModel):
+    tag: str
+    chunk_id: str | None
+    quote: str
+    result: str = Field(description="verified | wrong_tag | not_found | unknown_tag | too_short")
+    location: str | None = Field(description="path:line of a verified quote")
+
+
 class AskResult(BaseModel):
     answer: str
     status: str = Field(description="answered | abstained | mixed")
@@ -186,6 +202,14 @@ class AskResult(BaseModel):
     context_chunk_ids: list[str]
     model: str
     backend: str | None
+    prompt: str = Field(default=DEFAULT_PROMPT, description="plain | evidence")
+    verification: str | None = Field(
+        default=None, description="evidence prompt: verified | partial | unverified | abstained"
+    )
+    evidence: list[EvidenceQuote] = Field(default_factory=list, description="evidence prompt: checked quotes")
+    raw_answer: str | None = Field(
+        default=None, description="the model's reply, when it was withheld as unverified"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -341,10 +365,11 @@ class ChatterService:
                 except (OSError, ValueError, RuntimeError, ImportError, MemoryError) as exc:
                     raise ToolError(f"could not load the answer model: {exc}") from exc
             generator = self._generator
-            result = answer_question(question, hits, generator)
+            result = answer_question(question, hits, generator, prompt=self.config.answer_prompt)
+        check = result.evidence
         return AskResult(
-            answer=result.text,
-            status=classify_answer(result.text).value,
+            answer=result.answer,
+            status=result.status.value,
             citations=[
                 Citation(tag=c.tag, chunk_id=c.block.chunk_id, location=c.block.location)
                 for c in result.citations
@@ -353,6 +378,19 @@ class ChatterService:
             context_chunk_ids=[block.chunk_id for block in result.blocks],
             model=generator.name,
             backend=getattr(generator, "backend", None),
+            prompt=result.prompt,
+            verification=check.verification.value if check else None,
+            evidence=[
+                EvidenceQuote(
+                    tag=q.tag,
+                    chunk_id=q.chunk_id,
+                    quote=q.text,
+                    result=q.result,
+                    location=f"{q.path}:{q.line}" if q.verified else None,
+                )
+                for q in (check.quotes if check else ())
+            ],
+            raw_answer=result.raw_text,
         )
 
 

@@ -45,6 +45,10 @@ questions about functions/modules, with `file:line-range` citations.
   The margin is one question, so treat it as a small gain. Choosing or
   confirming anything new needs a fresh held-out set (v2); h01-h18 are for
   regression tracking only.
+- Evidence-first answer prompt (`--prompt evidence`) is implemented but off by
+  default. Its success criterion is eval/answer-criteria-evidence-first.yaml.
+  Do not run the evidence-first answer eval until the baseline grades
+  (eval/grades/20261014T172908-152daa3-answers-mlx.yaml) are committed.
 
 ## Known issues (fix after the eval baseline)
 - Orphan comments are not in any chunk: a comment block above a def/class

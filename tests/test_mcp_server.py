@@ -328,3 +328,47 @@ def test_stdio_server_end_to_end(indexed: Path) -> None:
     listed, result = anyio.run(main)
     assert listed == {"search", "get_chunk", "list_symbols"}
     assert result.structured_content["hits"][0]["chunk_id"] == "net/http.py::parse_http_response"
+
+
+# ---------------------------------------------------------------------------
+# ask with the evidence prompt
+# ---------------------------------------------------------------------------
+
+
+def evidence_service(root: Path, quote: str) -> ChatterService:
+    def reply(system: str, user: str):  # type: ignore[no-untyped-def]
+        head = user[: user.index('id="net/http.py::parse_http_response"')]
+        tag = head[head.rindex('tag="') + 5 :].split('"', 1)[0]
+        text = f"Evidence:\n[{tag}] {quote}\n\nAnswer:\nIt partitions the raw text [{tag}]."
+        return iter([w + " " for w in text.split(" ")])
+
+    config = ServerConfig(
+        repo=root, index_dir=root / ".chatter", enable_ask=True, backend="mlx", answer_prompt="evidence"
+    )
+    return ChatterService(config, lambda name: HashEmbedder(name=name), lambda c: FakeGenerator(reply))
+
+
+def test_ask_evidence_reports_verified_quotes(indexed: Path) -> None:
+    service = evidence_service(indexed, 'head, _, body = raw.partition("\\r\\n\\r\\n")')
+    data = call(service, "ask", {"question": "how is an http response parsed"}).structured_content
+    assert data["prompt"] == "evidence" and data["verification"] == "verified"
+    assert data["status"] == "answered" and data["answer"].startswith("It partitions the raw text [C")
+    (quote,) = data["evidence"]
+    assert quote["result"] == "verified" and quote["location"] == "net/http.py:6"
+    assert quote["chunk_id"] == "net/http.py::parse_http_response" and data["raw_answer"] is None
+
+
+def test_ask_evidence_withholds_unverified_answers(indexed: Path) -> None:
+    service = evidence_service(indexed, "head, body = raw.split(CRLF, 1)")
+    data = call(service, "ask", {"question": "how is an http response parsed"}).structured_content
+    assert data["status"] == "abstained" and data["answer"] == ABSTENTION
+    assert data["verification"] == "unverified" and data["evidence"][0]["result"] == "not_found"
+    assert "It partitions the raw text" in data["raw_answer"] and data["citations"] == []
+
+
+def test_answer_prompt_from_environment() -> None:
+    config = config_from_env(repo=Path("/r"), environ={"CHATTER_ANSWER_PROMPT": "evidence"})
+    assert config.answer_prompt == "evidence"
+    assert config_from_env(repo=Path("/r"), environ={}).answer_prompt == "plain"
+    with pytest.raises(ValueError, match="unknown answer prompt"):
+        config_from_env(repo=Path("/r"), environ={"CHATTER_ANSWER_PROMPT": "cot"})

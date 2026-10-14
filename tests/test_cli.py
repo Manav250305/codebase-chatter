@@ -390,3 +390,59 @@ def test_ask_backend_option(indexed: Callable[..., Harness], repo: Path) -> None
     assert config.resolved_model == "mlx-community/Qwen3-4B-Instruct-2507-4bit"
     bad = h.run("ask", "parse", "--path", str(repo), "--backend", "onnx")
     assert bad.exit_code == 2
+
+
+# ---------------------------------------------------------------------------
+# ask --prompt evidence
+# ---------------------------------------------------------------------------
+
+PARTITION_LINE = 'head, _, body = raw.partition("\\r\\n\\r\\n")'
+
+
+def quoting(quote: str, extra: str = ""):  # type: ignore[no-untyped-def]
+    """A reply quoting ``quote`` with the tag of parse_http_response's chunk."""
+
+    def reply(system: str, user: str):  # type: ignore[no-untyped-def]
+        head = user[: user.index('id="net/http.py::parse_http_response"')]
+        tag = head[head.rindex('tag="') + 5 :].split('"', 1)[0]
+        text = f"Evidence:\n[{tag}] {quote}\n{extra}\nAnswer:\nIt partitions at the blank line [{tag}]."
+        return iter([w + " " for w in text.split(" ")])
+
+    return reply
+
+
+def test_ask_evidence_verified_streams_answer(indexed: Callable[..., Harness], repo: Path) -> None:
+    h = indexed(quoting(PARTITION_LINE))
+    result = h.run("ask", "how is a response parsed", "--prompt", "evidence", "--path", str(repo))
+    assert result.exit_code == 0, result.output
+    out = result.output
+    assert "Evidence:\n  ✓ [C" in out and f"net/http.py:6  {PARTITION_LINE}" in out
+    assert out.index("Evidence:") < out.index("It partitions at the blank line") < out.index("Citations:")
+    assert "NOT FOUND" not in out and "partly verified" not in out
+    assert h.generator.prompts[0][0].startswith("You answer questions") and "Evidence:" in h.generator.prompts[0][0]
+
+
+def test_ask_evidence_unverified_answer_is_withheld(indexed: Callable[..., Harness], repo: Path) -> None:
+    h = indexed(quoting("head, body = raw.split(CRLF, 1)"))
+    result = h.run("ask", "how is a response parsed", "--prompt", "evidence", "--path", str(repo))
+    assert result.exit_code == 0, result.output
+    assert "It partitions at the blank line" not in result.output
+    assert '✗ [C' in result.output and 'not found in C' in result.output
+    assert "NOT FOUND: none of the quoted lines appear in the cited chunks" in result.output
+    assert "Searched:" in result.output and "Citations:" not in result.output
+
+
+def test_ask_evidence_partial_warns(indexed: Callable[..., Harness], repo: Path) -> None:
+    h = indexed(quoting(PARTITION_LINE, extra="[C1] this line was never in any chunk\n"))
+    result = h.run("ask", "how is a response parsed", "--prompt", "evidence", "--path", str(repo))
+    assert result.exit_code == 0, result.output
+    assert "It partitions at the blank line" in result.output
+    assert "[evidence partly verified: 1 quote(s) could not be verified]" in result.output
+
+
+def test_ask_plain_prompt_is_the_default(indexed: Callable[..., Harness], repo: Path) -> None:
+    h = indexed()
+    h.run("ask", "parse", "--path", str(repo))
+    assert "Evidence:" not in h.generator.prompts[0][0]
+    bad = h.run("ask", "parse", "--prompt", "cot", "--path", str(repo))
+    assert bad.exit_code == 2

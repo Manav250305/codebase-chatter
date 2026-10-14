@@ -22,10 +22,17 @@ abstention looks only at questions whose context held no relevant or
 containing chunk, and reports per corpus how often the model still answered.
 Correctness is judged by hand: ``format_review`` renders a markdown file with
 a verdict line per answer.
+
+With the evidence prompt, each record also has ``raw_classification`` (before
+unverified answers were withheld), the checked quotes, the verification
+status, format compliance, and ``evidence.in_relevant``: whether a verified
+quote's line lies inside a relevant chunk. Classification and the other
+metrics describe the final output.
 """
 
 from __future__ import annotations
 
+import hashlib
 import statistics
 import threading
 import time
@@ -40,10 +47,13 @@ from chatter.answer import (
     ABSTENTION,
     DEFAULT_MAX_CONTEXT_TOKENS,
     DEFAULT_MAX_NEW_TOKENS,
+    DEFAULT_PROMPT,
+    PROMPTS,
     AnswerResult,
     AnswerStatus,
     Generator,
     answer_question,
+    classify_answer,
     generator_memory,
     looks_like_abstention,
 )
@@ -59,20 +69,77 @@ from chatter.evaluate import (
     save_results,
     select_questions,
 )
+from chatter.evidence import Quote, describe_quote
+from chatter.extract import Chunk
 from chatter.retrieve import DEFAULT_SEARCH
 
-ANSWER_RESULTS_SCHEMA = 2  # 2: memory, backend, context-relative abstention
+ANSWER_RESULTS_SCHEMA = 3  # 2: memory, backend, context-relative abstention; 3: prompt, evidence
 DEFAULT_ANSWER_TOP_K = 8  # same as `chatter ask`
 CLASSIFICATIONS = ("answered", "abstained", "mixed", "near_miss_abstention")
 LENIENT_ABSTAIN = frozenset({"abstained", "mixed", "near_miss_abstention"})
 
 
 def classify(result: AnswerResult) -> str:
-    if result.status is AnswerStatus.ABSTAINED:
+    return _classification(result.status, result.answer)
+
+
+def _classification(status: AnswerStatus, answer: str) -> str:
+    if status is AnswerStatus.ABSTAINED:
         return "abstained"
-    if result.status is AnswerStatus.MIXED:
+    if status is AnswerStatus.MIXED:
         return "mixed"
-    return "near_miss_abstention" if looks_like_abstention(result.text) else "answered"
+    return "near_miss_abstention" if looks_like_abstention(answer) else "answered"
+
+
+def raw_classification(result: AnswerResult) -> str:
+    """The classification before an unverified answer was withheld."""
+    if result.evidence is None or result.raw_status is None:
+        return classify(result)
+    raw = result.raw_text if result.raw_text is not None else result.text
+    if result.evidence.forced_abstention:
+        answer = result.evidence.parsed.answer
+        return _classification(result.raw_status, raw if answer is None else answer)
+    return _classification(result.raw_status, result.answer)
+
+
+def evidence_record(
+    result: AnswerResult, relevant: Sequence[str], lookup: Callable[[str], Chunk | None] | None
+) -> dict[str, Any] | None:
+    """Quotes, verification and format compliance of an evidence-prompt answer."""
+    check = result.evidence
+    if check is None:
+        return None
+    raw = result.raw_text if result.raw_text is not None else result.text
+    abstention_only = classify_answer(raw) is AnswerStatus.ABSTAINED
+    spans = [
+        (chunk.path, frozenset(chunk.line_numbers()))
+        for chunk in (lookup(rid) if lookup else None for rid in relevant)
+        if chunk is not None
+    ]
+    verified = [q for q in check.quotes if q.verified]
+    return {
+        "verification": check.verification.value,
+        "forced_abstention": check.forced_abstention,
+        "format": {
+            "evidence_section": check.parsed.evidence_section,
+            "entries": len(check.parsed.entries),
+            "answer_section": check.parsed.answer is not None,
+            "parseable": check.parsed.parseable,
+            "abstention_only": abstention_only,
+            "compliant": check.parsed.parseable or abstention_only,
+        },
+        "quotes": [
+            {"tag": q.tag, "quote": q.text, "result": q.result, "chunk_id": q.chunk_id,
+             "path": q.path, "line": q.line, "found_in": q.found_in}
+            for q in check.quotes
+        ],
+        "unsupported_tags": list(check.unsupported_tags),
+        "in_relevant": (
+            any(q.path == path and q.line in lines for q in verified for path, lines in spans)
+            if relevant
+            else None
+        ),
+    }
 
 
 @dataclass(slots=True)
@@ -177,8 +244,10 @@ def evaluate_answer(
     generator: Generator,
     contains: Contains,
     memory: Mapping[str, Any] | None = None,
+    lookup: Callable[[str], Chunk | None] | None = None,
 ) -> dict[str, Any]:
-    """One question's record (see module docstring)."""
+    """One question's record (see module docstring). ``lookup`` finds relevant
+    chunks by id, to place verified quotes."""
     relevant = list(question.relevant)
     context_ids = [block.chunk_id for block in result.blocks]
     cited_ids = [citation.block.chunk_id for citation in result.citations]
@@ -210,6 +279,10 @@ def evaluate_answer(
         "relevant": relevant,
         "classification": classify(result),
         "answer": result.text,
+        "prompt": result.prompt,
+        "raw_classification": raw_classification(result),
+        "raw_answer": result.raw_text,
+        "evidence": evidence_record(result, relevant, lookup),
         "stopped_for_repetition": result.stopped_for_repetition,
         "context": [
             {"tag": b.tag, "chunk_id": b.chunk_id, "location": b.location, "truncated": b.truncated}
@@ -312,6 +385,51 @@ def _memory_summary(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
+def evidence_summary(records: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
+    """Format compliance, verification and evidence placement (evidence prompt only).
+
+    ``in_relevant`` counts answerable questions with a shown answer (final
+    classification other than abstained) whose verified quotes include a line
+    inside a relevant chunk; it is also given over all answerable questions.
+    """
+    rows = [r for r in records if r.get("evidence")]
+    if not rows:
+        return None
+
+    def ids(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+        return [r["id"] for r in rows]
+
+    fmt = [r["evidence"]["format"] for r in rows]
+    neither = [r for r in rows if not r["evidence"]["format"]["compliant"]]
+    answerable = [r for r in rows if not r["expect_abstain"]]
+    shown = [r for r in answerable if r["classification"] != "abstained"]
+    inside = [r for r in shown if r["evidence"]["in_relevant"]]
+    verifications = ("verified", "partial", "unverified", "abstained")
+    return {
+        "n": len(rows),
+        "format": {
+            "parseable": sum(f["parseable"] for f in fmt),
+            "abstention_only": sum(f["abstention_only"] and not f["parseable"] for f in fmt),
+            "neither": len(neither),
+            "neither_ids": ids(neither),
+        },
+        "verification": {v: sum(r["evidence"]["verification"] == v for r in rows) for v in verifications},
+        "forced_abstentions": ids([r for r in rows if r["evidence"]["forced_abstention"]]),
+        "quotes": {
+            "total": sum(len(r["evidence"]["quotes"]) for r in rows),
+            "verified": sum(q["result"] == "verified" for r in rows for q in r["evidence"]["quotes"]),
+        },
+        "in_relevant": {
+            "count": len(inside),
+            "answers": len(shown),
+            "answerable": len(answerable),
+            "rate_of_answers": len(inside) / len(shown) if shown else None,
+            "rate_of_answerable": len(inside) / len(answerable) if answerable else None,
+            "ids": ids(inside),
+        },
+    }
+
+
 def summarize_answers(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     answerable = [r for r in records if not r["expect_abstain"]]
 
@@ -343,6 +461,7 @@ def summarize_answers(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "median_ttft_s": median("ttft_s"),
         "median_tokens_per_s": median("tokens_per_s"),
         "median_prompt_tokens": median("prompt_tokens"),
+        "evidence": evidence_summary(records),
     }
 
 
@@ -361,9 +480,12 @@ def run_answer_eval(
     top_k: int = DEFAULT_ANSWER_TOP_K,
     max_context_tokens: int = DEFAULT_MAX_CONTEXT_TOKENS,
     max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
+    prompt: str = DEFAULT_PROMPT,
     log: Callable[[str], None] = lambda _: None,
 ) -> dict[str, Any]:
-    """Answer every selected question with the default retrieval config."""
+    """Answer every selected question with the default retrieval config and ``prompt``."""
+    if prompt not in PROMPTS:
+        raise EvalError(f"unknown prompt {prompt!r}; expected one of {', '.join(PROMPTS)}")
     questions = select_questions(questions_path, split)
     embedder = embedder_factory(model_name)
     setup = open_corpora(
@@ -397,6 +519,7 @@ def run_answer_eval(
                 generator,
                 max_context_tokens=max_context_tokens,
                 max_new_tokens=max_new_tokens,
+                prompt=prompt,
             )
         record = evaluate_answer(
             question,
@@ -405,6 +528,7 @@ def run_answer_eval(
             generator,
             setup.matchers[question.corpus],
             memory={**memory.stats(), **generator.memory_stats()},
+            lookup=setup.retrievers[question.corpus].chunk,
         )
         records.append(record)
         log(f"[{n}/{len(questions)}] {question.id}: {record['classification']}")
@@ -423,6 +547,8 @@ def run_answer_eval(
             "max_context_tokens": max_context_tokens,
             "max_new_tokens": max_new_tokens,
             "abstention_sentence": ABSTENTION,
+            "prompt": prompt,
+            "prompt_sha256": hashlib.sha256(PROMPTS[prompt].encode("utf-8")).hexdigest(),
         },
         "summary": summarize_answers(records),
         "questions": records,
@@ -436,7 +562,9 @@ def _retrieval(results: Mapping[str, Any]) -> str:
 
 def save_answer_results(results: Mapping[str, Any], results_dir: Path) -> tuple[Path, Path]:
     """Write the JSON results and the markdown review file next to it."""
-    json_path = save_results(results, results_dir, label=f"answers-{results.get('backend', 'transformers')}")
+    prompt = results["settings"].get("prompt", DEFAULT_PROMPT)
+    suffix = "" if prompt == DEFAULT_PROMPT else f"-{prompt}"
+    json_path = save_results(results, results_dir, label=f"answers-{results.get('backend', 'transformers')}{suffix}")
     review_path = json_path.with_suffix(".md")
     review_path.write_text(format_review(results), encoding="utf-8")
     return json_path, review_path
@@ -458,8 +586,9 @@ def format_answer_report(results: Mapping[str, Any]) -> str:
         f"embedding model: {results['embedding_model']}   "
         f"commit: {(results['git'].get('commit') or 'none')[:10]}{' (dirty)' if results['git'].get('dirty') else ''}",
         f"split: {results['settings']['split']}   questions: {s['n']}   retrieval: {_retrieval(results)}, "
-        f"top {results['settings']['top_k']}",
+        f"top {results['settings']['top_k']}   prompt: {results['settings'].get('prompt', DEFAULT_PROMPT)}",
         "",
+        *_evidence_lines(s.get("evidence")),
         "classifications: " + ", ".join(f"{k} {v}" for k, v in s["classifications"].items()),
         "",
         f"{'abstention':<11} {'neg':>4} {'ans':>4} {'TP':>3} {'FP':>3} {'FN':>3} {'precision':>10} "
@@ -507,6 +636,23 @@ def format_answer_report(results: Mapping[str, Any]) -> str:
             f"{_gb(r.get('memory', {}).get('accelerator_mb')):>9}"
         )
     return "\n".join(lines)
+
+
+def _evidence_lines(e: Mapping[str, Any] | None) -> list[str]:
+    if not e:
+        return []
+    rel, fmt, v = e["in_relevant"], e["format"], e["verification"]
+    return [
+        f"EVIDENCE IN A RELEVANT CHUNK: {rel['count']}/{rel['answers']} answers "
+        f"({_pct(rel['rate_of_answers'])}); {rel['count']}/{rel['answerable']} answerable questions",
+        f"format compliance: {fmt['parseable']}/{e['n']} parseable Evidence section, "
+        f"{fmt['abstention_only']} abstention only, {fmt['neither']} neither"
+        + (f" ({', '.join(fmt['neither_ids'])})" if fmt["neither_ids"] else ""),
+        "verification: " + ", ".join(f"{k} {n}" for k, n in v.items())
+        + f"; answers withheld (unverified): {', '.join(e['forced_abstentions']) or 'none'}",
+        f"quotes: {e['quotes']['verified']}/{e['quotes']['total']} verified",
+        "",
+    ]
 
 
 def _memory_lines(results: Mapping[str, Any]) -> list[str]:
@@ -559,7 +705,8 @@ def format_review(results: Mapping[str, Any]) -> str:
         f"- commit: `{results['git'].get('commit')}`{' (dirty)' if results['git'].get('dirty') else ''}; "
         f"created {results['created']}",
         f"- retrieval: {_retrieval(results)}, top {results['settings']['top_k']}, "
-        f"max context {results['settings']['max_context_tokens']} tokens",
+        f"max context {results['settings']['max_context_tokens']} tokens; "
+        f"prompt: {results['settings'].get('prompt', DEFAULT_PROMPT)}",
         "- classifications: " + ", ".join(f"{k} {v}" for k, v in s["classifications"].items()),
         "",
         "Mark one verdict per question: **correct**, **partial**, **wrong**, or for negatives "
@@ -581,8 +728,9 @@ def format_review(results: Mapping[str, Any]) -> str:
             "",
             "**Answer:**",
             "",
-            *(f"> {line}" if line else ">" for line in (r["answer"] or "(empty)").split("\n")),
+            *_blockquote(r["answer"]),
             "",
+            *_evidence_review(r),
         ]
         if r["citations"]:
             lines.append("**Citations:**")
@@ -615,6 +763,34 @@ def format_review(results: Mapping[str, Any]) -> str:
             "**Notes:**",
         ]
     return "\n".join(lines) + "\n"
+
+
+def _blockquote(text: str | None) -> list[str]:
+    return [f"> {line}" if line else ">" for line in (text or "(empty)").split("\n")]
+
+
+def _quote(q: Mapping[str, Any]) -> Quote:
+    return Quote(q["tag"], q["quote"], q["result"], q.get("chunk_id"), q.get("path"), q.get("line"), q.get("found_in"))
+
+
+def _evidence_review(r: Mapping[str, Any]) -> list[str]:
+    e = r.get("evidence")
+    if not e:
+        return []
+    lines = [
+        f"**Evidence check:** {e['verification']}"
+        + (" — the model's answer was withheld (no quote verified)" if e["forced_abstention"] else "")
+        + ("" if e["format"]["compliant"] else " — reply did not follow the evidence format"),
+        "",
+    ]
+    lines += [f"- {describe_quote(_quote(q))}" for q in e["quotes"]] or ["- (no quotes)"]
+    if e["unsupported_tags"]:
+        lines.append(f"- answer cites tags without verified evidence: {', '.join(e['unsupported_tags'])}")
+    if e["in_relevant"] is not None:
+        lines.append(f"- a verified quote lies inside a relevant chunk: {e['in_relevant']}")
+    if r.get("raw_answer"):
+        lines += ["", "**Model's reply (withheld):**", "", *_blockquote(r["raw_answer"])]
+    return [*lines, ""]
 
 
 def _seconds(value: float | None) -> str:

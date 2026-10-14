@@ -223,7 +223,7 @@ def test_memory_sampler_records_rss_and_swap() -> None:
 
 def test_answer_eval_records_memory_backend_and_context_abstention(tmp_path: Path) -> None:
     results, _, _ = run(tmp_path, backend="mlx")
-    assert results["backend"] == "mlx" and results["schema"] == 2
+    assert results["backend"] == "mlx" and results["schema"] == 3
     assert results["model_load"]["seconds"] >= 0 and results["model_load"]["peak_rss_mb"] > 0
     for record in results["questions"]:
         assert record["memory"]["peak_rss_mb"] > 0 and "swap_used_peak_mb" in record["memory"]
@@ -234,3 +234,84 @@ def test_answer_eval_records_memory_backend_and_context_abstention(tmp_path: Pat
     assert "(mlx)" in report and "context-relative abstention" in report and "RSS GB" in report
     json_path, _ = save_answer_results(results, tmp_path / "r")
     assert json_path.name.endswith("-answers-mlx.json")
+
+
+# ---------------------------------------------------------------------------
+# Evidence prompt
+# ---------------------------------------------------------------------------
+
+
+def chunk_tag(user: str, chunk_id: str) -> str:
+    marker = f'id="{chunk_id}"'
+    head = user[: user.index(marker)]
+    return head[head.rindex('tag="') + 5 :].split('"', 1)[0]
+
+
+def evidence_reply(system: str, user: str):  # type: ignore[no-untyped-def]
+    """Quote the relevant line for evict, a made-up line for parse, abstain on OAuth."""
+    question = user.rsplit("Question:", 1)[-1].lower()
+    if "oauth" in question:
+        text = ABSTENTION
+    elif "evict" in question:
+        tag = chunk_tag(user, "lib/cache.py::evict_least_recently_used")
+        text = f"Evidence:\n[{tag}] while len(cache) > capacity:\n\nAnswer:\nIt pops entries while over capacity [{tag}]."
+    else:
+        text = "Evidence:\n[C1] head, body = raw.split(CRLF)\n\nAnswer:\nIt splits on CRLF [C1]."
+    return iter([w + " " for w in text.split(" ")])
+
+
+def test_evidence_prompt_records_quotes_and_withholds_unverified(tmp_path: Path) -> None:
+    results, gen, _ = run(tmp_path, evidence_reply, prompt="evidence")
+    from chatter.answer import EVIDENCE_SYSTEM_PROMPT
+
+    assert gen.prompts[0][0] == EVIDENCE_SYSTEM_PROMPT
+    assert results["settings"]["prompt"] == "evidence" and len(results["settings"]["prompt_sha256"]) == 64
+    by_id = {r["id"]: r for r in results["questions"]}
+    e1, e2, e3 = by_id["e1"], by_id["e2"], by_id["e3"]
+
+    assert e1["classification"] == "answered" and e1["raw_classification"] == "answered"
+    assert e1["evidence"]["verification"] == "verified" and e1["evidence"]["in_relevant"] is True
+    (quote,) = e1["evidence"]["quotes"]
+    assert quote["result"] == "verified" and quote["path"] == "lib/cache.py" and quote["line"] == 3
+    assert e1["evidence"]["format"] == {
+        "evidence_section": True, "entries": 1, "answer_section": True,
+        "parseable": True, "abstention_only": False, "compliant": True,
+    }
+
+    assert e2["classification"] == "abstained" and e2["raw_classification"] == "answered"
+    assert e2["answer"] == ABSTENTION and "raw.split(CRLF)" in e2["raw_answer"]
+    assert e2["evidence"]["forced_abstention"] and e2["evidence"]["in_relevant"] is False
+    assert e2["citations"] == []
+
+    assert e3["evidence"]["verification"] == "abstained" and e3["evidence"]["in_relevant"] is None
+    assert e3["evidence"]["format"]["abstention_only"] and e3["evidence"]["format"]["compliant"]
+
+    e = results["summary"]["evidence"]
+    assert e["format"] == {"parseable": 2, "abstention_only": 1, "neither": 0, "neither_ids": []}
+    assert e["verification"] == {"verified": 1, "partial": 0, "unverified": 1, "abstained": 1}
+    assert e["forced_abstentions"] == ["e2"]
+    assert e["in_relevant"]["count"] == 1 and e["in_relevant"]["answers"] == 1
+    assert e["in_relevant"]["answerable"] == 2 and e["in_relevant"]["rate_of_answers"] == 1.0
+
+    report = format_answer_report(results)
+    assert report.index("EVIDENCE IN A RELEVANT CHUNK: 1/1 answers") < report.index("classifications:")
+    assert "format compliance: 2/3 parseable Evidence section, 1 abstention only, 0 neither" in report
+    review = format_review(results)
+    assert "**Evidence check:** unverified — the model's answer was withheld" in review
+    assert "**Model's reply (withheld):**" in review and "✓ [" in review and "lib/cache.py:3" in review
+    assert "prompt: evidence" in review
+
+    json_path, _ = save_answer_results(results, tmp_path / "results")
+    assert json_path.name.endswith("-answers-transformers-evidence.json")
+
+
+def test_plain_prompt_records_have_no_evidence(tmp_path: Path) -> None:
+    results, _, _ = run(tmp_path)
+    assert all(r["evidence"] is None and r["prompt"] == "plain" for r in results["questions"])
+    assert results["summary"]["evidence"] is None and results["settings"]["prompt"] == "plain"
+    assert "EVIDENCE" not in format_answer_report(results)
+
+
+def test_unknown_prompt_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(EvalError, match="unknown prompt"):
+        run(tmp_path, prompt="cot")

@@ -57,6 +57,7 @@ Useful options:
 - `chatter search --json`: machine-readable results.
 - `--mode dense|fused|bm25`, `--graph/--no-graph`, `--graph-hops`, `--graph-weight` (search and ask): retrieval. The default, dense with 2-hop call-graph expansion at weight 2, is the config the held-out evaluation chose (see [Results](#results)). For an exact identifier, `--mode fused` adds BM25 keyword matching.
 - `chatter ask --backend mlx|transformers`: choose the answer backend (default: mlx on Apple Silicon, transformers elsewhere).
+- `chatter ask --prompt evidence`: the model first quotes the lines it relies on, tagged `[C#]`, then answers. Each quote is checked against the lines it was shown, needing at least 12 non-space characters. The answer streams only if at least one quote is found; otherwise it is withheld and reported as NOT FOUND. Verified quotes are shown with their `path:line`. The default is `plain` while this is being evaluated.
 - `chatter index --rebuild`: re-embed everything, e.g. after changing `--model`.
 
 ## MCP server
@@ -147,6 +148,7 @@ Flags take precedence over environment variables.
 | `--enable-ask` | `CHATTER_MCP_ENABLE_ASK` | off |
 | `--backend` | `CHATTER_BACKEND` | mlx on Apple Silicon, else transformers |
 | `--answer-model` | `CHATTER_ANSWER_MODEL` | the backend's Qwen3-4B build |
+| `--answer-prompt` | `CHATTER_ANSWER_PROMPT` | `plain` (or `evidence`; `ask` then also returns the checked quotes) |
 
 `HF_HUB_OFFLINE=1` stops Hugging Face from checking for model updates at
 startup once the models are cached.
@@ -186,6 +188,22 @@ chatter eval eval/questions.yaml --candidates eval/candidates-graph.yaml
 
 Results are saved in `eval/results/` with the commit, models and corpus
 versions.
+
+Answer runs take `--prompt plain|evidence`. To compare two runs, grade each
+review file (fill in its **Verdict:** lines), collect the verdicts, and score
+the new run against a recorded success criterion. The comparison is void
+unless both runs answered from the same context:
+
+```bash
+chatter grade eval/results/<run>-answers-mlx.md
+```
+
+```bash
+chatter compare-answers eval/results/<base>.json eval/results/<new>.json --criteria eval/answer-criteria-evidence-first.yaml
+```
+
+`chatter grade` writes `eval/grades/<run>.yaml`, which `compare-answers`
+picks up automatically.
 
 ## Results
 
