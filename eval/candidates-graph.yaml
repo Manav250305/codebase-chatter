@@ -1,14 +1,17 @@
 # Graph-expanded retrieval candidates (roadmap step 5). Frozen copies of the
-# non-graph candidates from candidates.yaml, plus one graph variant per fused
-# counterpart. Do not edit decision_rule or configs after the first held-out
-# run.
+# non-graph candidates from candidates.yaml, plus one graph variant for each
+# config the fusion rule can choose. Do not edit decision_rule or configs after
+# the first held-out run.
 #
 # Graph variants were chosen on the tune split only, with call graph Phase B
-# (GRAPH_VERSION 3, commit 0fb721e), from the closed grid in
-# eval/results/20261005T145739-0fb721e-tune.json: per counterpart, the highest
-# tune strict MRR@50 with zero top-3 losses, ties to fewer hops.
-#   default+g2-w1   0.526 (default 0.523)  W/L/T 2/2/16 vs default
-#   k10-w3+g2-w3    0.583 (k10-w3 0.574)   W/L/T 4/1/15 vs k10-w3, R@10 0.646 (0.539)
+# (GRAPH_VERSION 3, commit 0fb721e), from the closed grids in
+# eval/results/20261005T145739-0fb721e-tune.json (fused) and
+# the dense-family sweep recorded in the next commit (dense, hops {1,2} x weights {0.5,1,2,3,4}; its fused rows are
+# identical): per counterpart, the highest tune strict MRR@50 with zero top-3
+# losses, ties to fewer hops.
+#   dense-only+g2-w2  0.531 (dense-only 0.524)  W/L/T 3/3/14 vs dense-only, R@10 0.621 (0.543)
+#   default+g2-w1     0.526 (default 0.523)     W/L/T 2/2/16 vs default
+#   k10-w3+g2-w3      0.583 (k10-w3 0.574)      W/L/T 4/1/15 vs k10-w3, R@10 0.646 (0.539)
 #
 # This rule runs after the fusion rule in candidates.yaml, which picks the
 # counterpart. One run, over all splits, decides both:
@@ -19,12 +22,12 @@ decision_rule:
   kind: adopt
   after: candidates.yaml
   text: >
-    Only the graph variant whose counterpart the fusion rule in
-    candidates.yaml chose is considered; if that rule chose dense-only, no
-    graph variant is adopted. Adopt it only if it beats that counterpart on
-    paired W/L (strict first relevant rank) over tune+heldout combined, and no
-    question loses a top-3 rank relative to that counterpart.
-  variants: [default+g2-w1, k10-w3+g2-w3]
+    Only the graph variant whose counterpart (dense-only, default or k10-w3)
+    the fusion rule in candidates.yaml chose is considered. Adopt it only if
+    it beats that counterpart on paired W/L (strict first relevant rank) over
+    tune+heldout combined, and no question loses a top-3 rank relative to
+    that counterpart; otherwise the counterpart stays.
+  variants: [dense-only+g2-w2, default+g2-w1, k10-w3+g2-w3]
   paired_metric: strict first relevant rank
   splits: [tune, heldout]
   constants: {seeds: 5, per_seed: 8, budget: 3, protected_ranks: 3, window: 10}
@@ -42,6 +45,12 @@ configs:
     mode: fused
     rrf_k: 10
     dense_weight: 3.0
+
+  - name: dense-only+g2-w2
+    mode: dense
+    graph_hops: 2
+    graph_weight: 2.0
+    counterpart: dense-only
 
   - name: default+g2-w1
     mode: fused

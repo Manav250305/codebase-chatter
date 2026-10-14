@@ -231,14 +231,16 @@ class DenseIndex:
 
 @dataclass(frozen=True, slots=True)
 class GraphExpansion:
-    """Graph-expanded retrieval: neighbours of the top fused chunks, re-fused.
+    """Graph-expanded retrieval: neighbours of the top base chunks, re-fused.
 
-    The graph list scores a neighbour by the sum over seeds that reach it of
+    The base ranking is the fused one, or dense alone in dense mode (BM25
+    mode is never expanded: relevance needs dense scores). The graph list
+    scores a neighbour by the sum over seeds that reach it of
     ``edge weight / log(2 + in-degree) x relevance x 1/(rrf_k + seed rank)``,
     where relevance is the neighbour's dense cosine over the query's best.
-    It is fused with BM25 and dense using ``weight``. Ranks 1-3 stay those of
-    the base fusion, and at most ``GRAPH_BUDGET`` chunks from outside the base
-    top ``GRAPH_WINDOW`` may enter it.
+    It is fused with the base retrievers' lists using ``weight``. Ranks 1-3
+    stay those of the base ranking, and at most ``GRAPH_BUDGET`` chunks from
+    outside the base top ``GRAPH_WINDOW`` may enter it.
     """
 
     hops: int = 1
@@ -400,6 +402,7 @@ class Retriever:
 
         ``mode`` restricts retrieval to one retriever ("bm25" or "dense"); its
         ranking is then passed through RRF unchanged (scores are 1/(k + rank)).
+        ``expansion`` applies in fused and dense modes when a graph is loaded.
         """
         if mode not in MODES:
             raise ValueError(f"unknown retrieval mode {mode!r}; expected one of {MODES}")
@@ -415,7 +418,7 @@ class Retriever:
         dense_hits, chunk_scores = self._dense_search(query, n) if mode != BM25 else ([], None)
         rankings = {BM25: [cid for cid, _ in bm25_hits], DENSE: [cid for cid, _, _ in dense_hits]}
         fused = reciprocal_rank_fusion(rankings, k=rrf_k, weights=weights)
-        if expansion is not None and mode == FUSED and self._graph is not None and fused:
+        if expansion is not None and mode != BM25 and self._graph is not None and fused:
             if expansion.hops < 1 or expansion.weight < 0:
                 raise ValueError(f"invalid graph expansion {expansion}")
             assert chunk_scores is not None

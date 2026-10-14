@@ -144,11 +144,22 @@ def test_expansion_reaches_callees_and_keeps_top3(write_repo: WriteRepo) -> None
     assert len(promoted) <= GRAPH_BUDGET
 
 
-def test_expansion_needs_fused_mode_and_a_graph(write_repo: WriteRepo) -> None:
+def test_expansion_of_dense_mode_uses_no_bm25(write_repo: WriteRepo) -> None:
+    r = retriever(write_repo)
+    base = r.search("process orders", k=20, mode="dense")
+    expanded = r.search("process orders", k=20, mode="dense", expansion=GraphExpansion(hops=2, weight=2.0))
+    assert [h.chunk_id for h in expanded[:3]] == [h.chunk_id for h in base[:3]]
+    assert any("graph" in h.sources for h in expanded)
+    assert all("bm25" not in h.sources for h in expanded)
+    promoted = [h.chunk_id for h in expanded[:10] if h.chunk_id not in {b.chunk_id for b in base[:10]}]
+    assert len(promoted) <= GRAPH_BUDGET
+
+
+def test_expansion_needs_a_dense_base_and_a_graph(write_repo: WriteRepo) -> None:
     index_dir = indexed_repo(write_repo) / ".chatter"
     r = Retriever.open(index_dir, HashEmbedder(dim=256))
-    dense = r.search("process orders", k=10, mode="dense", expansion=GraphExpansion())
-    assert all(h.sources == ("dense",) for h in dense)
+    bm25 = r.search("process orders", k=10, mode="bm25", expansion=GraphExpansion())
+    assert bm25 and all(h.sources == ("bm25",) for h in bm25)
     data = index_data(index_dir)
     assert data is not None
     for name in ("graph_indptr.npy", "graph_targets.npy", "graph_types.npy", "graph.json"):

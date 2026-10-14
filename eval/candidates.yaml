@@ -18,11 +18,11 @@ decision_rule:
   name: fusion
   kind: select
   text: >
-    Among default and k10-w3, choose the config with the best paired W/L vs
-    dense-only (strict first relevant rank) over tune+heldout combined: most
+    Keep the candidates among default and k10-w3 that have more wins than
+    losses and zero top-3 losses vs dense-only (paired strict first relevant
+    rank, tune+heldout combined). Choose the best paired W/L among them: most
     wins minus losses, then fewest losses, then higher strict MRR@50, then
-    listed order. Adopt it only if it has more wins than losses and zero
-    top-3 losses vs dense-only; otherwise dense-only becomes the default.
+    listed order. If none qualify, dense-only becomes the default.
   reference: dense-only
   candidates: [default, k10-w3]
   paired_metric: strict first relevant rank

@@ -611,8 +611,8 @@ def run_eval(
 class RetrievalConfig:
     """One retrieval setup to score: a single retriever, or weighted RRF.
 
-    ``graph_hops`` > 0 adds graph expansion (fused mode only) with RRF weight
-    ``graph_weight``; ``counterpart`` names the config it is compared to.
+    ``graph_hops`` > 0 adds graph expansion (fused or dense mode) with RRF
+    weight ``graph_weight``; ``counterpart`` names the config it is compared to.
     """
 
     name: str
@@ -646,15 +646,20 @@ def sweep_configs(rrf_ks: Sequence[int], dense_weights: Sequence[float]) -> list
     return [BM25_ONLY, DENSE_ONLY, DEFAULT_FUSED, *grid]
 
 
-# The closed graph grid: k10-w3 weighs dense x3, so its graph weight goes higher.
-GRAPH_SWEEP_WEIGHTS = {"default": (0.5, 1.0, 2.0), "k10-w3": (0.5, 1.0, 2.0, 3.0, 4.0)}
+# The closed graph grid: k10-w3 weighs dense x3, so its graph weight goes higher;
+# dense-only has no BM25 list, so the graph list competes with dense alone.
+GRAPH_SWEEP_WEIGHTS = {
+    "dense-only": (0.5, 1.0, 2.0, 3.0, 4.0),
+    "default": (0.5, 1.0, 2.0),
+    "k10-w3": (0.5, 1.0, 2.0, 3.0, 4.0),
+}
 GRAPH_SWEEP_HOPS = (1, 2)
 
 
 def sweep_graph_configs(
     graph_weights: Sequence[float] | None = None, graph_hops: Sequence[int] = GRAPH_SWEEP_HOPS
 ) -> list[RetrievalConfig]:
-    """Reference rows plus graph variants of the current default and k10-w3.
+    """Reference rows plus graph variants of dense-only, the current default and k10-w3.
 
     ``graph_weights`` overrides the per-counterpart grid (GRAPH_SWEEP_WEIGHTS).
     """
@@ -662,14 +667,14 @@ def sweep_graph_configs(
     variants = [
         RetrievalConfig(
             f"{base.name}+g{hops}-w{weight:g}",
-            FUSED,
+            base.mode,
             base.rrf_k,
             base.dense_weight,
             graph_hops=hops,
             graph_weight=weight,
             counterpart=base.name,
         )
-        for base in (DEFAULT_FUSED, tuned)
+        for base in (DENSE_ONLY, DEFAULT_FUSED, tuned)
         for hops in graph_hops
         for weight in (graph_weights or GRAPH_SWEEP_WEIGHTS[base.name])
     ]
@@ -693,9 +698,9 @@ def load_config_file(path: Path) -> tuple[list[RetrievalConfig], list[dict[str, 
 
     A ``decision_rule`` has ``text`` and a ``kind``:
 
-    - ``select``: among ``candidates``, choose the best paired W/L against
-      ``reference``; adopt it only if it has more wins than losses and no
-      top-3 losses, otherwise the reference is chosen.
+    - ``select``: keep the ``candidates`` with more wins than losses and no
+      top-3 losses against ``reference``, and choose the best paired W/L
+      among them; if none qualify, the reference is chosen.
     - ``adopt`` (the default): each variant in ``variants`` (default: every
       config with a counterpart) is adopted only if it beats its counterpart
       the same way. With ``after: <file>``, that file's configs must appear
@@ -729,8 +734,8 @@ def load_config_file(path: Path) -> tuple[list[RetrievalConfig], list[dict[str, 
             problems.append(f"{name}: dense_weight must be positive")
         if not isinstance(hops, int) or hops < 0:
             problems.append(f"{name}: graph_hops must be a non-negative integer")
-        elif hops > 0 and item["mode"] != FUSED:
-            problems.append(f"{name}: graph expansion needs mode fused")
+        elif hops > 0 and item["mode"] == BM25:
+            problems.append(f"{name}: graph expansion needs mode fused or dense")
         if not isinstance(graph_weight, int | float) or graph_weight <= 0:
             problems.append(f"{name}: graph_weight must be positive")
         configs.append(
@@ -888,18 +893,16 @@ def apply_decision_rules(
         }
         if rule["kind"] == "select":
             reference = rule["reference"]
-            rows = [
-                {"name": n, **_rule_comparison(cells[n], cells[reference], ids, split_of)}
-                for n in rule["candidates"]
-            ]
-            best = _best_paired(rows)
-            adopted = _beats(best)
+            rows = []
+            for n in rule["candidates"]:
+                row = {"name": n, **_rule_comparison(cells[n], cells[reference], ids, split_of)}
+                rows.append(row | {"passes": _beats(row)})
+            passing = [r for r in rows if r["passes"]]
             outcome |= {
                 "reference": reference,
                 "candidates": rows,
-                "best": best["name"],
-                "adopted": adopted,
-                "chosen": best["name"] if adopted else reference,
+                "adopted": bool(passing),
+                "chosen": _best_paired(passing)["name"] if passing else reference,
             }
         else:
             follow = chosen_before if rule.get("after") else None
@@ -960,14 +963,14 @@ def _config_ranking_for(
     lists: Mapping[str, Sequence[str]],
     retrievers: Mapping[str, Retriever],
 ) -> list[str]:
-    """Graph configs search live (expansion needs the graph); others re-fuse ``lists``."""
+    """Graph configs search live (expansion needs the graph); others reuse ``lists``."""
     if config.expansion is None:
         return _config_ranking(config, lists)
     hits = retrievers[question.corpus].search(
         question.question,
         k=DEPTH,
         candidates=CANDIDATES,
-        mode=FUSED,
+        mode=config.mode,
         rrf_k=config.rrf_k,
         weights={BM25: 1.0, DENSE: config.dense_weight},
         expansion=config.expansion,
@@ -1031,7 +1034,7 @@ def format_configs(table: Mapping[str, Any]) -> str:
         f"{'config':<{width}} {'k':>3} {'w':>4} {'hop':>3} {'gw':>4}  "
         + " ".join(f"{'MRR ' + c:>12}" for c in corpora)
         + f" {'MRR all':>8} {'hit@1':>6} {'hit@5':>6} {'R@10':>6} {'cMRR':>6}  {'vs dense':>9}"
-        + f"  {'vs counterpart':>14} {'top3 lost':>9}"
+        + f"  {'vs counterpart':>17} {'top3 lost':>9}"
     )
     lines = [
         "configs (strict metrics; cMRR = containment MRR@50; W/L/T = paired first-rank "
@@ -1043,7 +1046,7 @@ def format_configs(table: Mapping[str, Any]) -> str:
         fused = cell["mode"] == FUSED
         graph = cell.get("graph_hops", 0) > 0
         counterpart = (
-            f"{wlt(cell['vs_counterpart']['overall'])} {cell['counterpart'][:8]}"
+            f"{wlt(cell['vs_counterpart']['overall'])} {cell['counterpart']}"
             if "vs_counterpart" in cell
             else "-"
         )
@@ -1055,7 +1058,7 @@ def format_configs(table: Mapping[str, Any]) -> str:
             + " ".join(f"{cell['by_corpus'][c]['strict']['mrr@50']:>12.3f}" for c in corpora)
             + f" {strict['mrr@50']:>8.3f} {strict['hit@1']:>6.3f} {strict['hit@5']:>6.3f} "
             f"{strict['recall@10']:>6.3f} {cell['overall']['contain']['mrr@50']:>6.3f}  "
-            f"{wlt(cell['vs_dense']['overall']):>9}  {counterpart:>14} {lost:>9}"
+            f"{wlt(cell['vs_dense']['overall']):>9}  {counterpart:>17} {lost:>9}"
         )
     if table.get("decisions"):
         lines += ["", format_decisions(table["decision_rules"], table["decisions"])]
@@ -1084,18 +1087,16 @@ def format_decisions(rules: Sequence[Mapping[str, Any]], outcomes: Sequence[Mapp
             split_w, lost_w, contain_w = _widths(rows, by_split, lost, lost_contain)
             lines.append(
                 f"  {'candidate':<{width}} {'vs ' + out['reference']:>14}  {'by split':<{split_w}} "
-                f"{'top-3 lost':<{lost_w}} {'(contain)':<{contain_w}} {'MRR@50':>6}"
+                f"{'top-3 lost':<{lost_w}} {'(contain)':<{contain_w}} {'MRR@50':>6}  verdict"
             )
             for r in rows:
                 lines.append(
                     f"  {r['name']:<{width}} {wl(r):>14}  {by_split(r):<{split_w}} "
-                    f"{lost(r):<{lost_w}} {lost_contain(r):<{contain_w}} {r['mrr@50']:>6.3f}"
+                    f"{lost(r):<{lost_w}} {lost_contain(r):<{contain_w}} {r['mrr@50']:>6.3f}  {_verdict(r)}"
                 )
-            best = next(r for r in out["candidates"] if r["name"] == out["best"])
-            verdict = "adopted" if out["adopted"] else (
-                "not adopted (" + ("wins <= losses" if best["wins"] <= best["losses"] else "top-3 losses") + ")"
-            )
-            lines.append(f"  best paired W/L: {out['best']}, {verdict} -> chosen: {out['chosen']}")
+            passing = sum(r["passes"] for r in rows)
+            how = {0: "none pass", 1: "the only one passing"}.get(passing, f"best paired W/L of {passing} passing")
+            lines.append(f"  -> chosen: {out['chosen']} ({how})")
         else:
             if out.get("counterpart") is not None:
                 lines.append(f"  counterpart chosen by the previous rule: {out['counterpart']}")
@@ -1107,7 +1108,7 @@ def format_decisions(rules: Sequence[Mapping[str, Any]], outcomes: Sequence[Mapp
                 f"{'top-3 lost':<{lost_w}} {'(contain)':<{contain_w}} verdict"
             )
             for r in rows:
-                verdict = "PASSES" if r["passes"] else ("fails" if r["considered"] else "not considered")
+                verdict = _verdict(r) if r["considered"] else "not considered"
                 lines.append(
                     f"  {r['name']:<{width}} {r['counterpart']:<12} {wl(r):>8}  {by_split(r):<{split_w}} "
                     f"{lost(r):<{lost_w}} {lost_contain(r):<{contain_w}} {verdict}"
@@ -1118,6 +1119,14 @@ def format_decisions(rules: Sequence[Mapping[str, Any]], outcomes: Sequence[Mapp
     if chosen is not None:
         lines += ["", f"rules choose: {chosen}" + ("" if final else " (NOT FINAL: the run lacks a required split)")]
     return "\n".join(lines)
+
+
+def _verdict(row: Mapping[str, Any]) -> str:
+    if row["passes"]:
+        return "PASSES"
+    reasons = [r for r, failed in (("wins <= losses", row["wins"] <= row["losses"]),
+                                   ("top-3 losses", bool(row["top3_losses"]))) if failed]
+    return f"fails ({', '.join(reasons)})"
 
 
 def _widths(rows: Sequence[Mapping[str, Any]], *columns: Callable[[Any], str]) -> list[int]:

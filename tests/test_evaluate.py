@@ -669,8 +669,9 @@ def test_sweep_graph_configs() -> None:
     configs = sweep_graph_configs([0.5, 2.0], [1, 2])
     assert [c.name for c in configs[:3]] == ["dense-only", "default", "k10-w3"]
     variants = configs[3:]
-    assert len(variants) == 8
-    assert variants[0] == RetrievalConfig("default+g1-w0.5", "fused", 60, 1.0, 1, 0.5, "default")
+    assert len(variants) == 12
+    assert variants[0] == RetrievalConfig("dense-only+g1-w0.5", "dense", 60, 1.0, 1, 0.5, "dense-only")
+    assert variants[4] == RetrievalConfig("default+g1-w0.5", "fused", 60, 1.0, 1, 0.5, "default")
     assert variants[-1] == RetrievalConfig("k10-w3+g2-w2", "fused", 10, 3.0, 2, 2.0, "k10-w3")
     assert configs[0].expansion is None and variants[0].expansion is not None
 
@@ -697,13 +698,13 @@ def test_config_file_with_decision_rule(tmp_path: Path) -> None:
     assert load_configs(path) == configs
 
     path.write_text(yaml.safe_dump({"configs": [
-        {"name": "x", "mode": "dense", "graph_hops": 1},
+        {"name": "x", "mode": "bm25", "graph_hops": 1},
         {"name": "y", "mode": "fused", "graph_hops": 1, "counterpart": "missing"},
         {"name": "z", "mode": "fused", "graph_hops": -1, "graph_weight": 0},
     ]}))
     with pytest.raises(EvalError) as err:
         load_config_file(path)
-    for expected in ("x: graph expansion needs mode fused", "y: counterpart 'missing'",
+    for expected in ("x: graph expansion needs mode fused or dense", "y: counterpart 'missing'",
                      "z: graph_hops", "z: graph_weight"):
         assert expected in str(err.value)
 
@@ -719,11 +720,12 @@ def test_run_eval_scores_graph_configs_against_counterparts(tmp_path: Path) -> N
     variant = cells["default+g1-w1"]
     assert variant["counterpart"] == "default" and "vs_counterpart" in variant
     assert isinstance(variant["top3_losses"], list) and isinstance(variant["top3_losses_contain"], list)
-    for name in ("default+g1-w1", "default+g2-w1", "k10-w3+g1-w1"):
+    for name in ("dense-only+g1-w1", "default+g1-w1", "default+g2-w1", "k10-w3+g1-w1"):
         assert cells[name]["top3_losses"] == []  # ranks 1-3 are protected
+    assert cells["dense-only+g2-w1"]["mode"] == "dense" and "vs_counterpart" in cells["dense-only+g2-w1"]
     decision = results["configs"]["decisions"][0]
     assert decision["complete"] is False  # tune only; the rule names both splits
-    assert [v["name"] for v in decision["variants"]][:2] == ["default+g1-w1", "default+g2-w1"]
+    assert [v["name"] for v in decision["variants"]][:3] == ["dense-only+g1-w1", "dense-only+g2-w1", "default+g1-w1"]
     assert all(v["considered"] for v in decision["variants"]) and "chosen" not in decision
     table = format_configs(results["configs"])
     assert "[adopt] rules.yaml: adopt if it wins" in table and "NOT FINAL" in table
@@ -757,7 +759,9 @@ def test_repository_candidate_files_have_decision_rules() -> None:
         assert rule["splits"] == ["tune", "heldout"] and "top-3" in rule["text"]
     assert configs[:3] == fusion_configs
     by_name = {c.name: c for c in configs}
-    assert graph["variants"] == ["default+g2-w1", "k10-w3+g2-w3"]
+    assert graph["variants"] == ["dense-only+g2-w2", "default+g2-w1", "k10-w3+g2-w3"]
+    assert by_name["dense-only+g2-w2"] == RetrievalConfig("dense-only+g2-w2", "dense", 60, 1.0, 2, 2.0, "dense-only")
+    assert {by_name[v].counterpart for v in graph["variants"]} == {"dense-only", *fusion["candidates"]}
     assert by_name["default+g2-w1"] == RetrievalConfig("default+g2-w1", "fused", 60, 1.0, 2, 1.0, "default")
     assert by_name["k10-w3+g2-w3"] == RetrievalConfig("k10-w3+g2-w3", "fused", 10, 3.0, 2, 3.0, "k10-w3")
 
@@ -776,8 +780,8 @@ def test_unfinished_split_only_blocks_itself(tmp_path: Path) -> None:
 
 def test_default_graph_grid_is_closed() -> None:
     names = [c.name for c in sweep_graph_configs()[3:]]
-    assert len(names) == 2 * (3 + 5)
-    assert "k10-w3+g2-w4" in names and "default+g1-w3" not in names
+    assert len(names) == 2 * (5 + 3 + 5)
+    assert "k10-w3+g2-w4" in names and "dense-only+g2-w4" in names and "default+g1-w3" not in names
 
 
 # ---------------------------------------------------------------------------
@@ -789,8 +793,11 @@ from chatter.evaluate import apply_decision_rules, format_decisions  # noqa: E40
 FUSION_RULE = {"name": "fusion", "kind": "select", "text": "pick", "source": "candidates.yaml",
                "reference": "dense-only", "candidates": ["default", "k10-w3"], "splits": ["tune", "heldout"]}
 GRAPH_RULE = {"name": "graph", "kind": "adopt", "text": "adopt", "source": "candidates-graph.yaml",
-              "after": "candidates.yaml", "variants": ["default+g", "k10-w3+g"], "splits": ["tune", "heldout"]}
+              "after": "candidates.yaml", "variants": ["dense-only+g", "default+g", "k10-w3+g"],
+              "splits": ["tune", "heldout"]}
 SPLIT_OF = {"t1": "tune", "t2": "tune", "t3": "tune", "h1": "heldout", "h2": "heldout"}
+NAMES = {"dense": "dense-only", "default": "default", "k10": "k10-w3",
+         "dense_g": "dense-only+g", "default_g": "default+g", "k10_g": "k10-w3+g"}
 
 
 def _cell(name: str, ranks: dict[str, int | None], counterpart: str | None = None) -> dict[str, object]:
@@ -798,79 +805,96 @@ def _cell(name: str, ranks: dict[str, int | None], counterpart: str | None = Non
 
 
 def _table(**ranks: dict[str, int | None]) -> dict[str, object]:
-    counterparts = {"default+g": "default", "k10-w3+g": "k10-w3"}
-    names = {"dense": "dense-only", "default": "default", "k10": "k10-w3",
-             "default_g": "default+g", "k10_g": "k10-w3+g"}
-    return {"cells": [_cell(names[k], r, counterparts.get(names[k])) for k, r in ranks.items()]}
+    """Cells by short name; graph variants default to their counterpart's ranks."""
+    for short in ("dense", "default", "k10"):
+        ranks.setdefault(f"{short}_g", ranks[short])
+    counterpart = {f"{NAMES[s]}+g": NAMES[s] for s in ("dense", "default", "k10")}
+    return {"cells": [_cell(NAMES[k], r, counterpart.get(NAMES[k])) for k, r in ranks.items()]}
 
 
 DENSE = {"t1": 1, "t2": 5, "t3": 9, "h1": 4, "h2": None}
+BETTER = {"t1": 1, "t2": 1, "t3": 1, "h1": 1, "h2": 1}
 
 
-def test_select_rule_adopts_the_best_paired_config() -> None:
+def test_select_rule_chooses_the_best_passing_config() -> None:
     table = _table(
         dense=DENSE,
         default={"t1": 1, "t2": 2, "t3": 9, "h1": 4, "h2": None},  # 1/0
         k10={"t1": 1, "t2": 2, "t3": 3, "h1": 2, "h2": None},  # 3/0
-        default_g={"t1": 1, "t2": 2, "t3": 9, "h1": 4, "h2": None},
         k10_g={"t1": 1, "t2": 1, "t3": 3, "h1": 2, "h2": 7},  # 2/0 vs k10-w3
     )
     fusion, graph = apply_decision_rules(table, [FUSION_RULE, GRAPH_RULE], SPLIT_OF)
     assert fusion["complete"] and fusion["questions"] == 5
-    assert (fusion["best"], fusion["adopted"], fusion["chosen"]) == ("k10-w3", True, "k10-w3")
+    assert [r["passes"] for r in fusion["candidates"]] == [True, True]
+    assert (fusion["adopted"], fusion["chosen"]) == (True, "k10-w3")
     k10 = fusion["candidates"][1]
     assert (k10["wins"], k10["losses"], k10["ties"]) == (3, 0, 2)
     assert k10["by_split"] == {"heldout": {"wins": 1, "losses": 0, "ties": 1},
                                "tune": {"wins": 2, "losses": 0, "ties": 1}}
     assert graph["counterpart"] == "k10-w3"
     considered = {v["name"]: (v["considered"], v["passes"]) for v in graph["variants"]}
-    assert considered == {"default+g": (False, False), "k10-w3+g": (True, True)}
+    assert considered == {"dense-only+g": (False, False), "default+g": (False, False), "k10-w3+g": (True, True)}
     assert graph["chosen"] == "k10-w3+g"
     report = format_decisions([FUSION_RULE, GRAPH_RULE], [fusion, graph])
-    assert "best paired W/L: k10-w3, adopted -> chosen: k10-w3" in report
+    assert "-> chosen: k10-w3 (best paired W/L of 2 passing)" in report
     assert "not considered" in report and "rules choose: k10-w3+g" in report and "NOT FINAL" not in report
 
 
-def test_select_rule_falls_back_to_the_reference() -> None:
-    # k10-w3 has the best net W/L but loses a dense top-3 rank; default would pass, but the
-    # rule adopts only the best config, so dense-only is chosen and no graph variant applies.
+def test_select_rule_skips_a_better_candidate_that_fails() -> None:
+    # k10-w3 has the best net W/L but loses a dense top-3 rank, so the passing default is chosen.
     table = _table(
         dense=DENSE,
         default={"t1": 1, "t2": 4, "t3": 9, "h1": 4, "h2": None},  # 1/0
         k10={"t1": 2, "t2": 2, "t3": 3, "h1": 2, "h2": None},  # 3/1, loses t1's top-3 rank
-        default_g={"t1": 1, "t2": 1, "t3": 1, "h1": 1, "h2": 1},
-        k10_g={"t1": 1, "t2": 1, "t3": 1, "h1": 1, "h2": 1},
+        default_g=BETTER,
+        k10_g=BETTER,
     )
     fusion, graph = apply_decision_rules(table, [FUSION_RULE, GRAPH_RULE], SPLIT_OF)
-    assert (fusion["best"], fusion["adopted"], fusion["chosen"]) == ("k10-w3", False, "dense-only")
+    assert [r["passes"] for r in fusion["candidates"]] == [True, False]
     assert fusion["candidates"][1]["top3_losses"] == ["t1"]
-    assert graph["counterpart"] == "dense-only" and graph["chosen"] == "dense-only"
-    assert not any(v["considered"] or v["passes"] for v in graph["variants"])
-    assert "not adopted (top-3 losses) -> chosen: dense-only" in format_decisions(
-        [FUSION_RULE, GRAPH_RULE], [fusion, graph]
+    assert fusion["chosen"] == "default"
+    assert graph["counterpart"] == "default" and graph["chosen"] == "default+g"
+    report = format_decisions([FUSION_RULE, GRAPH_RULE], [fusion, graph])
+    assert "fails (top-3 losses)" in report and "-> chosen: default (the only one passing)" in report
+
+
+def test_select_rule_falls_back_to_the_reference_and_its_graph_variant() -> None:
+    table = _table(
+        dense=DENSE,
+        default={"t1": 1, "t2": 6, "t3": 9, "h1": 4, "h2": None},  # 0/1
+        k10={"t1": 1, "t2": 4, "t3": 10, "h1": 4, "h2": None},  # 1/1
+        dense_g={"t1": 1, "t2": 3, "t3": 9, "h1": 4, "h2": None},  # 1/0 vs dense-only
     )
+    fusion, graph = apply_decision_rules(table, [FUSION_RULE, GRAPH_RULE], SPLIT_OF)
+    assert (fusion["adopted"], fusion["chosen"]) == (False, "dense-only")
+    assert graph["counterpart"] == "dense-only" and graph["chosen"] == "dense-only+g"
+    assert [v["considered"] for v in graph["variants"]] == [True, False, False]
+    report = format_decisions([FUSION_RULE, GRAPH_RULE], [fusion, graph])
+    assert "fails (wins <= losses)" in report and "-> chosen: dense-only (none pass)" in report
 
 
-def test_select_rule_needs_more_wins_than_losses_and_breaks_ties() -> None:
-    tied = {"t1": 1, "t2": 4, "t3": 10, "h1": 4, "h2": None}  # 1/1, no top-3 loss
-    table = _table(dense=DENSE, default=tied, k10=tied,
-                   default_g=tied, k10_g=tied)
-    (fusion,) = apply_decision_rules(table, [FUSION_RULE], SPLIT_OF)
-    assert fusion["best"] == "default"  # same W/L and MRR: listed order
-    assert fusion["chosen"] == "dense-only"
-    assert "not adopted (wins <= losses)" in format_decisions([FUSION_RULE], [fusion])
-
-    better_mrr = {"t1": 1, "t2": 3, "t3": 10, "h1": 4, "h2": None}  # also 1/1
-    table = _table(dense=DENSE, default=tied, k10=better_mrr, default_g=tied, k10_g=tied)
-    assert apply_decision_rules(table, [FUSION_RULE], SPLIT_OF)[0]["best"] == "k10-w3"
+def test_select_rule_tie_break() -> None:
+    passing = {"t1": 1, "t2": 4, "t3": 9, "h1": 4, "h2": None}  # 1/0, MRR (1 + 1/4 + 1/9 + 1/4) / 5
+    sooner = {"t1": 1, "t2": 3, "t3": 9, "h1": 4, "h2": None}  # 1/0, higher MRR
+    table = _table(dense=DENSE, default=passing, k10=passing)
+    assert apply_decision_rules(table, [FUSION_RULE], SPLIT_OF)[0]["chosen"] == "default"  # listed order
+    table = _table(dense=DENSE, default=passing, k10=sooner)
+    assert apply_decision_rules(table, [FUSION_RULE], SPLIT_OF)[0]["chosen"] == "k10-w3"  # MRR@50
+    fewer_losses = {"t1": 1, "t2": 4, "t3": 8, "h1": 4, "h2": None}  # 2/0
+    more_losses = {"t1": 1, "t2": 1, "t3": 1, "h1": 5, "h2": None}  # 3/1, net also +2
+    table = _table(dense=DENSE, default=more_losses, k10=fewer_losses)
+    assert apply_decision_rules(table, [FUSION_RULE], SPLIT_OF)[0]["chosen"] == "k10-w3"
+    best_net = {"t1": 1, "t2": 1, "t3": 1, "h1": 1, "h2": 1}  # 4/0
+    table = _table(dense=DENSE, default=fewer_losses, k10=best_net)
+    assert apply_decision_rules(table, [FUSION_RULE], SPLIT_OF)[0]["chosen"] == "k10-w3"
 
 
 def test_graph_variant_must_beat_its_counterpart_without_top3_losses() -> None:
     k10 = {"t1": 1, "t2": 2, "t3": 3, "h1": 2, "h2": None}
-    table = _table(dense=DENSE, default=DENSE, k10=k10, default_g=DENSE,
+    table = _table(dense=DENSE, default=DENSE, k10=k10,
                    k10_g={"t1": 1, "t2": 3, "t3": 1, "h1": 1, "h2": 1})  # 3/1 but t2 lost rank 2
     graph = apply_decision_rules(table, [FUSION_RULE, GRAPH_RULE], SPLIT_OF)[1]
-    variant = graph["variants"][1]
+    variant = graph["variants"][2]
     assert (variant["wins"], variant["losses"], variant["top3_losses"]) == (3, 1, ["t2"])
     assert not variant["passes"] and graph["chosen"] == "k10-w3"
 
@@ -878,7 +902,7 @@ def test_graph_variant_must_beat_its_counterpart_without_top3_losses() -> None:
 def test_rules_on_a_partial_run_are_not_final() -> None:
     tune_only = {k: v for k, v in SPLIT_OF.items() if v == "tune"}
     ranks = {k: DENSE[k] for k in tune_only}
-    table = _table(dense=ranks, default=ranks, k10=ranks, default_g=ranks, k10_g=ranks)
+    table = _table(dense=ranks, default=ranks, k10=ranks)
     fusion, graph = apply_decision_rules(table, [FUSION_RULE, GRAPH_RULE], tune_only)
     assert not fusion["complete"] and not graph["complete"] and fusion["questions"] == 3
     report = format_decisions([FUSION_RULE, GRAPH_RULE], [fusion, graph])
@@ -896,9 +920,10 @@ def _write_rule_files(directory: Path, graph_configs: list[dict[str, object]] | 
     graph = directory / "candidates-graph.yaml"
     graph.write_text(yaml.safe_dump({
         "decision_rule": {**{k: v for k, v in GRAPH_RULE.items() if k != "source"},
-                          "variants": ["default+g1", "k10-w3+g1"]},
+                          "variants": ["dense-only+g1", "default+g1", "k10-w3+g1"]},
         "configs": graph_configs or [
             *base,
+            {"name": "dense-only+g1", "mode": "dense", "graph_hops": 1, "counterpart": "dense-only"},
             {"name": "default+g1", "mode": "fused", "graph_hops": 1, "counterpart": "default"},
             {"name": "k10-w3+g1", "mode": "fused", "rrf_k": 10, "dense_weight": 3,
              "graph_hops": 1, "counterpart": "k10-w3"},
