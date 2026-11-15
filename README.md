@@ -6,6 +6,28 @@ your machine: tree-sitter chunking, a local embedding model, dense retrieval
 expanded along a static call graph (BM25 and hybrid modes available), and an
 optional local answer model.
 
+![Demo: chatter index, search and ask on this repository](docs/demo.gif)
+
+## Highlights
+
+- **Tuning on 20 questions overfit, and the held-out run caught it.** The
+  fusion config `k10-w3` scored best on the tune split (MRR@50 0.574,
+  vs 0.523 for the default) and worst on held-out (0.296, vs 0.374), going 4
+  wins to 8 losses against dense-only. The decision rules, frozen before the
+  held-out run, rejected it. See [the reversal](#the-k10-w3-reversal).
+- **A static call graph is the one retrieval change that held up.** Expanding
+  dense results 2 hops along calls, inheritance and protocol implementations
+  beat plain dense retrieval 8 wins, 7 losses and 21 ties over 36 questions,
+  with no lost top-3 hits, and raised R@10 from 0.557 to 0.608. Dense plus
+  call graph is the default. The margin is one question. See
+  [held-out verdicts](#held-out-verdicts).
+- **Making the model quote its evidence first made answers worse.** An
+  evidence-first prompt with code-checked quotes failed all four criteria
+  recorded before the run. False abstentions rose from 2 to 17 of 36, and 11
+  answers graded correct in the baseline were no longer correct. The plain
+  prompt stays the default. See
+  [answer quality](#answer-quality).
+
 ## Install
 
 Python 3.11+.
@@ -57,7 +79,7 @@ Useful options:
 - `chatter search --json`: machine-readable results.
 - `--mode dense|fused|bm25`, `--graph/--no-graph`, `--graph-hops`, `--graph-weight` (search and ask): retrieval. The default, dense with 2-hop call-graph expansion at weight 2, is the config the held-out evaluation chose (see [Results](#results)). For an exact identifier, `--mode fused` adds BM25 keyword matching.
 - `chatter ask --backend mlx|transformers`: choose the answer backend (default: mlx on Apple Silicon, transformers elsewhere).
-- `chatter ask --prompt evidence`: the model first quotes the lines it relies on, tagged `[C#]`, then answers. Each quote is checked against the lines it was shown, needing at least 12 non-space characters. The answer streams only if at least one quote is found; otherwise it is withheld and reported as NOT FOUND. Verified quotes are shown with their `path:line`. The default is `plain` while this is being evaluated.
+- `chatter ask --prompt evidence`: the model first quotes the lines it relies on, tagged `[C#]`, then answers. Each quote is checked against the lines it was shown, needing at least 12 non-space characters. The answer streams only if at least one quote is found; otherwise it is withheld and reported as NOT FOUND. Verified quotes are shown with their `path:line`. The default stays `plain`: evidence-first failed its success criterion (see [Answer quality](#answer-quality)).
 - `chatter index --rebuild`: re-embed everything, e.g. after changing `--model`.
 
 ## MCP server
@@ -286,6 +308,74 @@ before the held-out run, kept the overfit config out.
   questions, both in tune, and dense ranks both first. For identifier lookups
   use `--mode fused` (MCP: `mode="fused"`).
 - **Orphan comments can't be retrieved** (q17); see CLAUDE.md.
+
+### Answer quality
+
+Answers from the local model (Qwen3-4B-Instruct-2507, 4-bit, mlx) on all 40
+questions, with the default dense + call-graph retrieval and identical
+context for both prompts. The evidence-first prompt asks the model to quote
+the lines it relies on, tagged `[C#]`, then answer. Each quote is checked
+in code against the lines the model was shown, and an answer with no
+verified quote is withheld as an abstention. The success criterion was
+committed before the run (`eval/answer-criteria-evidence-first.yaml`).
+
+| Measure (36 answerable questions) | Plain prompt (baseline) | Evidence-first | Pass if | Result |
+|---|---|---|---|---|
+| Unsupported answers (no relevant chunk in context, still answered) | 5 | 3 (5 before withholding) | ≤ 2 | fail |
+| False abstentions | 2 | 17 (6 before withholding) | ≤ 3 | fail |
+| Answers citing a relevant chunk | 26 | 14 | ≥ 26 | fail |
+| Baseline-correct answers no longer graded correct | – | 11 | 0 | fail |
+| Graded correct | 17 | 10 | | |
+| Format compliance (parseable Evidence section, or abstention only) | – | 40/40 (30 + 10) | | |
+| Answers with a verified quote inside a relevant chunk | – | 12 of 19 shown answers | | |
+
+Of 127 quotes, 63 verified. Most failures joined several source lines into one
+quote (a docstring paragraph, a few lines of code), which the prompt forbade
+and the check rejects. Two answers, q01 and q10, never reached the Answer
+section: the model kept quoting until the repetition guard stopped it. In all,
+11 answers were withheld. The blind grader judged 10 of them to be false
+abstentions, with the evidence in the shown lines; only q11 was right to
+withhold. The model also abstained by itself on 6 answerable questions, 3 of
+them falsely (q03, h02, h08). Of the 11 baseline-correct answers that were no
+longer correct, 8 became abstentions and 3 became partial. 4 questions
+improved from partial to correct (q09, q14, q19, h06). The evidence prompt is
+still available with `--prompt evidence`.
+
+**How answers were graded.** Each run's review file was graded against a
+written rubric (`eval/grades/README.md`), judged only against the lines shown
+to the model. Two fresh subagents, with no shared context, did the grading:
+- The baseline grader saw only the rubric, the review file and the corpora.
+  A human then spot-checked 15 of its verdicts (the 12 hardest plus 3 drawn
+  at random), which changed 5 verdicts and added a precedence rule to the
+  rubric.
+- The evidence-first run was graded blind by a second subagent. It saw a copy
+  of the review without the run header, prompt name, verification results or
+  withheld replies, and saw neither the baseline grades nor the criteria.
+
+Grades and justifications are in `eval/grades/`. The comparison is in
+`eval/results/20261115-compare-evidence-first.txt`.
+
+**Limitations.**
+- A verified quote proves that the line exists in the chunk shown, not that it
+  supports the claim made from it.
+- The answer model is a 4B local model; a larger model may follow the quoting
+  format better.
+- There are 40 questions, and the evidence-first run was graded by a model
+  without a human spot-check.
+- Held-out v1 was spent on the retrieval decision before this work started,
+  so this is a regression check on questions already seen, not a held-out
+  result.
+
+## Demo
+
+`docs/demo.gif` was recorded with [vhs](https://github.com/charmbracelet/vhs)
+from `docs/demo.tape`. It builds a fresh index of this repository in a temporary
+directory, then runs one `chatter search` and one `chatter ask` with the default
+plain prompt. To re-record it, run this from the repository root:
+
+```bash
+vhs docs/demo.tape
+```
 
 ## Development
 
