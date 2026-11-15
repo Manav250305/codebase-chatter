@@ -28,6 +28,12 @@ the full repository.
 
 These five verdicts apply to every question, answerable or negative.
 
+Precedence: if the shown context did not contain the answer, **should have
+abstained** takes precedence over correct, partial and wrong. **wrong** is
+reserved for answers where the evidence was shown and the model got it wrong
+(or abstained falsely). Support is judged from the shown lines, module
+docstrings included, not from the eval set's relevant ids.
+
 ## Format
 
 Verdicts: `correct`, `partial`, `wrong`, `correctly abstained` or

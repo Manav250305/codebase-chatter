@@ -10,6 +10,18 @@ Below: the 12 flagged questions, then 3 others chosen with `random.Random(202611
 Grounding is judged only against the lines shown to the model (see eval/grades/README.md). Excerpts show the shown
 lines around what the grader cited; the full shown range is in each `[C#]` location.
 
+## Outcome (2026-11-15)
+
+Reviewed by a human. Corrections: a precedence rule was added to the rubric
+("should have abstained" wins when the shown context lacks the answer; "wrong"
+needs the evidence to have been shown). Changed: q11 partial -> should have
+abstained, h03 wrong -> should have abstained, q09, q21, h17 correct -> partial
+(each contains a false statement). Kept: h04 wrong, q16 partial, h15 partial,
+q19 partial, q03 wrong. The verdicts below are the grader's originals. The
+final verdicts and justifications are in the grades YAML and the review file.
+Totals after correction: correct 17, partial 11, wrong 3, correctly abstained
+7, should have abstained 2.
+
 ---
 
 ## q11 (location, stdlib) — flagged

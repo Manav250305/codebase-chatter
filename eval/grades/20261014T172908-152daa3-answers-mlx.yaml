@@ -2,8 +2,9 @@ results: eval/results/20261014T172908-152daa3-answers-mlx.json
 metadata:
   grader: model-assisted (fresh general-purpose subagent, claude-opus-5-5)
   date: '2026-11-15'
-  status: pending human spot-check
+  status: human-spot-checked
   rubric: eval/grades/README.md
+  spot_check: 'eval/grades/spotcheck-baseline.md; corrections 2026-11-15: precedence rule added to the rubric; q11 partial->should have abstained, h03 wrong->should have abstained, q09/q21/h17 correct->partial; h04, q16, h15, q19, q03 kept'
 grades:
   q01: correct
   q02: partial
@@ -13,9 +14,9 @@ grades:
   q06: correct
   q07: correctly abstained
   q08: correct
-  q09: correct
+  q09: partial
   q10: correct
-  q11: partial
+  q11: should have abstained
   q12: correct
   q13: partial
   q14: partial
@@ -25,11 +26,11 @@ grades:
   q18: correct
   q19: partial
   q20: correct
-  q21: correct
+  q21: partial
   q22: correctly abstained
   h01: correct
   h02: wrong
-  h03: wrong
+  h03: should have abstained
   h04: wrong
   h05: correct
   h06: partial
@@ -43,7 +44,7 @@ grades:
   h14: correct
   h15: partial
   h16: correct
-  h17: correct
+  h17: partial
   h18: correctly abstained
 notes:
   q01: ValueError subclass carrying msg, doc, pos, lineno and colno matches the docstring and _init_ at json/decoder.py:20-40
@@ -54,24 +55,24 @@ notes:
   q06: 'iter_attachments skips the first text/plain, text/html, multipart/related or multipart/alternative part unless it has Content-Disposition: attachment, returns all but the root for multipart/related, and yields nothing for multipart/alternative or non-multipart (email/message.py:1066-1119)'
   q07: the shown chunks only encode (Header.encode, ValueFormatter, body_encode, formatparam) or decode quoted-printable bodies (email/quoprimime.py:232-276); nothing shown decodes an RFC 2047 encoded word like =?utf-8?b?...?= (decode_header was not retrieved)
   q08: asyncio.timeout(delay) async context manager with the 10-second example, TimeoutError on expiry, timeout_at for an absolute loop.time() deadline, and CancelledError converted to TimeoutError are all in asyncio/timeouts.py:145-184 (and _aexit_ 97-125)
-  q09: get() raises QueueShutDown when the queue is shut down and empty or shut down immediately (asyncio/queues.py:177-182), and shutdown() unblocks waiting getters by setting their futures to None so they loop and raise (queues.py:253-279); the last sentence loosely credits get() with what shutdown() does to pending getters
+  q09: 'get() raises QueueShutDown when shut down and empty or shut down immediately (asyncio/queues.py:177-182), and shutdown() wakes blocked getters (asyncio/queues.py:253-279); but the last sentence is false: get() does not cancel or resolve pending getters, shutdown() does (asyncio/queues.py:270-279) [spot-check: was correct]'
   q10: translate_path skips any component where os.path.dirname(word) is set or word is os.curdir/os.pardir before joining onto self.directory (http/server.py:855-861)
-  q11: 'supported: iterencode creates the markers dict only when check_circular is true (json/encoder.py:215-218), and the check exists to prevent infinite recursion (encoder.py:118-121); unsupported and misplaced: no shown line does the "already in markers -> refuse" check, and iterencode only hands markers to c_make_encoder/make_iterencode (encoder.py:251-260), so the detection itself lives in make_iterencode, which the model was not shown'
+  q11: 'the cycle check (`if markerid in markers: raise ValueError("Circular reference detected")`, json/encoder.py:284-285, 340-341, 437-438) is in no shown line; shown lines only set up `markers` in iterencode (json/encoder.py:215-218) and describe check_circular in the _init_ docstring (json/encoder.py:118-120), so the answer''s "where" (iterencode) is unsupported [spot-check: was partial]'
   q12: set_tunnel documents HTTP CONNECT tunnelling through the proxy (http/client.py:890-924), HTTPConnection.connect calls self.tunnel() when tunnel_host is set (client.py:1012-1013), and HTTPSConnection.connect calls super().connect() then wraps the socket for the tunnel host (client.py:1469-1480)
   q13: 'supported: task exceptions go into errors (asyncio/taskgroups.py:242), the parent task is cancelled if it is not already being cancelled (taskgroups.py:255-278), and aexit raises BaseExceptionGroup (taskgroups.py:161-178); missing or wrong: it never says the sibling tasks are cancelled via abort (taskgroups.py:221-226, class docstring 24-26), which is half the question, and "no other errors are present" misstates the rule, since all errors are collected'
   q14: as_bytes creates a BytesGenerator over a BytesIO, flattens the message and returns the bytes (email/message.py:196-209), and BytesGenerator subclasses Generator (email/generator.py:406); but Message has no set_header() method (the shown class has _setitem_, add_header and replace_header at message.py:425, 551, 581)
   q15: the shown asyncio chunks (constants, AbstractEventLoop, Server, sendfile fallback, create_server) contain no HTTP retry or exponential backoff logic
-  q16: 'supported: the module chunk keeps the docstring, BEFORE = 1 and AFTER = 2 and drops broken/BAD (tests/test_extract.py:685-699), and assert_source_consistent checks line order and content (test_extract.py:27-42); contradicted: "extracting chunks up to and including the error" and "the parser stops at that point, and the rest of the file is not included", because the shown broken.py test keeps Broken.also_ok, good_after and good_async after the broken method (test_extract.py:309-331); the extract.py recovery code was not shown'
+  q16: 'shown tests support that a syntax error does not discard the file: the module chunk keeps BEFORE and AFTER and drops the broken def (tests/test_extract.py:685-699), and symbols after a broken method survive (tests/test_extract.py:309-331); but "the rest of the file is not included" contradicts those same lines (good_after, good_async kept) [spot-check: kept]'
   q17: the shown end_row reads node.end_point[0]/[1] by index (src/chatter/extract.py:218-223) but gives no reason; the explanatory comment at extract.py:209-211 is not in any shown chunk
   q18: RepetitionGuard trips on a non-trivial line seen max_line_repeats=3 times or an 8-80 character phrase repeated max_phrase_repeats=6 times, sets trip_at and trims the looping tail (src/chatter/answer.py:386-449, defaults at 394-396), and generation stops per the shown module docstring (answer.py:39-43)
   q19: it names the mechanism correctly (PositiveIdfBM25 uses Lucene's idf, so matches score > 0 and non-matches 0, src/chatter/retrieve.py:53-63) but then wrongly says the code gives no explanation and abstains, although the docstring explains that Okapi's idf is <= 0 for terms in at least half the documents (retrieve.py:56-58)
   q20: build_index hashes embedding_text with the embedder fingerprint, compares it to the stored hash for the same chunk id, counts a match as reused and sends only changed chunks to the writer (src/chatter/index.py:368-377); the manifest records schema/model/fingerprint and check_manifest guards a model change (index.py:352-354, 382-395); reused_chunks is in IndexStats (index.py:70-76)
-  q21: 'iter_source_files walks the repo (src/chatter/index.py:199-232), extract_file skips oversized, unreadable and NUL-containing files and calls extract_source (src/chatter/extract.py:109-135), symbol and <module> chunks per extract.py:1-14, and build_index skips unchanged hashes and feeds PartWriter, whose flush plans parts, embeds and upserts with chunk_id/hash/part metadata (index.py:357-377, 411-460); small slip: binary skipping happens in extract_file, not iter_source_files'
+  q21: 'the flow is supported: iter_source_files walks the repo (src/chatter/index.py:199-232), extract_file skips oversized, unreadable and NUL-containing files and calls extract_source (src/chatter/extract.py:109-135), build_index reuses unchanged hashes and PartWriter embeds and upserts (src/chatter/index.py:357-377, 411-460); but "iter_source_files ... skipping binary files" is false, it filters only by suffix, . names, symlinks and .gitignore (src/chatter/index.py:229-231) [spot-check: was correct]'
   q22: the shown chunks are a local HFGenerator and the CLI ask/search flow (src/chatter/answer.py:517-608, src/chatter/cli.py:47-204), with no Anthropic API client
   h01: JSONDecoder.decode raw_decodes, skips trailing whitespace, and raises JSONDecodeError("Extra data", s, end) when end != len(s) (json/decoder.py:340-349); the position attributes come from JSONDecodeError (decoder.py:20-40)
   h02: 'false abstention: the shown JSONObject appends each (key, value) pair in order and then does pairs = dict(pairs), so the last duplicate wins unless object_pairs_hook is given the full pair list (json/decoder.py:190, 213-219)'
-  h03: 'it presents http.client''s HTTPResponse.check_close (a client reading a server''s response, http/client.py:396-423) as the built-in server''s logic, though no http/server.py code was shown; it also contradicts itself ("otherwise assumed open" vs "defaults to closing"), whereas check_close keeps HTTP/1.1 open unless Connection: close (client.py:398-403)'
-  h04: the request state machine ("a second request may not be started until {response-headers-read}", http/client.py:45) has nothing to do with header count, and begin() keeps looping while 100 Continue responses arrive instead of stopping them (client.py:330-338); it ignored the shown MAXHEADERS = 100 (client.py:112) and the server's "Too many headers" HTTPException handling around parse_headers (http/server.py:345-359)
+  h03: 'every shown chunk is http/client.py (e.g. HTTPResponse.check_close, http/client.py:396-423); no server code (BaseHTTPRequestHandler.parse_request / close_connection) was shown, so the answer describes the client''s logic as the server''s [spot-check: was wrong]'
+  h04: 'the shown `MAXHEADERS = 100` (http/client.py:112) is the real guard and was ignored; the central claim misreads the shown state-machine docstring (http/client.py:1-69), which governs when a new request may start, not header count, and the 100-Continue claim contradicts the shown begin() loop, which skips 100 responses with no limit (http/client.py:329-338) [spot-check: verdict kept, justification rewritten]'
   h05: the HTTPStatus enum in http/_init_.py stores value, phrase and description, with NOT_FOUND = (404, 'Not Found', 'Nothing matches the given URI') (http/_init_.py:6-31, 99-100)
   h06: 'supported: DateHeader.parse calls utils.parsedate_to_datetime (email/headerregistry.py:300-303), which returns an aware datetime when an offset is present (email/utils.py:315-323); wrong: parse is a classmethod parse(cls, value, kwds) that fills kwds, so DateHeader().parse("...") followed by .datetime does not work (headerregistry.py:292-311), and the example''s -0000 input gives a naive datetime, not one with a timezone (headerregistry.py:280-282)'
   h07: the shown chunks cover parsing boundaries (email/feedparser.py:306-440) and MIMEPart helpers that only set a boundary the caller passes in (email/message.py:1139-1173); how the generator chooses a boundary (make_boundary) is not shown
@@ -82,7 +83,7 @@ notes:
   h12: tokenize_code lowercases identifiers and adds their snake_case/camelCase parts, e.g. parseHTTPResponse -> parsehttpresponse parse http response (src/chatter/index.py:94-114); it is used for chunk tokens (index.py:117-118) and BM25 queries in Retriever.search (src/chatter/retrieve.py:161), and tests show camel- and snake-case queries finding parse_http_response (tests/test_retrieve.py:114-125, tests/test_cli.py:149-157)
   h13: 'check_manifest raises IndexMismatchError when the manifest model != embedder.name (src/chatter/index.py:288-297), Retriever.open calls it (src/chatter/retrieve.py:134), and the CLI turns it into a --rebuild hint (src/chatter/cli.py:200-202; tests/test_cli.py:191-195); not mentioned: by default the CLI loads the index''s own model from the manifest (cli.py:196-198)'
   h14: each ContextBlock carries its tag plus a location property that formats path:ranges from shown_lines (src/chatter/answer.py:109-124) via format_line_ranges (answer.py:329-341), with shown_lines set in full_block/truncated_block (answer.py:267-300); it leaves out the citation-parsing/CLI step named in the module docstring (answer.py:4-6)
-  h15: 'supported: a single line longer than the allowance is cut by characters and marked " …" (tests/test_answer.py:144-147), and a lexically matching line is shown while the head is not (test_answer.py:108-111); wrong or unsupported: it mixes embedding-part splitting (plan_parts, "becomes its own part and is truncated by the model", src/chatter/index.py:151-167; tests/test_index.py:151-154) into prompt truncation, and "only the first and last lines ... are processed" misreads the (first, last) part indices; the truncation_window logic was not shown'
+  h15: 'shown tests support that an over-long line is cut by characters with " …" (tests/test_answer.py:144-147) and that a lexically matched line is shown instead of the head (tests/test_answer.py:108-111); but it mixes in embedding-part splitting (src/chatter/index.py:151-167, tests/test_index.py:151-154), which is not prompt truncation, and "only the first and last lines" is supported by no shown line [spot-check: kept]'
   h16: iter_source_files skips filenames starting with "." and its docstring names macOS AppleDouble files (src/chatter/index.py:204-205, 229-230)
-  h17: 'the steps match the shown code: ask options, open_retriever().search, the no-hits message, load of the generator, answer_question -> build_context, streaming via on_text, RepetitionGuard (3 lines / 6 phrases), then the repetition, dropped, NOT FOUND, MIXED, citation and unknown-tag output (src/chatter/cli.py:122-187; src/chatter/answer.py:163-195, 386-449, 457-496); small slips: below MIN_BLOCK_TOKENS the lowest-ranked chunk is dropped, not necessarily the one whose share is small (answer.py:184-185, 15-16), and the file:line/chunk-id prompt metadata is not in shown lines'
+  h17: 'the walkthrough matches the shown code (src/chatter/cli.py:122-187; src/chatter/answer.py:163-195, 386-449, 457-496); but "if a chunk''s share falls below MIN_BLOCK_TOKENS, it is dropped" is false: the lowest-ranked chunk is dropped and shares recomputed (src/chatter/answer.py:15-16, 184-185) [spot-check: was correct]'
   h18: the shown chunks cover only the manual `chatter index` command and incremental build_index (src/chatter/cli.py:60-99, src/chatter/index.py:332-408); there is no file watching or background re-indexing
