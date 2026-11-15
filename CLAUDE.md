@@ -23,17 +23,36 @@ questions about functions/modules, with `file:line-range` citations.
 - Write tests alongside each module before moving on
 
 ## Roadmap (do in order, one at a time)
-1. Python symbol extractor (tree-sitter) + tests
-2. Indexer: embeddings + BM25 hybrid retrieval
-3. CLI: `chatter index <path>`, `chatter ask "<question>"`
-4. Eval set in eval/ with baseline retrieval hit-rate (before adding features)
+1. Python symbol extractor (tree-sitter) + tests (done)
+2. Indexer: embeddings + BM25 hybrid retrieval (done; exact numpy dense search
+   replaced Chroma)
+3. CLI: `chatter index <path>`, `chatter ask "<question>"` (done; also
+   `search`, `eval`, `grade`, `compare-answers`, `mcp`)
+4. Eval set in eval/ with baseline retrieval hit-rate (done: 40 questions,
+   tune/heldout splits, frozen candidates and decision rules)
 5. Call graph + graph-expanded retrieval, re-measure (done: dense + call graph
    is the default; see Eval status)
-6. Summary-enriched chunks, re-measure
-7. Agentic tool loop, git history, incremental indexing, MCP server (MCP done:
-   `chatter mcp`, read-only)
-8. Abstention: retrieval currently cannot say "not found"
+6. Summary-enriched chunks, re-measure (not started; future work)
+7. Agentic tool loop, git history, incremental indexing, MCP server.
+   Incremental indexing done (unchanged chunks are not re-embedded); MCP done
+   (`chatter mcp`, read-only). Agentic tool loop and git history not started.
+8. Abstention: retrieval currently cannot say "not found" (answer-level
+   abstention exists; retrieval-level not started)
 - Optional: MLX generator for Apple Silicon (done; default there)
+
+## Future work
+- Held-out v2: a fresh question batch, needed before choosing or confirming
+  anything new (v1 is spent).
+- Query router for exact identifiers: send identifier-like queries to fused
+  or BM25 retrieval, since the dense default may rank them lower.
+- Orphan comments (see Known issues).
+- Step 6: summary-enriched chunks.
+- Steps 7-8 remainder: agentic tool loop, git history, retrieval-level
+  "not found".
+- Frontend (web UI over search and ask).
+- Evidence-first answers: revisit only with a model that follows the quoting
+  format, or a check that accepts multi-line quotes; re-run against the same
+  criterion.
 
 ## Eval status
 - 2026-10-14: held-out v1 (h01-h18 in eval/questions.yaml) is spent. Its one
@@ -45,10 +64,15 @@ questions about functions/modules, with `file:line-range` citations.
   The margin is one question, so treat it as a small gain. Choosing or
   confirming anything new needs a fresh held-out set (v2); h01-h18 are for
   regression tracking only.
-- Evidence-first answer prompt (`--prompt evidence`) is implemented but off by
-  default. Its success criterion is eval/answer-criteria-evidence-first.yaml.
-  Do not run the evidence-first answer eval until the baseline grades
-  (eval/grades/20261014T172908-152daa3-answers-mlx.yaml) are committed.
+- 2026-11-15: evidence-first answer prompt (`--prompt evidence`) FAILED its
+  pre-recorded criterion (eval/answer-criteria-evidence-first.yaml) on all
+  four counts vs the plain baseline, same context: unsupported answers 3
+  (needed <= 2), false abstentions 17 (needed <= 3), answers citing a relevant
+  chunk 14/36 (needed >= 26/36), 11 baseline-correct answers not correct
+  (needed 0). Plain stays the default for ask and MCP; evidence is opt-in.
+  Grades: baseline by a subagent, human-spot-checked; evidence run by a
+  second subagent, blind (eval/grades/). Comparison:
+  eval/results/20261115-compare-evidence-first.txt.
 
 ## Known issues (fix after the eval baseline)
 - Orphan comments are not in any chunk: a comment block above a def/class
