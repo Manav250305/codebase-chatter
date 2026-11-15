@@ -279,6 +279,8 @@ def test_grades_metadata_and_notes(tmp_path: Path) -> None:
     from chatter.answer_compare import extract_notes
 
     assert extract_notes(REVIEW) == {"q2": "misses the retry path"}
+    snake = "## q9 (x, y, z)\n\n**Verdict:** wrong - `check_circular` is set at a.py:3\n"
+    assert extract_notes(snake) == {"q9": "`check_circular` is set at a.py:3"}
     results_path = tmp_path / "eval" / "results" / "run.json"
     path = grades_path(results_path)
     write_grades(path, results_path, {"q2": "partial"}, metadata={"grader": "x", "status": "pending"},

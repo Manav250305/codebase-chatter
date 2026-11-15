@@ -94,7 +94,7 @@ def extract_notes(review: str) -> dict[str, str]:
         value = _normalize_grade(verdict.group(1))
         grade = _grade(value)
         if grade is not None and _PLACEHOLDER not in value:
-            raw = re.sub(r"[*_`]", "", verdict.group(1)).strip()
+            raw = re.sub(r"\*\*|(?<!\w)_|_(?!\w)", "", verdict.group(1)).strip()  # emphasis, not snake_case
             note = raw[len(grade):].strip(" -—–:,;.").strip()
             if note:
                 notes[section.group(1)] = note

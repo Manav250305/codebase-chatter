@@ -1,0 +1,88 @@
+results: eval/results/20261014T172908-152daa3-answers-mlx.json
+metadata:
+  grader: model-assisted (fresh general-purpose subagent, claude-opus-5-5)
+  date: '2026-11-15'
+  status: pending human spot-check
+  rubric: eval/grades/README.md
+grades:
+  q01: correct
+  q02: partial
+  q03: wrong
+  q04: correct
+  q05: correct
+  q06: correct
+  q07: correctly abstained
+  q08: correct
+  q09: correct
+  q10: correct
+  q11: partial
+  q12: correct
+  q13: partial
+  q14: partial
+  q15: correctly abstained
+  q16: partial
+  q17: correctly abstained
+  q18: correct
+  q19: partial
+  q20: correct
+  q21: correct
+  q22: correctly abstained
+  h01: correct
+  h02: wrong
+  h03: wrong
+  h04: wrong
+  h05: correct
+  h06: partial
+  h07: correctly abstained
+  h08: correct
+  h09: partial
+  h10: correct
+  h11: correctly abstained
+  h12: correct
+  h13: correct
+  h14: correct
+  h15: partial
+  h16: correct
+  h17: correct
+  h18: correctly abstained
+notes:
+  q01: ValueError subclass carrying msg, doc, pos, lineno and colno matches the docstring and _init_ at json/decoder.py:20-40
+  q02: <timeval.pid.rand@domain> built from os.getpid(), random.getrandbits(64) and a socket.getfqdn() default is supported (email/utils.py:302-311), but timeval is int(time.time()*100), hundredths of a second, not milliseconds (utils.py:302), and the optional idstring that the docstring says strengthens uniqueness (utils.py:292-294, 305-308) is left out of both the format and the uniqueness explanation
+  q03: 'false abstention: shown Runner.close calls cancel_all_tasks(loop) before closing the loop (asyncio/runners.py:64-79, call at :70), _exit_ calls close (runners.py:61-62), and run() executes main inside `with Runner(...)` (runners.py:194-195), so leftover tasks are cancelled when main returns'
+  q04: allow_nan true emits NaN/Infinity/-Infinity (not spec compliant but consistent with JS encoders) and false raises ValueError, per the _init_ docstring (json/encoder.py:123-126) and floatstr (encoder.py:224-244); calling them "strings" is loose wording because the tokens are written unquoted
+  q05: 'transfer-encoding: chunked sets self.chunked (http/client.py:355-359), read() dispatches to read_chunked (client.py:472-473), which loops over get_chunk_left, appends safe_read data and honours amt (client.py:591-609); close handling in begin/read (client.py:362-394, 463-501)'
+  q06: 'iter_attachments skips the first text/plain, text/html, multipart/related or multipart/alternative part unless it has Content-Disposition: attachment, returns all but the root for multipart/related, and yields nothing for multipart/alternative or non-multipart (email/message.py:1066-1119)'
+  q07: the shown chunks only encode (Header.encode, ValueFormatter, body_encode, formatparam) or decode quoted-printable bodies (email/quoprimime.py:232-276); nothing shown decodes an RFC 2047 encoded word like =?utf-8?b?...?= (decode_header was not retrieved)
+  q08: asyncio.timeout(delay) async context manager with the 10-second example, TimeoutError on expiry, timeout_at for an absolute loop.time() deadline, and CancelledError converted to TimeoutError are all in asyncio/timeouts.py:145-184 (and _aexit_ 97-125)
+  q09: get() raises QueueShutDown when the queue is shut down and empty or shut down immediately (asyncio/queues.py:177-182), and shutdown() unblocks waiting getters by setting their futures to None so they loop and raise (queues.py:253-279); the last sentence loosely credits get() with what shutdown() does to pending getters
+  q10: translate_path skips any component where os.path.dirname(word) is set or word is os.curdir/os.pardir before joining onto self.directory (http/server.py:855-861)
+  q11: 'supported: iterencode creates the markers dict only when check_circular is true (json/encoder.py:215-218), and the check exists to prevent infinite recursion (encoder.py:118-121); unsupported and misplaced: no shown line does the "already in markers -> refuse" check, and iterencode only hands markers to c_make_encoder/make_iterencode (encoder.py:251-260), so the detection itself lives in make_iterencode, which the model was not shown'
+  q12: set_tunnel documents HTTP CONNECT tunnelling through the proxy (http/client.py:890-924), HTTPConnection.connect calls self.tunnel() when tunnel_host is set (client.py:1012-1013), and HTTPSConnection.connect calls super().connect() then wraps the socket for the tunnel host (client.py:1469-1480)
+  q13: 'supported: task exceptions go into errors (asyncio/taskgroups.py:242), the parent task is cancelled if it is not already being cancelled (taskgroups.py:255-278), and aexit raises BaseExceptionGroup (taskgroups.py:161-178); missing or wrong: it never says the sibling tasks are cancelled via abort (taskgroups.py:221-226, class docstring 24-26), which is half the question, and "no other errors are present" misstates the rule, since all errors are collected'
+  q14: as_bytes creates a BytesGenerator over a BytesIO, flattens the message and returns the bytes (email/message.py:196-209), and BytesGenerator subclasses Generator (email/generator.py:406); but Message has no set_header() method (the shown class has _setitem_, add_header and replace_header at message.py:425, 551, 581)
+  q15: the shown asyncio chunks (constants, AbstractEventLoop, Server, sendfile fallback, create_server) contain no HTTP retry or exponential backoff logic
+  q16: 'supported: the module chunk keeps the docstring, BEFORE = 1 and AFTER = 2 and drops broken/BAD (tests/test_extract.py:685-699), and assert_source_consistent checks line order and content (test_extract.py:27-42); contradicted: "extracting chunks up to and including the error" and "the parser stops at that point, and the rest of the file is not included", because the shown broken.py test keeps Broken.also_ok, good_after and good_async after the broken method (test_extract.py:309-331); the extract.py recovery code was not shown'
+  q17: the shown end_row reads node.end_point[0]/[1] by index (src/chatter/extract.py:218-223) but gives no reason; the explanatory comment at extract.py:209-211 is not in any shown chunk
+  q18: RepetitionGuard trips on a non-trivial line seen max_line_repeats=3 times or an 8-80 character phrase repeated max_phrase_repeats=6 times, sets trip_at and trims the looping tail (src/chatter/answer.py:386-449, defaults at 394-396), and generation stops per the shown module docstring (answer.py:39-43)
+  q19: it names the mechanism correctly (PositiveIdfBM25 uses Lucene's idf, so matches score > 0 and non-matches 0, src/chatter/retrieve.py:53-63) but then wrongly says the code gives no explanation and abstains, although the docstring explains that Okapi's idf is <= 0 for terms in at least half the documents (retrieve.py:56-58)
+  q20: build_index hashes embedding_text with the embedder fingerprint, compares it to the stored hash for the same chunk id, counts a match as reused and sends only changed chunks to the writer (src/chatter/index.py:368-377); the manifest records schema/model/fingerprint and check_manifest guards a model change (index.py:352-354, 382-395); reused_chunks is in IndexStats (index.py:70-76)
+  q21: 'iter_source_files walks the repo (src/chatter/index.py:199-232), extract_file skips oversized, unreadable and NUL-containing files and calls extract_source (src/chatter/extract.py:109-135), symbol and <module> chunks per extract.py:1-14, and build_index skips unchanged hashes and feeds PartWriter, whose flush plans parts, embeds and upserts with chunk_id/hash/part metadata (index.py:357-377, 411-460); small slip: binary skipping happens in extract_file, not iter_source_files'
+  q22: the shown chunks are a local HFGenerator and the CLI ask/search flow (src/chatter/answer.py:517-608, src/chatter/cli.py:47-204), with no Anthropic API client
+  h01: JSONDecoder.decode raw_decodes, skips trailing whitespace, and raises JSONDecodeError("Extra data", s, end) when end != len(s) (json/decoder.py:340-349); the position attributes come from JSONDecodeError (decoder.py:20-40)
+  h02: 'false abstention: the shown JSONObject appends each (key, value) pair in order and then does pairs = dict(pairs), so the last duplicate wins unless object_pairs_hook is given the full pair list (json/decoder.py:190, 213-219)'
+  h03: 'it presents http.client''s HTTPResponse.check_close (a client reading a server''s response, http/client.py:396-423) as the built-in server''s logic, though no http/server.py code was shown; it also contradicts itself ("otherwise assumed open" vs "defaults to closing"), whereas check_close keeps HTTP/1.1 open unless Connection: close (client.py:398-403)'
+  h04: the request state machine ("a second request may not be started until {response-headers-read}", http/client.py:45) has nothing to do with header count, and begin() keeps looping while 100 Continue responses arrive instead of stopping them (client.py:330-338); it ignored the shown MAXHEADERS = 100 (client.py:112) and the server's "Too many headers" HTTPException handling around parse_headers (http/server.py:345-359)
+  h05: the HTTPStatus enum in http/_init_.py stores value, phrase and description, with NOT_FOUND = (404, 'Not Found', 'Nothing matches the given URI') (http/_init_.py:6-31, 99-100)
+  h06: 'supported: DateHeader.parse calls utils.parsedate_to_datetime (email/headerregistry.py:300-303), which returns an aware datetime when an offset is present (email/utils.py:315-323); wrong: parse is a classmethod parse(cls, value, kwds) that fills kwds, so DateHeader().parse("...") followed by .datetime does not work (headerregistry.py:292-311), and the example''s -0000 input gives a naive datetime, not one with a timezone (headerregistry.py:280-282)'
+  h07: the shown chunks cover parsing boundaries (email/feedparser.py:306-440) and MIMEPart helpers that only set a boundary the caller passes in (email/message.py:1139-1173); how the generator chooses a boundary (make_boundary) is not shown
+  h08: asyncio.to_thread runs the function in a separate thread via loop.run_in_executor(None, ...) with the context copied (asyncio/threads.py:12-25)
+  h09: 'supported: sleep() with delay <= 0 awaits _sleep0 (asyncio/tasks.py:705-706), a bare yield that skips one loop cycle without a Future (tasks.py:691-700); unsupported: how control returns and the task resumes, which the docstring assigns to Task._step (tasks.py:697); _step is not shown, and the answer''s "the event loop detects the yield" has no basis in the shown lines'
+  h10: waiters sit in a collections.deque, release() calls wake_up_next, which wakes the first waiter that is not done, and locked() plus the "Maintain FIFO" comment stop newcomers from jumping the queue (asyncio/locks.py:380-448)
+  h11: the shown chunks cover TCP/Unix connections and socket sends (asyncio/streams.py:26-100, asyncio/base_events.py:1015-1203); there is no websocket code in context
+  h12: tokenize_code lowercases identifiers and adds their snake_case/camelCase parts, e.g. parseHTTPResponse -> parsehttpresponse parse http response (src/chatter/index.py:94-114); it is used for chunk tokens (index.py:117-118) and BM25 queries in Retriever.search (src/chatter/retrieve.py:161), and tests show camel- and snake-case queries finding parse_http_response (tests/test_retrieve.py:114-125, tests/test_cli.py:149-157)
+  h13: 'check_manifest raises IndexMismatchError when the manifest model != embedder.name (src/chatter/index.py:288-297), Retriever.open calls it (src/chatter/retrieve.py:134), and the CLI turns it into a --rebuild hint (src/chatter/cli.py:200-202; tests/test_cli.py:191-195); not mentioned: by default the CLI loads the index''s own model from the manifest (cli.py:196-198)'
+  h14: each ContextBlock carries its tag plus a location property that formats path:ranges from shown_lines (src/chatter/answer.py:109-124) via format_line_ranges (answer.py:329-341), with shown_lines set in full_block/truncated_block (answer.py:267-300); it leaves out the citation-parsing/CLI step named in the module docstring (answer.py:4-6)
+  h15: 'supported: a single line longer than the allowance is cut by characters and marked " …" (tests/test_answer.py:144-147), and a lexically matching line is shown while the head is not (test_answer.py:108-111); wrong or unsupported: it mixes embedding-part splitting (plan_parts, "becomes its own part and is truncated by the model", src/chatter/index.py:151-167; tests/test_index.py:151-154) into prompt truncation, and "only the first and last lines ... are processed" misreads the (first, last) part indices; the truncation_window logic was not shown'
+  h16: iter_source_files skips filenames starting with "." and its docstring names macOS AppleDouble files (src/chatter/index.py:204-205, 229-230)
+  h17: 'the steps match the shown code: ask options, open_retriever().search, the no-hits message, load of the generator, answer_question -> build_context, streaming via on_text, RepetitionGuard (3 lines / 6 phrases), then the repetition, dropped, NOT FOUND, MIXED, citation and unknown-tag output (src/chatter/cli.py:122-187; src/chatter/answer.py:163-195, 386-449, 457-496); small slips: below MIN_BLOCK_TOKENS the lowest-ranked chunk is dropped, not necessarily the one whose share is small (answer.py:184-185, 15-16), and the file:line/chunk-id prompt metadata is not in shown lines'
+  h18: the shown chunks cover only the manual `chatter index` command and incremental build_index (src/chatter/cli.py:60-99, src/chatter/index.py:332-408); there is no file watching or background re-indexing
