@@ -273,3 +273,32 @@ def test_repository_criteria_match_the_recorded_baseline() -> None:
     assert metrics["false_abstentions"]["ids"] == recorded["false_abstentions"]["baseline"]["questions"]
     assert metrics["relevant_citation_rate"]["count"] == recorded["relevant_citation_rate"]["baseline"]["count"]
     assert spec["thresholds"]["relevant_citation_rate"].passes(metrics["relevant_citation_rate"]["value"])
+
+
+def test_grades_metadata_and_notes(tmp_path: Path) -> None:
+    from chatter.answer_compare import extract_notes
+
+    assert extract_notes(REVIEW) == {"q2": "misses the retry path"}
+    results_path = tmp_path / "eval" / "results" / "run.json"
+    path = grades_path(results_path)
+    write_grades(path, results_path, {"q2": "partial"}, metadata={"grader": "x", "status": "pending"},
+                 notes={"q2": "misses the retry path"})
+    write_grades(path, results_path, {"q2": "correct"}, metadata={"status": "checked"})
+    data = yaml.safe_load(path.read_text())
+    assert data["metadata"] == {"grader": "x", "status": "checked"}  # kept and overridden
+    assert data["grades"] == {"q2": "correct"} and "notes" not in data
+    assert load_grades(path) == {"q2": "correct"}
+
+
+def test_cli_grade_records_metadata(tmp_path: Path) -> None:
+    review = tmp_path / "eval" / "results" / "run.md"
+    review.parent.mkdir(parents=True)
+    review.write_text(REVIEW)
+    app = make_app(embedder_factory=lambda n: HashEmbedder(name=n))
+    ok = CliRunner().invoke(app, ["grade", str(review), "--meta", "grader=subagent", "--meta", "status=pending"])
+    assert ok.exit_code == 0, ok.output
+    data = yaml.safe_load((tmp_path / "eval" / "grades" / "run.yaml").read_text())
+    assert data["metadata"] == {"grader": "subagent", "status": "pending"}
+    assert data["notes"] == {"q2": "misses the retry path"}
+    bad = CliRunner().invoke(app, ["grade", str(review), "--meta", "nokey"])
+    assert bad.exit_code == 1 and "KEY=VALUE" in bad.output

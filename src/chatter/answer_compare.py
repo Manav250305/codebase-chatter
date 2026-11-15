@@ -82,6 +82,25 @@ def extract_grades(review: str) -> tuple[dict[str, str], list[str], list[str]]:
     return grades, ungraded, problems
 
 
+def extract_notes(review: str) -> dict[str, str]:
+    """The text after each graded verdict ("partial - misses X" -> "misses X")."""
+    notes: dict[str, str] = {}
+    sections = list(_SECTION.finditer(review))
+    for n, section in enumerate(sections):
+        end = sections[n + 1].start() if n + 1 < len(sections) else len(review)
+        verdict = _VERDICT.search(review, section.end(), end)
+        if verdict is None:
+            continue
+        value = _normalize_grade(verdict.group(1))
+        grade = _grade(value)
+        if grade is not None and _PLACEHOLDER not in value:
+            raw = re.sub(r"[*_`]", "", verdict.group(1)).strip()
+            note = raw[len(grade):].strip(" -—–:,;.").strip()
+            if note:
+                notes[section.group(1)] = note
+    return notes
+
+
 def _grade(value: str) -> str | None:
     """A grade, allowing a trailing note ("partial - misses the retry path")."""
     for grade in sorted(GRADES, key=len, reverse=True):
@@ -100,10 +119,29 @@ def grades_path(results_path: Path) -> Path:
     return results_path.parent.parent / "grades" / f"{results_path.stem}.yaml"
 
 
-def write_grades(path: Path, results_path: Path, grades: Mapping[str, str]) -> None:
+def write_grades(
+    path: Path,
+    results_path: Path,
+    grades: Mapping[str, str],
+    *,
+    metadata: Mapping[str, Any] | None = None,
+    notes: Mapping[str, str] | None = None,
+) -> None:
+    """Write a grades file. Metadata already in the file is kept unless overridden."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = {"results": results_path.as_posix(), "grades": dict(grades)}
-    path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    previous: dict[str, Any] = {}
+    if path.is_file():
+        old = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if isinstance(old, dict) and isinstance(old.get("metadata"), dict):
+            previous = old["metadata"]
+    data: dict[str, Any] = {"results": results_path.as_posix()}
+    merged = {**previous, **(metadata or {})}
+    if merged:
+        data["metadata"] = merged
+    data["grades"] = dict(grades)
+    if notes:
+        data["notes"] = {q: notes[q] for q in grades if q in notes}
+    path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=1000), encoding="utf-8")
 
 
 def load_grades(path: Path) -> dict[str, str]:

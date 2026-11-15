@@ -34,6 +34,7 @@ from chatter.answer_compare import (
     compare_answers,
     describe_grades,
     extract_grades,
+    extract_notes,
     format_comparison,
     grades_path,
     load_criteria,
@@ -330,16 +331,30 @@ def make_app(
         out: Annotated[
             Path | None, typer.Option(help="Grades file. Default: eval/grades/<stem>.yaml next to eval/results/.")
         ] = None,
+        results: Annotated[
+            Path | None, typer.Option(help="The run's results (.json). Default: the review's .json sibling.")
+        ] = None,
+        meta: Annotated[
+            list[str] | None,
+            typer.Option(help="Metadata KEY=VALUE to record (repeatable), e.g. grader=..., status=..."),
+        ] = None,
     ) -> None:
         """Collect the **Verdict:** lines of an answer review into a grades file."""
         if not review.is_file():
             _fail(f"No such file: {review}")
-        grades, ungraded, problems = extract_grades(review.read_text(encoding="utf-8"))
+        text = review.read_text(encoding="utf-8")
+        grades, ungraded, problems = extract_grades(text)
         if problems:
             _fail("Cannot read the verdicts:\n  " + "\n  ".join(problems))
-        results = review.with_suffix(".json")
+        metadata: dict[str, str] = {}
+        for item in meta or []:
+            key, sep, value = item.partition("=")
+            if not sep or not key.strip():
+                _fail(f"--meta expects KEY=VALUE, got {item!r}")
+            metadata[key.strip()] = value.strip()
+        results = results or review.with_suffix(".json")
         path = out or grades_path(results)
-        write_grades(path, results, grades)
+        write_grades(path, results, grades, metadata=metadata, notes=extract_notes(text))
         typer.echo(f"{describe_grades(grades, ungraded)}\nWrote {path}")
 
     @app.command("compare-answers")
