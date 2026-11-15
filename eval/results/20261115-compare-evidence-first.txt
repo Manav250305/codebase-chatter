@@ -1,0 +1,19 @@
+answer comparison: evidence-first
+  base: eval/results/20261014T172908-152daa3-answers-mlx.json
+  new:  eval/results/20261115T135517-86bee84-answers-mlx-evidence.json
+
+EVIDENCE IN A RELEVANT CHUNK (new): 12/19 answers (0.63); 12/36 answerable questions
+format compliance (new): 30/40 parseable Evidence section, 10 abstention only, 0 neither
+answers withheld as unverified: q01, q04, q06, q10, q11, q13, q18, h01, h04, h09, h14
+
+criterion                          base            new  new (raw)   pass if  status
+unsupported_answers                   5              3          5      <= 2  FAIL
+                         base: q11, q16, h03, h04, h15; new: q16, h03, h15
+false_abstentions                     2             17          6      <= 3  FAIL
+                         base: q17, h02; new: q01, q03, q04, q06, q07, q10, q11, q13, q17, q18, h01, h02, h04, h07, h08, h09, h14
+relevant_citation_rate    26/36 (0.722)  14/36 (0.389)          -  >= 26/36  FAIL
+graded_regressions                    -             11          -      == 0  FAIL  (regressions: h01, h08, h12, h14, q01, q04, q06, q10, q12, q18, q20)
+
+classification changes: q01 answered -> abstained, q03 mixed -> abstained, q04 answered -> abstained, q06 answered -> abstained, q07 near_miss_abstention -> abstained, q10 answered -> abstained, q11 answered -> abstained, q13 answered -> abstained, q18 answered -> abstained, q19 mixed -> answered, h01 answered -> abstained, h04 answered -> abstained, h07 mixed -> abstained, h08 answered -> abstained, h09 answered -> abstained, h14 answered -> abstained
+
+decision: FAIL

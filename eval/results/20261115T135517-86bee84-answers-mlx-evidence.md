@@ -65,7 +65,7 @@ Mark one verdict per question: **correct**, **partial**, **wrong**, or for negat
 
 _TTFT 27.7s, 10.8 tok/s, prompt 3593 tokens, 156 generated, peak RSS 1.52 GB, swap 0.00 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: JSONDecodeError (json/decoder.py:20-43, shown as C1/C8) documents and sets msg, doc, pos, lineno, colno (decoder.py:21-28, 31-40)
 
 **Notes:**
 
@@ -132,7 +132,7 @@ _TTFT 27.7s, 10.8 tok/s, prompt 3593 tokens, 156 generated, peak RSS 1.52 GB, sw
 
 _TTFT 29.8s, 7.7 tok/s, prompt 5336 tokens, 402 generated, peak RSS 0.64 GB, swap 0.00 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** partial - the '<timeval.pid.randint[.idstring]@domain>' format with getrandbits(64), os.getpid(), optional idstring and getfqdn() domain is supported (email/utils.py:287-312), but "current time in milliseconds" is false: int(time.time()*100) at email/utils.py:302 is hundredths of a second
 
 **Notes:**
 
@@ -170,7 +170,7 @@ _TTFT 29.8s, 7.7 tok/s, prompt 5336 tokens, 402 generated, peak RSS 0.64 GB, swa
 
 _TTFT 52.4s, 8.1 tok/s, prompt 7338 tokens, 9 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: asyncio.run uses `with Runner(...)` (asyncio/runners.py:194-195), Runner.__exit__ calls close() (runners.py:61-62), and close() calls _cancel_all_tasks(loop) before shutting the loop down (runners.py:64-79), so leftover tasks are cancelled
 
 **Notes:**
 
@@ -217,7 +217,7 @@ _TTFT 52.4s, 8.1 tok/s, prompt 7338 tokens, 9 generated, peak RSS 0.28 GB, swap 
 
 _TTFT 35.1s, 8.7 tok/s, prompt 5452 tokens, 217 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: floatstr (json/encoder.py:224-244) emits 'NaN'/'Infinity'/'-Infinity' and raises ValueError when allow_nan is false; the __init__ docstring says the same (encoder.py:123-126)
 
 **Notes:**
 
@@ -286,7 +286,7 @@ _TTFT 35.1s, 8.7 tok/s, prompt 5452 tokens, 217 generated, peak RSS 0.28 GB, swa
 
 _TTFT 20.1s, 10.2 tok/s, prompt 3413 tokens, 276 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correct - begin() sets chunked for Transfer-Encoding: chunked and ignores Content-Length (http/client.py:356-371), read() dispatches to _read_chunked (client.py:472-473), which loops over _get_chunk_left() appending _safe_read pieces (client.py:591-609); chunk-size reading starts at client.py:537-539 (C4)
 
 **Notes:**
 
@@ -333,7 +333,7 @@ _TTFT 20.1s, 10.2 tok/s, prompt 3413 tokens, 276 generated, peak RSS 0.28 GB, sw
 
 _TTFT 27.3s, 10.0 tok/s, prompt 4503 tokens, 265 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: MIMEPart.iter_attachments (email/message.py:1066-1119, C1) does exactly this, yielding the non-main parts and skipping the first text/plain, text/html, multipart/related or alternative (message.py:1067-1075)
 
 **Notes:**
 
@@ -371,7 +371,7 @@ _TTFT 27.3s, 10.0 tok/s, prompt 4503 tokens, 265 generated, peak RSS 0.28 GB, sw
 
 _TTFT 33.0s, 9.0 tok/s, prompt 5273 tokens, 9 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correctly abstained - no shown chunk decodes RFC 2047 encoded words: quoprimime.decode (email/quoprimime.py:232-276) is body quoted-printable, and the shown header.py chunks (Header.encode 309-387, _ValueFormatter 408-533) only encode; decode_header was not shown
 
 **Notes:**
 
@@ -419,7 +419,7 @@ _TTFT 33.0s, 9.0 tok/s, prompt 5273 tokens, 9 generated, peak RSS 0.28 GB, swap 
 
 _TTFT 24.7s, 9.6 tok/s, prompt 4057 tokens, 141 generated, peak RSS 0.29 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correct - asyncio.timeout/timeout_at usage and the CancelledError-to-TimeoutError conversion are in the docstrings at asyncio/timeouts.py:145-162 and 165-184
 
 **Notes:**
 
@@ -468,7 +468,7 @@ _TTFT 24.7s, 9.6 tok/s, prompt 4057 tokens, 141 generated, peak RSS 0.29 GB, swa
 
 _TTFT 25.4s, 10.1 tok/s, prompt 3735 tokens, 139 generated, peak RSS 0.29 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correct - Queue.get raises QueueShutDown when shut down and empty (asyncio/queues.py:177-182) and shutdown() sets _is_shutdown and wakes every blocked getter to re-check (queues.py:253-275), so waiting getters raise QueueShutDown
 
 **Notes:**
 
@@ -570,7 +570,7 @@ _TTFT 25.4s, 10.1 tok/s, prompt 3735 tokens, 139 generated, peak RSS 0.29 GB, sw
 
 _TTFT 87.7s, 7.3 tok/s, prompt 11597 tokens, 641 generated, peak RSS 0.27 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: SimpleHTTPRequestHandler.translate_path (http/server.py:837-865, C2) normalizes the path and skips '.'/'..' and dirname components, joining only plain names onto self.directory (server.py:854-862)
 
 **Notes:**
 
@@ -617,7 +617,7 @@ _TTFT 87.7s, 7.3 tok/s, prompt 11597 tokens, 641 generated, peak RSS 0.27 GB, sw
 
 _TTFT 39.5s, 9.3 tok/s, prompt 5930 tokens, 136 generated, peak RSS 0.27 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correctly abstained - shown lines only say a circular check exists (json/encoder.py:118-121; json/__init__.py:196-198) and that iterencode builds a markers dict passed to _make_iterencode/c_make_encoder (encoder.py:215-218, 251-260); the code that detects the cycle and refuses (in _make_iterencode) was not shown
 
 **Notes:**
 
@@ -663,7 +663,7 @@ _TTFT 39.5s, 9.3 tok/s, prompt 5930 tokens, 136 generated, peak RSS 0.27 GB, swa
 
 _TTFT 53.1s, 8.4 tok/s, prompt 7886 tokens, 111 generated, peak RSS 0.27 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** partial - supported: HTTPConnection.connect calls _tunnel() when _tunnel_host is set (http/client.py:1012-1013) and HTTPSConnection.connect calls super().connect() then wrap_socket with server_hostname=_tunnel_host (client.py:1469-1480); wrong: set_tunnel does not configure the proxy or wrap the socket, it records the tunnel endpoint and headers while the constructor host is the proxy (client.py:890-924)
 
 **Notes:**
 
@@ -711,7 +711,7 @@ _TTFT 53.1s, 8.4 tok/s, prompt 7886 tokens, 111 generated, peak RSS 0.27 GB, swa
 
 _TTFT 26.3s, 10.0 tok/s, prompt 4326 tokens, 185 generated, peak RSS 0.27 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: _on_task_done records the error and calls _abort(), which cancels unfinished sibling tasks, then cancels the parent (asyncio/taskgroups.py:221-226, 238-278), and _aexit raises BaseExceptionGroup('unhandled errors in a TaskGroup') (taskgroups.py:173-176)
 
 **Notes:**
 
@@ -818,7 +818,7 @@ _TTFT 26.3s, 10.0 tok/s, prompt 4326 tokens, 185 generated, peak RSS 0.27 GB, sw
 
 _TTFT 70.6s, 7.8 tok/s, prompt 9819 tokens, 643 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correct - as_bytes builds a BytesGenerator over BytesIO with the message policy, calls flatten and returns getvalue() (email/message.py:196-209; __bytes__ delegates at 191-194), and BytesGenerator folds headers with policy.fold_binary and encodes the output (email/generator.py:406-453); "initialized with headers and payload" is loose (Message.__init__ starts empty, message.py:150-160), and the quoted parser functions are irrelevant but accurately quoted
 
 **Notes:**
 
@@ -852,7 +852,7 @@ _TTFT 70.6s, 7.8 tok/s, prompt 9819 tokens, 643 generated, peak RSS 0.28 GB, swa
 
 _TTFT 38.6s, 8.9 tok/s, prompt 6079 tokens, 9 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correctly abstained - negative question; the shown asyncio chunks (constants, AbstractEventLoop, sendfile fallback, Server) contain no HTTP retry or backoff logic
 
 **Notes:**
 
@@ -915,7 +915,7 @@ _TTFT 38.6s, 8.9 tok/s, prompt 6079 tokens, 9 generated, peak RSS 0.28 GB, swap 
 
 _TTFT 28.8s, 10.0 tok/s, prompt 4667 tokens, 377 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** partial - supported: definitions after the error (good_after, good_async) are still extracted (tests/test_extract.py:309-331) and the module chunk keeps BEFORE/AFTER while dropping the broken def and BAD (test_extract.py:685-699); wrong: "only syntactically correct portions are processed and retained", since Broken.bad is itself still extracted as a chunk (test_extract.py:317)
 
 **Notes:**
 
@@ -953,7 +953,7 @@ _TTFT 28.8s, 10.0 tok/s, prompt 4667 tokens, 377 generated, peak RSS 0.28 GB, sw
 
 _TTFT 13.1s, 11.0 tok/s, prompt 2308 tokens, 9 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correctly abstained - the reason (py-tree-sitter 0.26.0 .row/.column getters corrupt the heap) is the comment at src/chatter/extract.py:209-211, which was not shown; the shown _end_row (extract.py:218-223) reads end_point[0]/[1] without saying why
 
 **Notes:**
 
@@ -1003,7 +1003,7 @@ _TTFT 13.1s, 11.0 tok/s, prompt 2308 tokens, 9 generated, peak RSS 0.28 GB, swap
 
 _TTFT 30.0s, 9.7 tok/s, prompt 4872 tokens, 303 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: RepetitionGuard (src/chatter/answer.py:386-449, C1) trips when a non-trivial line appears 3 times or a phrase repeats 6 times in a row (answer.py:387-399), and the module docstring says it stops generation and trims the loop (answer.py:40-44)
 
 **Notes:**
 
@@ -1049,7 +1049,7 @@ _TTFT 30.0s, 9.7 tok/s, prompt 4872 tokens, 303 generated, peak RSS 0.28 GB, swa
 
 _TTFT 9.2s, 11.8 tok/s, prompt 1662 tokens, 143 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correct - PositiveIdfBM25 uses Lucene's strictly positive idf because Okapi idf is <= 0 for terms in at least half the documents (src/chatter/retrieve.py:53-63), and BM25Index.search keeps only score > 0 (retrieve.py:72-79)
 
 **Notes:**
 
@@ -1100,7 +1100,7 @@ _TTFT 9.2s, 11.8 tok/s, prompt 1662 tokens, 143 generated, peak RSS 0.28 GB, swa
 
 _TTFT 13.7s, 11.2 tok/s, prompt 2423 tokens, 174 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** partial - supported: each chunk's content_hash(fingerprint, embedding_text) is compared with the stored hash and reused on a match (src/chatter/index.py:371-374); wrong: the stored hash comes from the vector collection via _stored_parts(collection) (index.py:357-358; written as part metadata at index.py:445), not from the index manifest, which holds schema/model/fingerprint/max_tokens (index.py:388-401)
 
 **Notes:**
 
@@ -1247,7 +1247,7 @@ _TTFT 13.7s, 11.2 tok/s, prompt 2423 tokens, 174 generated, peak RSS 0.28 GB, sw
 
 _TTFT 21.5s, 9.9 tok/s, prompt 3633 tokens, 1024 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** partial - supported: extract_file reads a file and returns chunks (src/chatter/extract.py:109-135), and changed chunks go to _PartWriter, which batches, embeds with embed_documents and upserts into the collection (src/chatter/index.py:373-377, 421-460); but it misorders the pipeline ("parsed into chunks, which are then processed by extract_file"), omits iter_source_files and hash-based reuse (index.py:365-377), and is cut off mid-sentence
 
 **Notes:**
 
@@ -1281,7 +1281,7 @@ _TTFT 21.5s, 9.9 tok/s, prompt 3633 tokens, 1024 generated, peak RSS 0.28 GB, sw
 
 _TTFT 28.2s, 9.7 tok/s, prompt 4625 tokens, 9 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correctly abstained - negative question; the shown HFGenerator, answer_question and cli chunks use a local Hugging Face model and never call an Anthropic API
 
 **Notes:**
 
@@ -1330,7 +1330,7 @@ _TTFT 28.2s, 9.7 tok/s, prompt 4625 tokens, 9 generated, peak RSS 0.28 GB, swap 
 
 _TTFT 23.0s, 10.1 tok/s, prompt 3855 tokens, 185 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: JSONDecoder.decode (json/decoder.py:340-349, C6) raises JSONDecodeError("Extra data", s, end) when non-whitespace remains after the first JSON value (decoder.py:345-348)
 
 **Notes:**
 
@@ -1368,7 +1368,7 @@ _TTFT 23.0s, 10.1 tok/s, prompt 3855 tokens, 185 generated, peak RSS 0.28 GB, sw
 
 _TTFT 43.3s, 8.7 tok/s, prompt 6662 tokens, 9 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: JSONObject (json/decoder.py:137-219, C5) appends every (key, value) to a pairs list (decoder.py:190) and returns dict(pairs) (decoder.py:216), so the last duplicate wins unless object_pairs_hook receives the raw pairs (decoder.py:213-215)
 
 **Notes:**
 
@@ -1439,7 +1439,7 @@ _TTFT 43.3s, 8.7 tok/s, prompt 6662 tokens, 9 generated, peak RSS 0.28 GB, swap 
 
 _TTFT 54.2s, 8.4 tok/s, prompt 7825 tokens, 469 generated, peak RSS 0.29 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** should have abstained - the question is about http.server, but every shown chunk is http/client.py; the answer presents the client's HTTPResponse._check_close (client.py:396-423) and HTTPConnection.getresponse (client.py:1386-1447) as the server's logic, and the server's keep-alive code (BaseHTTPRequestHandler.parse_request/handle) was not shown
 
 **Notes:**
 
@@ -1489,7 +1489,7 @@ _TTFT 54.2s, 8.4 tok/s, prompt 7825 tokens, 469 generated, peak RSS 0.29 GB, swa
 
 _TTFT 41.7s, 8.5 tok/s, prompt 5280 tokens, 227 generated, peak RSS 0.28 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: the shown lines give the cap and the failure: _MAXHEADERS = 100 (http/client.py:112, in C1), begin() reads headers with parse_headers(self.fp) (client.py:350), and parse_request shows parse_headers raising HTTPException that the server reports as "Too many headers" (http/server.py:346-360)
 
 **Notes:**
 
@@ -1591,7 +1591,7 @@ _TTFT 41.7s, 8.5 tok/s, prompt 5280 tokens, 227 generated, peak RSS 0.28 GB, swa
 
 _TTFT 44.1s, 7.6 tok/s, prompt 6310 tokens, 808 generated, peak RSS 0.16 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correct - HTTPStatus (http/__init__.py:6-173) defines each code as (value, phrase, description), e.g. NOT_FOUND at http/__init__.py:99-100; the quoted members match the source
 
 **Notes:**
 
@@ -1642,7 +1642,7 @@ _TTFT 44.1s, 7.6 tok/s, prompt 6310 tokens, 808 generated, peak RSS 0.16 GB, swa
 
 _TTFT 22.1s, 10.3 tok/s, prompt 2922 tokens, 168 generated, peak RSS 0.16 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correct - parsedate_to_datetime returns a datetime with a timezone built from the parsed offset (email/utils.py:315-323), and DateHeader.parse calls it for string values (email/headerregistry.py:300-303); naming parsedate_tz (C8) is loose since this path calls _parsedate_tz (utils.py:316), but not false
 
 **Notes:**
 
@@ -1680,7 +1680,7 @@ _TTFT 22.1s, 10.3 tok/s, prompt 2922 tokens, 168 generated, peak RSS 0.16 GB, sw
 
 _TTFT 64.3s, 7.2 tok/s, prompt 8836 tokens, 9 generated, peak RSS 0.16 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correctly abstained - boundary choice lives in Generator._make_boundary/_handle_multipart, which was not shown; the shown FeedParser only matches an existing boundary (email/feedparser.py:306-332) and MIMEPart._make_multipart only sets a caller-given one (email/message.py:1163-1164)
 
 **Notes:**
 
@@ -1718,7 +1718,7 @@ _TTFT 64.3s, 7.2 tok/s, prompt 8836 tokens, 9 generated, peak RSS 0.16 GB, swap 
 
 _TTFT 20.3s, 5.8 tok/s, prompt 3232 tokens, 9 generated, peak RSS 0.16 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: asyncio.to_thread (asyncio/threads.py:12-25, C5) runs the function in a separate thread via loop.run_in_executor and returns an awaitable result
 
 **Notes:**
 
@@ -1769,7 +1769,7 @@ _TTFT 20.3s, 5.8 tok/s, prompt 3232 tokens, 9 generated, peak RSS 0.16 GB, swap 
 
 _TTFT 72.6s, 3.0 tok/s, prompt 3460 tokens, 451 generated, peak RSS 0.16 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: sleep(0) awaits __sleep0 (asyncio/tasks.py:705-707), whose bare yield, handled by Task.__step, skips one event-loop cycle (tasks.py:691-700); how Task.__step resumes the task was not shown, but the yield-to-loop half was
 
 **Notes:**
 
@@ -1816,7 +1816,7 @@ _TTFT 72.6s, 3.0 tok/s, prompt 3460 tokens, 451 generated, peak RSS 0.16 GB, swa
 
 _TTFT 51.0s, 3.1 tok/s, prompt 4008 tokens, 183 generated, peak RSS 0.16 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correct - acquire queues waiters in a deque and keeps FIFO even when _value > 0 (asyncio/locks.py:395-403), locked() reflects the FIFO rule (locks.py:380-384), and _wake_up_next wakes the first not-done waiter (locks.py:437-448)
 
 **Notes:**
 
@@ -1850,7 +1850,7 @@ _TTFT 51.0s, 3.1 tok/s, prompt 4008 tokens, 183 generated, peak RSS 0.16 GB, swa
 
 _TTFT 89.2s, 9.0 tok/s, prompt 5785 tokens, 9 generated, peak RSS 0.16 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correctly abstained - negative question; the shown asyncio chunks (open_connection, create_connection, sock_sendall etc.) contain no websocket support
 
 **Notes:**
 
@@ -1908,7 +1908,7 @@ _TTFT 89.2s, 9.0 tok/s, prompt 5785 tokens, 9 generated, peak RSS 0.16 GB, swap 
 
 _TTFT 26.2s, 3.8 tok/s, prompt 1842 tokens, 260 generated, peak RSS 0.16 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** partial - supported: tokenize_code splits camelCase so parseHTTPResponse yields parsehttpresponse/parse/http/response (src/chatter/index.py:94-114), BM25 indexes path, qualname and source (index.py:117-118), and search tokenizes the query the same way (src/chatter/retrieve.py:161); wrong: it says the query 'http response' is tokenized into 'parsehttpresponse', 'parse', ..., which is the function name's tokenization, and the cited tests use parse_http_response, not parseHTTPResponse
 
 **Notes:**
 
@@ -1967,7 +1967,7 @@ _TTFT 26.2s, 3.8 tok/s, prompt 1842 tokens, 260 generated, peak RSS 0.16 GB, swa
 
 _TTFT 58.9s, 4.0 tok/s, prompt 3966 tokens, 261 generated, peak RSS 0.16 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correct - Retriever.open runs check_manifest, which raises IndexMismatchError when the manifest model differs from embedder.name (src/chatter/retrieve.py:126-134; src/chatter/index.py:293-297), and the CLI turns it into a failure telling you to re-run `chatter index --rebuild` (src/chatter/cli.py:199-202); the "re-embed everything with the new model" wording comes from the index command (cli.py:79-83)
 
 **Notes:**
 
@@ -2015,7 +2015,7 @@ _TTFT 58.9s, 4.0 tok/s, prompt 3966 tokens, 261 generated, peak RSS 0.16 GB, swa
 
 _TTFT 30.2s, 3.8 tok/s, prompt 2666 tokens, 188 generated, peak RSS 0.17 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** wrong - false abstention: the answer.py module docstring says the CLI maps [C#] tags back to chunk ids and file:line locations (src/chatter/answer.py:4-6), and ContextBlock.location builds path:line-ranges from shown_lines (answer.py:121-124) with format_line_ranges (answer.py:329-341)
 
 **Notes:**
 
@@ -2070,7 +2070,7 @@ _TTFT 30.2s, 3.8 tok/s, prompt 2666 tokens, 188 generated, peak RSS 0.17 GB, swa
 
 _TTFT 16.7s, 5.1 tok/s, prompt 1439 tokens, 230 generated, peak RSS 0.17 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** partial - supported: a dense hit with a lexical match keeps line 47 but not line 1 (tests/test_answer.py:108-111), and an over-long line is cut by characters (test_answer.py:144-147); misapplied: plan_parts' "line longer than the budget becomes its own part" (src/chatter/index.py:151-167) splits chunks for the embedder, not for the answer prompt, and the window-anchoring rule itself was not shown
 
 **Notes:**
 
@@ -2116,7 +2116,7 @@ _TTFT 16.7s, 5.1 tok/s, prompt 1439 tokens, 230 generated, peak RSS 0.17 GB, swa
 
 _TTFT 34.7s, 4.0 tok/s, prompt 2576 tokens, 179 generated, peak RSS 0.17 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correct - iter_source_files says it prunes macOS AppleDouble ._* files (src/chatter/index.py:202-207) and checks name.startswith("._") (index.py:229); the test fixture is at tests/test_index.py:182
 
 **Notes:**
 
@@ -2250,7 +2250,7 @@ _TTFT 34.7s, 4.0 tok/s, prompt 2576 tokens, 179 generated, peak RSS 0.17 GB, swa
 
 _TTFT 76.6s, 24.3 tok/s, prompt 5262 tokens, 1014 generated, peak RSS 0.17 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** partial - most steps are supported by ask (src/chatter/cli.py:136-187), answer_question (src/chatter/answer.py:457-496) and the RepetitionGuard thresholds (answer.py:394-395); false: build_context does not truncate a chunk whose share falls below MIN_BLOCK_TOKENS, it drops the lowest-ranked chunk and recomputes (answer.py:184-186), truncating only chunks larger than their share (answer.py:187-190)
 
 **Notes:**
 
@@ -2284,6 +2284,6 @@ _TTFT 76.6s, 24.3 tok/s, prompt 5262 tokens, 1014 generated, peak RSS 0.17 GB, s
 
 _TTFT 9.5s, 28.6 tok/s, prompt 3131 tokens, 9 generated, peak RSS 0.17 GB, swap 0.45 GB_
 
-**Verdict:** _(correct / partial / wrong / correctly abstained / should have abstained)_
+**Verdict:** correctly abstained - negative question; the shown index/cli chunks only index on an explicit `chatter index` run and contain no file watching
 
 **Notes:**
